@@ -1,0 +1,156 @@
+import { DashboardLayout } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { contentItems } from "@/lib/mockData";
+import { Search, Filter, Send, X, Check } from "lucide-react";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+export default function LibraryPage() {
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  const filteredContent = contentItems.filter(item => 
+    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const toggleSelection = (id: string) => {
+    if (selectedItems.includes(id)) {
+      setSelectedItems(prev => prev.filter(item => item !== id));
+    } else {
+      setSelectedItems(prev => [...prev, id]);
+    }
+  };
+
+  const handleSend = () => {
+    setIsSendModalOpen(false);
+    toast({
+      title: "Content Sent",
+      description: `Successfully sent ${selectedItems.length} modules to patient.`,
+    });
+    setSelectedItems([]);
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-serif font-bold">Content Library</h1>
+            <p className="text-muted-foreground">Curated education modules for your patients.</p>
+          </div>
+          
+          {selectedItems.length > 0 && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-6 right-6 sm:static z-50">
+              <Button onClick={() => setIsSendModalOpen(true)} size="lg" className="shadow-xl">
+                <Send className="w-4 h-4 mr-2" />
+                Send {selectedItems.length} Items
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search by title or tag..." 
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button variant="outline">
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+          </Button>
+        </div>
+
+        {/* Grid */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredContent.map((item) => {
+            const isSelected = selectedItems.includes(item.id);
+            return (
+              <div 
+                key={item.id}
+                onClick={() => toggleSelection(item.id)}
+                className={cn(
+                  "group relative overflow-hidden rounded-xl border border-border bg-card transition-all cursor-pointer hover:shadow-md",
+                  isSelected ? "ring-2 ring-primary border-primary" : "hover:border-primary/50"
+                )}
+              >
+                {/* Selection Indicator */}
+                <div className={cn(
+                  "absolute top-3 right-3 z-10 w-6 h-6 rounded-full border border-white flex items-center justify-center transition-all",
+                  isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-black/30 text-transparent group-hover:bg-white/80 group-hover:text-muted-foreground"
+                )}>
+                  <Check className="w-3.5 h-3.5" />
+                </div>
+
+                {/* Image */}
+                <div className="aspect-video overflow-hidden bg-muted relative">
+                  <img 
+                    src={item.image} 
+                    alt={item.title} 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                  />
+                  <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                    {item.readTime}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-5 space-y-3">
+                  <h3 className="font-serif font-bold text-lg leading-tight">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{item.summary}</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {item.tags.map(tag => (
+                      <Badge key={tag} variant="secondary" className="font-normal text-xs bg-secondary/50 text-secondary-foreground hover:bg-secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Send Modal */}
+        <Dialog open={isSendModalOpen} onOpenChange={setIsSendModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Content to Patient</DialogTitle>
+              <DialogDescription>
+                You are sending {selectedItems.length} items. They will receive an email with secure links.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="patient-email">Patient Email</Label>
+                <Input id="patient-email" placeholder="patient@example.com" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="note">Personal Note (Optional)</Label>
+                <Textarea id="note" placeholder="Hi James, here is the reading we discussed..." />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsSendModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleSend}>Send Email</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+}
