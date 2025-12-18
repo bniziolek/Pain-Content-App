@@ -1,0 +1,154 @@
+Below is a build spec you can paste into Replit Design Mode, plus the key screens, data model, and recommendation logic for MVP1 (subscription + assessment-driven content + email delivery).
+
+## MVP1 scope and user flows
+
+### Primary user
+
+**Clinician user (subscriber)**: PTs first, later expand to PCPs, chiro, etc.
+
+### Patient experience
+
+**No login.** Patient receives email links to curated education modules and an optional assessment link.
+
+### Core flows
+
+1. **Subscribe and sign in**
+
+   * Clinician creates account, starts Stripe subscription, lands in dashboard.
+2. **Send content from library**
+
+   * Clinician filters/searches content, selects items, clicks “Send to patient”, enters patient email, adds optional note, sends.
+3. **Assessment to recommendations**
+
+   * Clinician creates an “Assessment Invite” for a patient email.
+   * Patient completes assessment (public link).
+   * App shows recommended content at the end and emails the same content to the patient (and optionally the clinician).
+4. **Basic reporting**
+
+   * Clinician sees sent history, assessment completion status, and top recommended modules.
+
+Your content taxonomy and assessment logic should align to the “why you hurt, not where you hurt” pain-mechanism approach and the biopsychosocial and yellow-flag concepts described in your white paper .
+
+---
+
+## Screens you should build
+
+### Public
+
+* **Landing + Pricing**
+* **Login / Signup**
+* **Checkout success / canceled**
+
+### Clinician (gated by active subscription)
+
+* **Dashboard**
+
+  * Quick actions: “Send content”, “Invite assessment”
+  * Metrics: sends this week, assessment completion rate
+* **Content Library**
+
+  * Search, tag filters, content preview drawer
+  * Multi-select + “Send to patient”
+* **Send History**
+
+  * List of emails sent, content included, status
+* **Assessments**
+
+  * Create invite (patient email)
+  * List invites: Sent, Opened, Completed
+* **Recommendations Viewer**
+
+  * For a completed response: top tags, recommended content, resend button
+* **Content Admin (MVP simple)**
+
+  * Create/edit content items (title, summary, body, tags)
+
+### Patient (public link)
+
+* **Assessment**
+* **Results**
+
+  * Top 3 focus areas + recommended modules + “Email me my plan”
+
+---
+
+## Data model (simple, MVP-friendly)
+
+* **User**
+
+  * id, email, passwordHash (or magic link), role=clinician
+* **Subscription**
+
+  * userId, stripeCustomerId, stripeSubscriptionId, status, currentPeriodEnd
+* **ContentItem**
+
+  * id, title, summary, bodyHtml (or markdown), tags[], createdAt, updatedAt
+* **Assessment**
+
+  * id, name, version, questionsJson
+* **AssessmentInvite**
+
+  * id, clinicianUserId, patientEmail, token, status, createdAt, completedAt
+* **AssessmentResponse**
+
+  * id, inviteId, answersJson, tagScoresJson, recommendedContentIds[]
+* **EmailLog**
+
+  * id, clinicianUserId, patientEmail, subject, contentIds[], status, sentAt, providerNote
+
+---
+
+## Recommendation logic (works well for MVP)
+
+1. Give each question answer a **tag weight**. Example tags:
+
+   * `directional_preference`, `central_sensitivity`, `inflammation`, `ischemia`
+   * `fear_avoidance`, `sleep`, `stress`, `self_efficacy`
+2. Sum weights into **tagScores**.
+3. Select **top 3 tags** above a threshold.
+4. Recommend **6–10 content items**:
+
+   * 2–3 items per top tag (fallback to general “Start Here” if needed).
+5. Save the recommended IDs to the response so results stay stable.
+
+This matches your clinical direction of actionable, mechanism-based education rather than location-based content .
+
+---
+
+## Email delivery (what to send)
+
+Send an email with:
+
+* Short intro from clinician (optional)
+* “Your recommended modules” list with links
+* “View in browser” link (tokenized)
+* Optional assessment summary (very short)
+
+---
+
+## Replit Design Mode master prompt (copy/paste)
+
+**Build a full-stack subscription web app for clinicians to send curated patient education content and run an assessment that recommends content.**
+Tech stack: Next.js (App Router) + TypeScript + Tailwind, Prisma + PostgreSQL, Auth (email/password), Stripe subscriptions, Resend for email.
+Core requirements:
+
+1. Landing page with pricing and CTA.
+2. Auth: signup/login/logout. Clinician role only.
+3. Stripe subscription gating: only active subscribers can access app pages. Include Stripe Checkout and webhook to update subscription status.
+4. Clinician dashboard with metrics (content sends, assessment invites, completion rate).
+5. Content library: search, tag filters, content preview, multi-select. Button “Send to patient” opens modal (patient email, optional note). Send email via Resend. Log to EmailLog.
+6. Assessment engine:
+
+   * Clinician creates an invite (patient email). System emails a public assessment link with a token.
+   * Patient completes assessment (multi-step form). On submit: compute tagScores, select top tags, recommend content based on tags, show results page, email results to patient.
+7. Admin page for content CRUD (title, summary, body markdown, tags).
+8. Seed database with sample content and tags and one assessment definition with scoring rules.
+   Environment variables: DATABASE_URL, NEXTAUTH_SECRET (or custom JWT secret), STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID, RESEND_API_KEY, APP_URL.
+   Deliver clean UI, simple navigation, and working end-to-end flows.
+
+---
+
+If you want, I can also generate:
+
+* A starter set of **20–30 content modules** (titles, summaries, tags) aligned to your pain-mechanism and yellow-flag structure 
+* A first-pass **assessment question set** with explicit scoring rules that drives those recommendations
