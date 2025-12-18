@@ -13,6 +13,8 @@ import AssessmentsPage from "@/pages/assessments";
 import HistoryPage from "@/pages/history";
 import PatientAssessment from "@/pages/patient-assessment";
 import PatientResults from "@/pages/patient-results";
+import AdminLoginPage from "@/pages/admin-login";
+import AdminDashboard from "@/pages/admin/dashboard";
 
 function Router() {
   return (
@@ -20,6 +22,10 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
       
+      {/* Admin Routes */}
+      <Route path="/admin/login" component={AdminLoginPage} />
+      <Route path="/admin/dashboard" component={AdminDashboard} />
+
       {/* Clinician Routes */}
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/library" component={LibraryPage} />
