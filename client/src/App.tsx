@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import LibraryPage from "@/pages/library";
 import AssessmentsPage from "@/pages/assessments";
+import HistoryPage from "@/pages/history";
 import PatientAssessment from "@/pages/patient-assessment";
 import PatientResults from "@/pages/patient-results";
 
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/library" component={LibraryPage} />
       <Route path="/assessments" component={AssessmentsPage} />
+      <Route path="/history" component={HistoryPage} />
       <Route path="/settings" component={() => <div>Settings Placeholder</div>} />
 
       {/* Patient Public Routes */}
