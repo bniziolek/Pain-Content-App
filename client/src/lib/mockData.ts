@@ -101,6 +101,23 @@ export const assessmentInvites = [
   }
 ];
 
+export const internalScreenings = [
+  {
+    id: 'scr_1',
+    patientName: 'David Kim',
+    date: '2024-05-18',
+    notes: 'Patient reports high anxiety about lifting.',
+    result: 'Fear Avoidance'
+  },
+  {
+    id: 'scr_2',
+    patientName: 'Emma Watson',
+    date: '2024-05-17',
+    notes: 'Screened during follow-up.',
+    result: 'Movement Confidence'
+  }
+];
+
 export const assessmentQuestions = [
   {
     id: 'q1',
