@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2 } from "lucide-react";
+import { Search, Filter, Send, Check, Loader2, Eye, X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,17 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getContent, createEmailLog } from "@/lib/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface ContentItem {
+  id: string;
+  title: string;
+  summary: string;
+  body: string;
+  tags: string[];
+  imageUrl: string | null;
+  readTime: string | null;
+}
 
 export default function LibraryPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -18,6 +29,7 @@ export default function LibraryPage() {
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [patientEmail, setPatientEmail] = useState("");
   const [providerNote, setProviderNote] = useState("");
+  const [previewItem, setPreviewItem] = useState<ContentItem | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -71,6 +83,11 @@ export default function LibraryPage() {
 
   const handleSend = () => {
     sendMutation.mutate();
+  };
+
+  const openPreview = (e: React.MouseEvent, item: ContentItem) => {
+    e.stopPropagation();
+    setPreviewItem(item);
   };
 
   if (isLoading) {
@@ -139,6 +156,15 @@ export default function LibraryPage() {
                 )}>
                   <Check className="w-3.5 h-3.5" />
                 </div>
+
+                {/* Preview Button */}
+                <button
+                  onClick={(e) => openPreview(e, item)}
+                  className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-black/70"
+                  data-testid={`button-preview-${item.id}`}
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
 
                 {/* Image */}
                 <div className="aspect-video overflow-hidden bg-muted relative">
@@ -210,6 +236,92 @@ export default function LibraryPage() {
                 {sendMutation.isPending ? "Sending..." : "Send Email"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Patient Preview Modal */}
+        <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-6 py-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Eye className="w-4 h-4" />
+                  <span>Patient View Preview</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8" 
+                  onClick={() => setPreviewItem(null)}
+                  data-testid="button-close-preview"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {previewItem && (
+              <ScrollArea className="max-h-[calc(90vh-80px)]">
+                <div className="p-0">
+                  {/* Hero Image */}
+                  {previewItem.imageUrl && (
+                    <div className="aspect-video w-full overflow-hidden">
+                      <img 
+                        src={previewItem.imageUrl} 
+                        alt={previewItem.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Content */}
+                  <div className="px-8 py-6 space-y-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>{previewItem.readTime || "5 min"} read</span>
+                        <span>•</span>
+                        <div className="flex gap-2">
+                          {previewItem.tags.map(tag => (
+                            <span key={tag} className="text-primary">{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <h1 className="text-3xl font-serif font-bold">{previewItem.title}</h1>
+                      <p className="text-lg text-muted-foreground">{previewItem.summary}</p>
+                    </div>
+                    
+                    <hr className="border-border" />
+                    
+                    <div className="prose prose-slate max-w-none">
+                      {previewItem.body.split('\n').map((paragraph, idx) => {
+                        if (paragraph.startsWith('# ')) {
+                          return <h1 key={idx} className="text-2xl font-serif font-bold mt-6 mb-4">{paragraph.slice(2)}</h1>;
+                        }
+                        if (paragraph.startsWith('## ')) {
+                          return <h2 key={idx} className="text-xl font-serif font-bold mt-5 mb-3">{paragraph.slice(3)}</h2>;
+                        }
+                        if (paragraph.startsWith('### ')) {
+                          return <h3 key={idx} className="text-lg font-serif font-bold mt-4 mb-2">{paragraph.slice(4)}</h3>;
+                        }
+                        if (paragraph.startsWith('- ')) {
+                          return <li key={idx} className="ml-4">{paragraph.slice(2)}</li>;
+                        }
+                        if (paragraph.trim() === '') {
+                          return <div key={idx} className="h-4" />;
+                        }
+                        return <p key={idx} className="mb-4 leading-relaxed">{paragraph}</p>;
+                      })}
+                    </div>
+                    
+                    <div className="pt-6 border-t border-border">
+                      <p className="text-sm text-muted-foreground text-center">
+                        This educational content was shared with you by your healthcare provider.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
           </DialogContent>
         </Dialog>
       </div>
