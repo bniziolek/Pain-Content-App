@@ -94,10 +94,12 @@ export const emailLogs = pgTable("email_logs", {
 });
 
 // Zod schemas for validation
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  password: true,
-  name: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
 });
 
 export const insertContentItemSchema = createInsertSchema(contentItems).omit({
