@@ -15,6 +15,7 @@ import AssessmentsPage from "@/pages/assessments";
 import HistoryPage from "@/pages/history";
 import PatientAssessment from "@/pages/patient-assessment";
 import PatientResults from "@/pages/patient-results";
+import ContentViewerPage from "@/pages/content-viewer";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsersPage from "@/pages/admin/users";
@@ -100,6 +101,7 @@ function Router() {
       <Route path="/assessment/invite/:token" component={PatientAssessment} />
       <Route path="/assessment/demo" component={PatientAssessment} />
       <Route path="/assessment/results" component={PatientResults} />
+      <Route path="/content/:id" component={ContentViewerPage} />
 
       <Route component={NotFound} />
     </Switch>
