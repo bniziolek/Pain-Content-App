@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   subscriptionStatus: text("subscription_status").default("inactive"), // 'active' | 'inactive' | 'past_due' | 'canceled'
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
   
+  lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

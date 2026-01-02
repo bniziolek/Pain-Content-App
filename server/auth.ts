@@ -58,6 +58,8 @@ export function setupAuth(app: Express) {
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Invalid email or password" });
         }
+        // Update last login
+        await storage.updateLastLogin(user.id);
         return done(null, user);
       } catch (error) {
         return done(error);

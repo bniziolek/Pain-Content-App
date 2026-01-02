@@ -32,6 +32,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<void>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  updateLastLogin(userId: string): Promise<void>;
   updateUserSubscription(
     userId: string, 
     subscription: {
@@ -100,6 +102,18 @@ export class DatabaseStorage implements IStorage {
   async updateUserRole(userId: string, role: string): Promise<void> {
     await db.update(schema.users)
       .set({ role, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ lastLogin: new Date() })
       .where(eq(schema.users.id, userId));
   }
 

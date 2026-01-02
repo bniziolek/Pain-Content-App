@@ -243,6 +243,37 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Admin Routes ======
+  app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
+    try {
+      const { email, name, password, subscriptionMonths } = req.body;
+      
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ error: "User with this email already exists" });
+      }
+      
+      // Create new user
+      const hashedPassword = await hashPassword(password || "changeme123");
+      const periodEnd = subscriptionMonths 
+        ? new Date(Date.now() + subscriptionMonths * 30 * 24 * 60 * 60 * 1000)
+        : null;
+      
+      const user = await storage.createUser({
+        email,
+        name: name || email.split("@")[0],
+        password: hashedPassword,
+        role: "clinician",
+        subscriptionStatus: subscriptionMonths ? "active" : "inactive",
+        subscriptionPeriodEnd: periodEnd,
+      });
+      
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
     try {
       const { email, name } = req.body;
@@ -294,6 +325,40 @@ export function registerRoutes(app: Express): Server {
       });
       const user = await storage.getUser(req.params.id);
       res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
+    try {
+      const { months } = req.body;
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const currentEnd = user.subscriptionPeriodEnd || new Date();
+      const newEnd = new Date(currentEnd.getTime() + months * 30 * 24 * 60 * 60 * 1000);
+      
+      await storage.updateUserSubscription(req.params.id, {
+        subscriptionStatus: "active",
+        subscriptionPeriodEnd: newEnd,
+      });
+      
+      const updatedUser = await storage.getUser(req.params.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res, next) => {
+    try {
+      const { password } = req.body;
+      const hashedPassword = await hashPassword(password || "changeme123");
+      await storage.updateUserPassword(req.params.id, hashedPassword);
+      res.json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       next(error);
     }
