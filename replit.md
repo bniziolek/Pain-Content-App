@@ -56,8 +56,8 @@ Preferred communication style: Simple, everyday language.
 - **Stripe**: Subscription management (customer IDs, subscription status tracked in users table)
 
 ### Email Delivery
-- **Resend**: Transactional email service for sending patient content and assessment invites
-- **Integration**: `server/resend.ts` - Resend client service using Replit's connector
+- **Gmail**: Transactional email service for sending patient content and assessment invites via Gmail API
+- **Integration**: `server/gmail.ts` - Gmail client service using Replit's connector with OAuth
 - **Email Types**: Content bundles (educational materials), Assessment invites
 - **Features**: Professional HTML email templates with RehabPilot branding
 

@@ -9,7 +9,7 @@ import {
   insertEmailLogSchema 
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail } from "./resend";
+import { sendContentEmail, sendAssessmentInviteEmail } from "./gmail";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
