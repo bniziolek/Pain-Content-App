@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink } from "lucide-react";
+import { Send, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -82,12 +82,12 @@ export default function Dashboard() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Patients</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Content Read Rate</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.activeAssessments || 0}</div>
-              <p className="text-xs text-muted-foreground">Currently monitoring</p>
+              <div className="text-2xl font-bold">{stats?.contentReadRate || "0%"}</div>
+              <p className="text-xs text-muted-foreground">Emails opened by patients</p>
             </CardContent>
           </Card>
           <Card>
@@ -112,56 +112,56 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Charts & Recent */}
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Chart */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Activity Overview</CardTitle>
-              <CardDescription>Content sends over the last 7 days</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              {stats?.chartData && stats.chartData.some(d => d.sends > 0) ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="hsl(var(--muted-foreground))" 
-                      fontSize={12} 
-                      tickLine={false} 
-                      axisLine={false} 
-                    />
-                    <YAxis 
-                      stroke="hsl(var(--muted-foreground))" 
-                      fontSize={12} 
-                      tickLine={false} 
-                      axisLine={false} 
-                      tickFormatter={(value) => `${value}`} 
-                    />
-                    <Tooltip 
-                      cursor={{fill: 'hsl(var(--muted)/0.2)'}}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    />
-                    <Bar 
-                      dataKey="sends" 
-                      fill="hsl(var(--primary))" 
-                      radius={[4, 4, 0, 0]} 
-                      maxBarSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <Inbox className="w-12 h-12 mb-3 opacity-50" />
-                  <p className="text-sm">No activity yet this week</p>
-                  <p className="text-xs mt-1">Send content to patients to see your activity here</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Activity Overview</CardTitle>
+            <CardDescription>Content sends over the last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {stats?.chartData && stats.chartData.some(d => d.sends > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(value) => `${value}`} 
+                  />
+                  <Tooltip 
+                    cursor={{fill: 'hsl(var(--muted)/0.2)'}}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="sends" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]} 
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <Inbox className="w-12 h-12 mb-3 opacity-50" />
+                <p className="text-sm">No activity yet this week</p>
+                <p className="text-xs mt-1">Send content to patients to see your activity here</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Quick Actions / Recent */}
+        {/* Recent Activity & Action Needed */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Recent Activity */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
@@ -173,7 +173,7 @@ export default function Dashboard() {
                     <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
                       <div className="w-2 h-2 mt-2 rounded-full bg-secondary" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate max-w-[180px]" title={item.email}>{item.email}</div>
+                        <div className="font-medium text-sm truncate max-w-[200px]" title={item.email}>{item.email}</div>
                         <div className="text-sm text-muted-foreground">{item.action}</div>
                         <div className="flex items-center gap-2 mt-1">
                           {getStatusBadge(item.status)}
@@ -194,6 +194,44 @@ export default function Dashboard() {
                   View All History <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
+            </CardContent>
+          </Card>
+
+          {/* Action Needed */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                <CardTitle>Action Needed</CardTitle>
+              </div>
+              <CardDescription>Patients who haven't opened content</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.actionNeeded && stats.actionNeeded.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.actionNeeded.map((item, i) => (
+                    <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
+                      <div className="w-2 h-2 mt-2 rounded-full bg-amber-500" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate max-w-[200px]" title={item.email}>{item.email}</div>
+                        <div className="text-sm text-muted-foreground truncate" title={item.subject}>{item.subject}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
+                            <Mail className="w-3 h-3 mr-1" /> Unopened
+                          </Badge>
+                          <span className="text-xs text-muted-foreground/60">{item.daysSinceSent}d ago</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <CheckCircle className="w-10 h-10 mb-2 opacity-50 text-green-500" />
+                  <p className="text-sm">All caught up!</p>
+                  <p className="text-xs mt-1 text-center">No patients need follow-up right now</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

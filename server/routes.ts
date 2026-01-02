@@ -477,14 +477,39 @@ export function registerRoutes(app: Express): Server {
         ? Math.round((completedInvites / invites.length) * 100) 
         : 0;
       
+      // Calculate content read rate (emails that have been clicked/viewed)
+      const contentBundleLogs = emailLogs.filter(log => log.type === 'content_bundle');
+      const clickedLogs = contentBundleLogs.filter(log => log.status === 'clicked');
+      const contentReadRate = contentBundleLogs.length > 0 
+        ? Math.round((clickedLogs.length / contentBundleLogs.length) * 100) 
+        : 0;
+      
+      // Build action needed list (emails that haven't been opened/clicked)
+      const actionNeeded: { email: string; subject: string; daysSinceSent: number; id: string }[] = [];
+      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      
+      contentBundleLogs
+        .filter(log => log.status === 'sent' && log.sentAt < threeDaysAgo)
+        .slice(0, 5)
+        .forEach(log => {
+          const daysSinceSent = Math.floor((now.getTime() - new Date(log.sentAt).getTime()) / 86400000);
+          actionNeeded.push({
+            email: log.patientEmail,
+            subject: log.subject,
+            daysSinceSent,
+            id: log.id,
+          });
+        });
+      
       res.json({
         sendsThisWeek,
         sendsGrowth,
-        activeAssessments: invites.filter(inv => inv.status !== "completed").length,
+        contentReadRate: `${contentReadRate}%`,
         completionRate: `${completionRate}%`,
         topTags: topTags.length > 0 ? topTags : ["No data yet"],
         chartData,
         recentActivity: topRecentActivity,
+        actionNeeded,
       });
     } catch (error) {
       next(error);

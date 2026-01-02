@@ -108,11 +108,12 @@ export async function getContentViewsByEmailLog(emailLogId: string): Promise<Con
 export async function getStats(): Promise<{
   sendsThisWeek: number;
   sendsGrowth: string;
-  activeAssessments: number;
+  contentReadRate: string;
   completionRate: string;
   topTags: string[];
   chartData: { name: string; sends: number }[];
   recentActivity: { email: string; action: string; status: string; timeAgo: string }[];
+  actionNeeded: { email: string; subject: string; daysSinceSent: number; id: string }[];
 }> {
   return fetchAPI("/stats");
 }
