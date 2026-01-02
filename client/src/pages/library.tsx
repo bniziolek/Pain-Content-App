@@ -1,8 +1,7 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { contentItems } from "@/lib/mockData";
-import { Search, Filter, Send, X, Check } from "lucide-react";
+import { Search, Filter, Send, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,12 +9,52 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getContent, createEmailLog } from "@/lib/api";
 
 export default function LibraryPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [patientEmail, setPatientEmail] = useState("");
+  const [providerNote, setProviderNote] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: contentItems = [], isLoading } = useQuery({
+    queryKey: ["content"],
+    queryFn: getContent,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      return createEmailLog({
+        patientEmail,
+        subject: "Your Personalized Education Materials",
+        type: "content_bundle",
+        contentIds: selectedItems,
+        providerNote: providerNote || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailLogs"] });
+      toast({
+        title: "Content Sent",
+        description: `Successfully sent ${selectedItems.length} modules to ${patientEmail}.`,
+      });
+      setSelectedItems([]);
+      setPatientEmail("");
+      setProviderNote("");
+      setIsSendModalOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send content. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const filteredContent = contentItems.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -31,13 +70,18 @@ export default function LibraryPage() {
   };
 
   const handleSend = () => {
-    setIsSendModalOpen(false);
-    toast({
-      title: "Content Sent",
-      description: `Successfully sent ${selectedItems.length} modules to patient.`,
-    });
-    setSelectedItems([]);
+    sendMutation.mutate();
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -98,13 +142,17 @@ export default function LibraryPage() {
 
                 {/* Image */}
                 <div className="aspect-video overflow-hidden bg-muted relative">
-                  <img 
-                    src={item.image} 
-                    alt={item.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                  />
+                  {item.imageUrl ? (
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5" />
+                  )}
                   <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-                    {item.readTime}
+                    {item.readTime || "5 min"}
                   </div>
                 </div>
 
@@ -137,16 +185,30 @@ export default function LibraryPage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="patient-email">Patient Email</Label>
-                <Input id="patient-email" placeholder="patient@example.com" />
+                <Input 
+                  id="patient-email" 
+                  placeholder="patient@example.com" 
+                  value={patientEmail}
+                  onChange={(e) => setPatientEmail(e.target.value)}
+                  data-testid="input-patient-email"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="note">Personal Note (Optional)</Label>
-                <Textarea id="note" placeholder="Hi James, here is the reading we discussed..." />
+                <Textarea 
+                  id="note" 
+                  placeholder="Hi James, here is the reading we discussed..." 
+                  value={providerNote}
+                  onChange={(e) => setProviderNote(e.target.value)}
+                  data-testid="textarea-provider-note"
+                />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsSendModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleSend}>Send Email</Button>
+              <Button variant="outline" onClick={() => setIsSendModalOpen(false)} data-testid="button-cancel">Cancel</Button>
+              <Button onClick={handleSend} disabled={!patientEmail || sendMutation.isPending} data-testid="button-send">
+                {sendMutation.isPending ? "Sending..." : "Send Email"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

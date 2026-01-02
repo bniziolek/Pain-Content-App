@@ -6,25 +6,45 @@ import { Activity, Check, CreditCard, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
 
 export default function SubscriptionPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"plan" | "payment">("plan");
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     setIsLoading(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsLoading(false);
+    
+    try {
+      const res = await fetch("/api/subscription/create", {
+        method: "POST",
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to activate subscription");
+      }
+      
+      await refreshUser();
+      
       toast({
         title: "Subscription Activated",
         description: "Welcome to RehabPilot Pro! You now have full access.",
       });
-      // In a real app, this would update user state context
+      
       setLocation("/dashboard");
-    }, 2000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to activate subscription. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -1,10 +1,12 @@
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { stats } from "@/lib/mockData";
-import { Send, Users, FileText, TrendingUp, Plus, ArrowRight } from "lucide-react";
+import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useQuery } from "@tanstack/react-query";
+import { getStats } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const chartData = [
   { name: 'Mon', sends: 4 },
@@ -17,6 +19,22 @@ const chartData = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["stats"],
+    queryFn: getStats,
+  });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -24,7 +42,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back, Dr. Mitchell.</p>
+            <p className="text-muted-foreground">Welcome back{user?.name ? `, ${user.name}` : ""}.</p>
           </div>
           <div className="flex gap-3">
             <Link href="/library">
@@ -50,9 +68,9 @@ export default function Dashboard() {
               <Send className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.sendsThisWeek}</div>
+              <div className="text-2xl font-bold">{stats?.sendsThisWeek || 0}</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-600 font-medium">{stats.sendsGrowth}</span> from last week
+                <span className="text-green-600 font-medium">{stats?.sendsGrowth || "+0%"}</span> from last week
               </p>
             </CardContent>
           </Card>
@@ -62,7 +80,7 @@ export default function Dashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeAssessments}</div>
+              <div className="text-2xl font-bold">{stats?.activeAssessments || 0}</div>
               <p className="text-xs text-muted-foreground">Currently monitoring</p>
             </CardContent>
           </Card>
@@ -72,7 +90,7 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completionRate}</div>
+              <div className="text-2xl font-bold">{stats?.completionRate || "0%"}</div>
               <p className="text-xs text-muted-foreground">Avg. assessment finish</p>
             </CardContent>
           </Card>
@@ -82,7 +100,7 @@ export default function Dashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold truncate" title={stats.topTags[0]}>{stats.topTags[0]}</div>
+              <div className="text-lg font-bold truncate" title={stats?.topTags?.[0] || "N/A"}>{stats?.topTags?.[0] || "N/A"}</div>
               <p className="text-xs text-muted-foreground">Most frequent result</p>
             </CardContent>
           </Card>
