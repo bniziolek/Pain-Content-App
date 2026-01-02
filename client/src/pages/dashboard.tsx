@@ -1,22 +1,12 @@
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight } from "lucide-react";
+import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 import { getStats } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-
-const chartData = [
-  { name: 'Mon', sends: 4 },
-  { name: 'Tue', sends: 7 },
-  { name: 'Wed', sends: 5 },
-  { name: 'Thu', sends: 12 },
-  { name: 'Fri', sends: 8 },
-  { name: 'Sat', sends: 2 },
-  { name: 'Sun', sends: 1 },
-];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -115,35 +105,43 @@ export default function Dashboard() {
               <CardDescription>Content sends over the last 7 days</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `${value}`} 
-                  />
-                  <Tooltip 
-                    cursor={{fill: 'hsl(var(--muted)/0.2)'}}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Bar 
-                    dataKey="sends" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]} 
-                    maxBarSize={40}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats?.chartData && stats.chartData.some(d => d.sends > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickFormatter={(value) => `${value}`} 
+                    />
+                    <Tooltip 
+                      cursor={{fill: 'hsl(var(--muted)/0.2)'}}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                    <Bar 
+                      dataKey="sends" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]} 
+                      maxBarSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <Inbox className="w-12 h-12 mb-3 opacity-50" />
+                  <p className="text-sm">No activity yet this week</p>
+                  <p className="text-xs mt-1">Send content to patients to see your activity here</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -153,26 +151,30 @@ export default function Dashboard() {
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { user: "James Wilson", action: "Completed assessment", time: "2h ago" },
-                  { user: "Elena Rodriguez", action: "Opened content module", time: "4h ago" },
-                  { user: "Michael Chang", action: "Invite sent", time: "5h ago" },
-                  { user: "Sarah Connor", action: "Completed assessment", time: "1d ago" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-secondary" />
-                    <div>
-                      <div className="font-medium text-sm">{item.user}</div>
-                      <div className="text-sm text-muted-foreground">{item.action}</div>
-                      <div className="text-xs text-muted-foreground/60 mt-1">{item.time}</div>
+              {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.recentActivity.map((item, i) => (
+                    <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
+                      <div className="w-2 h-2 mt-2 rounded-full bg-secondary" />
+                      <div>
+                        <div className="font-medium text-sm truncate max-w-[180px]" title={item.email}>{item.email}</div>
+                        <div className="text-sm text-muted-foreground">{item.action}</div>
+                        <div className="text-xs text-muted-foreground/60 mt-1">{item.timeAgo}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              <Button variant="ghost" className="w-full mt-4 text-xs">
-                View All History <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Inbox className="w-10 h-10 mb-2 opacity-50" />
+                  <p className="text-sm">No recent activity</p>
+                </div>
+              )}
+              <Link href="/history">
+                <Button variant="ghost" className="w-full mt-4 text-xs">
+                  View All History <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

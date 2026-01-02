@@ -324,11 +324,78 @@ export function registerRoutes(app: Express): Server {
       const emailLogs = await storage.getEmailLogsByClinicianId(req.user!.id);
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
       
-      // Calculate stats
-      const sendsThisWeek = emailLogs.filter(log => {
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        return log.sentAt >= weekAgo;
-      }).length;
+      // Calculate sends this week and last week for growth comparison
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      
+      const sendsThisWeek = emailLogs.filter(log => log.sentAt >= weekAgo).length;
+      const sendsLastWeek = emailLogs.filter(log => log.sentAt >= twoWeeksAgo && log.sentAt < weekAgo).length;
+      
+      let sendsGrowth = "+0%";
+      if (sendsLastWeek > 0) {
+        const growth = Math.round(((sendsThisWeek - sendsLastWeek) / sendsLastWeek) * 100);
+        sendsGrowth = growth >= 0 ? `+${growth}%` : `${growth}%`;
+      } else if (sendsThisWeek > 0) {
+        sendsGrowth = "+100%";
+      }
+      
+      // Build chart data for last 7 days
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const chartData: { name: string; sends: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const sends = emailLogs.filter(log => log.sentAt >= dayStart && log.sentAt < dayEnd).length;
+        chartData.push({ name: dayNames[day.getDay()], sends });
+      }
+      
+      // Build recent activity (last 10 items combining email logs and invites)
+      const recentActivity: { email: string; action: string; time: Date }[] = [];
+      
+      emailLogs.slice(0, 10).forEach(log => {
+        recentActivity.push({
+          email: log.patientEmail,
+          action: log.type === 'content_bundle' ? 'Content sent' : 
+                  log.type === 'assessment_invite' ? 'Assessment invite sent' : 'Email sent',
+          time: log.sentAt,
+        });
+      });
+      
+      invites.filter(inv => inv.status === 'completed').slice(0, 5).forEach(inv => {
+        recentActivity.push({
+          email: inv.patientEmail,
+          action: 'Completed assessment',
+          time: inv.completedAt || inv.createdAt,
+        });
+      });
+      
+      // Sort by time descending and take top 5
+      recentActivity.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      const topRecentActivity = recentActivity.slice(0, 5).map(item => ({
+        ...item,
+        timeAgo: getTimeAgo(item.time),
+      }));
+      
+      // Calculate top tags from content sent
+      const tagCounts: Record<string, number> = {};
+      for (const log of emailLogs) {
+        if (log.contentIds && log.contentIds.length > 0) {
+          for (const contentId of log.contentIds) {
+            const content = await storage.getContentById(contentId);
+            if (content?.tags) {
+              for (const tag of content.tags) {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+              }
+            }
+          }
+        }
+      }
+      const topTags = Object.entries(tagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([tag]) => tag);
       
       const completedInvites = invites.filter(inv => inv.status === "completed").length;
       const completionRate = invites.length > 0 
@@ -337,15 +404,32 @@ export function registerRoutes(app: Express): Server {
       
       res.json({
         sendsThisWeek,
-        sendsGrowth: "+12%", // Mock
+        sendsGrowth,
         activeAssessments: invites.filter(inv => inv.status !== "completed").length,
         completionRate: `${completionRate}%`,
-        topTags: ["Central Sensitivity", "Sleep Hygiene", "Movement Confidence"], // Mock
+        topTags: topTags.length > 0 ? topTags : ["No data yet"],
+        chartData,
+        recentActivity: topRecentActivity,
       });
     } catch (error) {
       next(error);
     }
   });
+  
+  // Helper function for relative time
+  function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return new Date(date).toLocaleDateString();
+  }
 
   // ====== Admin Routes ======
   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
