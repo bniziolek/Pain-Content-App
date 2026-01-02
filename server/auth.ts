@@ -151,3 +151,17 @@ export function requireSubscription(req: any, res: any, next: any) {
   
   next();
 }
+
+// Middleware to check if user is admin
+export function requireAdmin(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).send("Authentication required");
+  }
+  
+  const user = req.user as SelectUser;
+  if (user.role !== "admin") {
+    return res.status(403).send("Admin access required");
+  }
+  
+  next();
+}

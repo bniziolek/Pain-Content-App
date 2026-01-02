@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth, requireAuth, requireSubscription } from "./auth";
+import { setupAuth, requireAuth, requireSubscription, requireAdmin } from "./auth";
 import { storage } from "./storage";
 import { 
   insertContentItemSchema, 
@@ -236,6 +236,59 @@ export function registerRoutes(app: Express): Server {
         activeAssessments: invites.filter(inv => inv.status !== "completed").length,
         completionRate: `${completionRate}%`,
         topTags: ["Central Sensitivity", "Sleep Hygiene", "Movement Confidence"], // Mock
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Admin Routes ======
+  app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/users/:id/subscription", requireAdmin, async (req, res, next) => {
+    try {
+      const { subscriptionStatus, subscriptionPeriodEnd } = req.body;
+      await storage.updateUserSubscription(req.params.id, {
+        subscriptionStatus,
+        subscriptionPeriodEnd: subscriptionPeriodEnd ? new Date(subscriptionPeriodEnd) : undefined,
+      });
+      const user = await storage.getUser(req.params.id);
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
+    try {
+      const users = await storage.getAllUsers();
+      const content = await storage.getAllContent();
+      
+      const activeSubscriptions = users.filter(u => u.subscriptionStatus === "active").length;
+      const totalRevenue = activeSubscriptions * 29; // $29/user
+      
+      res.json({
+        totalUsers: users.length,
+        activeSubscriptions,
+        totalRevenue,
+        totalContent: content.length,
+        recentSignups: users.slice(0, 5),
       });
     } catch (error) {
       next(error);

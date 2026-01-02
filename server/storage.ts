@@ -31,6 +31,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserRole(userId: string, role: string): Promise<void>;
   updateUserSubscription(
     userId: string, 
     subscription: {
@@ -63,6 +64,10 @@ export interface IStorage {
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
 
+  // Admin functions
+  getAllUsers(): Promise<User[]>;
+  deleteUser(userId: string): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -90,6 +95,12 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(schema.users).values(insertUser).returning();
     return user!;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
   }
 
   async updateUserSubscription(
@@ -191,6 +202,15 @@ export class DatabaseStorage implements IStorage {
       .from(schema.emailLogs)
       .where(eq(schema.emailLogs.clinicianUserId, clinicianId))
       .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  // Admin methods
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(schema.users).orderBy(desc(schema.users.createdAt));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(schema.users).where(eq(schema.users.id, userId));
   }
 }
 

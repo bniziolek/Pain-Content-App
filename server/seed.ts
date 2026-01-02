@@ -1,7 +1,37 @@
 import { storage } from "./storage";
+import { scrypt, randomBytes } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 export async function seedDatabase() {
   console.log("Seeding database...");
+
+  // Create admin user for testing
+  try {
+    const existingAdmin = await storage.getUserByEmail("admin@rehabpilot.com");
+    if (!existingAdmin) {
+      await storage.createUser({
+        email: "admin@rehabpilot.com",
+        password: await hashPassword("admin123"),
+        name: "Admin User",
+      });
+      // Update to admin role
+      const admin = await storage.getUserByEmail("admin@rehabpilot.com");
+      if (admin) {
+        await storage.updateUserRole(admin.id, "admin");
+        console.log("Created admin user: admin@rehabpilot.com / admin123");
+      }
+    }
+  } catch (error) {
+    console.log("Admin user already exists");
+  }
 
   // Seed content items
   const contentData = [

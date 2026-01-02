@@ -5,18 +5,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("admin@rehabpilot.com");
+  const [password, setPassword] = useState("admin123");
+  const { toast } = useToast();
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    
+    try {
+      await login(email, password);
+      toast({
+        title: "Access Granted",
+        description: "Redirecting to admin dashboard...",
+      });
       setLocation("/admin/dashboard");
-    }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Access Denied",
+        description: error.message || "Invalid credentials",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,9 +58,12 @@ export default function AdminLoginPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="admin@rehabpilot.internal" 
+                placeholder="admin@rehabpilot.com" 
                 className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-600 focus-visible:ring-red-500"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required 
+                data-testid="input-admin-email"
               />
             </div>
             <div className="space-y-2">
@@ -50,9 +72,15 @@ export default function AdminLoginPage() {
                 id="password" 
                 type="password" 
                 className="bg-gray-900 border-gray-800 text-white focus-visible:ring-red-500"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required 
+                data-testid="input-admin-password"
               />
             </div>
+            <p className="text-xs text-gray-500 italic">
+              Default: admin@rehabpilot.com / admin123
+            </p>
             <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Access Dashboard

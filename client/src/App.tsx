@@ -35,7 +35,13 @@ function Router() {
       
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLoginPage} />
-      <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/dashboard">
+        {() => (
+          <RequireAuth>
+            <AdminDashboard />
+          </RequireAuth>
+        )}
+      </Route>
 
       {/* Clinician Routes - Require Active Subscription */}
       <Route path="/dashboard">
