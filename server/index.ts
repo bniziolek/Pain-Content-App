@@ -60,7 +60,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  const server = registerRoutes(app);
+  
+  // Seed database on startup in development
+  if (process.env.NODE_ENV !== "production") {
+    const { seedDatabase } = await import("./seed");
+    await seedDatabase().catch(console.error);
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -85,7 +91,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
+  server.listen(
     {
       port,
       host: "0.0.0.0",
