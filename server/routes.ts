@@ -8,14 +8,26 @@ import {
   insertInternalScreeningSchema,
   insertEmailLogSchema 
 } from "@shared/schema";
+import { getAllContentFromContentful, getContentByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
 
-  // ====== Content Library Routes ======
+  // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
     try {
+      if (isContentfulConfigured()) {
+        try {
+          const content = await getAllContentFromContentful();
+          res.json(content);
+          return;
+        } catch (error) {
+          if (error instanceof ContentfulError) {
+            console.warn("Contentful fetch failed, falling back to database:", error.message);
+          }
+        }
+      }
       const content = await storage.getAllContent();
       res.json(content);
     } catch (error) {
@@ -25,6 +37,19 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
     try {
+      if (isContentfulConfigured()) {
+        try {
+          const content = await getContentByIdFromContentful(req.params.id);
+          if (content) {
+            res.json(content);
+            return;
+          }
+        } catch (error) {
+          if (error instanceof ContentfulError) {
+            console.warn("Contentful fetch failed, falling back to database:", error.message);
+          }
+        }
+      }
       const content = await storage.getContentById(req.params.id);
       if (!content) {
         return res.status(404).send("Content not found");
@@ -35,6 +60,18 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.get("/api/content/status", requireAuth, async (req, res, next) => {
+    try {
+      res.json({ 
+        source: isContentfulConfigured() ? "contentful" : "database",
+        configured: isContentfulConfigured() 
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Database content management routes (for when Contentful is not used or for local backup)
   app.post("/api/content", requireAuth, async (req, res, next) => {
     try {
       const validated = insertContentItemSchema.parse(req.body);

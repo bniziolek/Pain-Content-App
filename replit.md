@@ -58,10 +58,19 @@ Preferred communication style: Simple, everyday language.
 ### Email Delivery
 - **Nodemailer**: Configured for sending patient content and assessment invites
 
+### Content Management (Contentful CMS)
+- **Contentful**: Headless CMS for managing content library
+- **Integration**: `server/contentful.ts` - Contentful client service layer
+- **Fallback**: If Contentful fails or is not configured, content is served from PostgreSQL database
+- **Content Type**: `contentItem` with fields: title, summary, body, tags, imageUrl, readTime
+- **API Behavior**: GET `/api/content` tries Contentful first, falls back to database on error
+
 ### Required Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string
 - `SESSION_SECRET`: Secret key for session encryption
 - `STRIPE_SECRET_KEY`: For payment processing (when enabled)
+- `CONTENTFUL_SPACE_ID`: Contentful space identifier
+- `CONTENTFUL_ACCESS_TOKEN`: Contentful Content Delivery API access token
 
 ### UI Component Dependencies
 - Full shadcn/ui component library with Radix UI primitives
