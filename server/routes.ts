@@ -15,6 +15,64 @@ export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
 
+  // ====== Public Content View Routes (for patient email links) ======
+  app.get("/api/public/content-view/:token", async (req, res, next) => {
+    try {
+      const view = await storage.getContentViewByToken(req.params.token);
+      if (!view) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      
+      // Mark as viewed if first time
+      if (!view.viewedAt) {
+        await storage.updateContentView(view.id, { viewedAt: new Date() });
+      }
+      
+      // Fetch the content
+      let content = null;
+      if (isContentfulConfigured()) {
+        try {
+          content = await getContentByIdFromContentful(view.contentId);
+        } catch (e) {
+          console.warn("Contentful fetch failed:", e);
+        }
+      }
+      if (!content) {
+        content = await storage.getContentById(view.contentId);
+      }
+      
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+      
+      res.json({
+        ...content,
+        viewToken: view.token,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Update time spent on content
+  app.post("/api/public/content-view/:token/time", async (req, res, next) => {
+    try {
+      const view = await storage.getContentViewByToken(req.params.token);
+      if (!view) {
+        return res.status(404).json({ error: "View not found" });
+      }
+      
+      const { timeSpentSeconds } = req.body;
+      if (typeof timeSpentSeconds === 'number' && timeSpentSeconds > 0) {
+        await storage.updateContentView(view.id, { timeSpentSeconds });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
     try {
@@ -215,55 +273,60 @@ export function registerRoutes(app: Express): Server {
       
       const log = await storage.createEmailLog(validated);
       
-      // Fetch content items to include in email
-      let contentItems: Array<{title: string; summary: string; body: string; imageUrl: string | null; readTime: string | null}> = [];
+      // Create content view tracking entries for each content item
+      const contentItemsWithLinks: Array<{
+        title: string; 
+        summary: string; 
+        readTime: string | null; 
+        imageUrl: string | null;
+        viewUrl: string;
+      }> = [];
+      
       if (validated.contentIds && validated.contentIds.length > 0) {
         for (const contentId of validated.contentIds) {
           try {
+            let content = null;
             if (isContentfulConfigured()) {
-              const content = await getContentByIdFromContentful(contentId);
-              if (content) {
-                contentItems.push({
-                  title: content.title,
-                  summary: content.summary,
-                  body: content.body,
-                  imageUrl: content.imageUrl,
-                  readTime: content.readTime,
-                });
-              }
-            } else {
-              const content = await storage.getContentById(contentId);
-              if (content) {
-                contentItems.push({
-                  title: content.title,
-                  summary: content.summary,
-                  body: content.body,
-                  imageUrl: content.imageUrl,
-                  readTime: content.readTime,
-                });
-              }
+              content = await getContentByIdFromContentful(contentId);
             }
-          } catch (e) {
-            // If Contentful fails, try database
-            const content = await storage.getContentById(contentId);
+            if (!content) {
+              content = await storage.getContentById(contentId);
+            }
+            
             if (content) {
-              contentItems.push({
+              // Create a tracking entry for this content
+              const contentView = await storage.createContentView({
+                emailLogId: log.id,
+                contentId: contentId,
+                patientEmail: validated.patientEmail,
+              });
+              
+              // Build the tracking URL - using the token for tracking
+              const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+                ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+                : process.env.REPLIT_DOMAINS 
+                  ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                  : 'http://localhost:5000';
+              
+              contentItemsWithLinks.push({
                 title: content.title,
                 summary: content.summary,
-                body: content.body,
-                imageUrl: content.imageUrl,
                 readTime: content.readTime,
+                imageUrl: content.imageUrl,
+                viewUrl: `${baseUrl}/view/${contentView.token}`,
               });
             }
+          } catch (e) {
+            console.error('[Email] Error processing content:', contentId, e);
           }
         }
       }
       
-      // Send email via Resend
+      // Send email via Gmail with tracking links
       const emailResult = await sendContentEmail({
         toEmail: validated.patientEmail,
         subject: validated.subject,
-        contentItems,
+        contentItems: contentItemsWithLinks,
         providerNote: validated.providerNote || undefined,
         clinicianName: req.user!.name || undefined,
       });

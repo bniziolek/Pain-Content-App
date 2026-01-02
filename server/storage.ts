@@ -12,7 +12,9 @@ import {
   type InsertInternalScreening,
   type EmailLog,
   type InsertEmailLog,
-  type Assessment
+  type Assessment,
+  type ContentView,
+  type InsertContentView
 } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -66,6 +68,12 @@ export interface IStorage {
   // Email logs
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
+
+  // Content views
+  createContentView(view: InsertContentView): Promise<ContentView>;
+  getContentViewByToken(token: string): Promise<ContentView | undefined>;
+  updateContentView(id: string, updates: { viewedAt?: Date; timeSpentSeconds?: number }): Promise<void>;
+  getContentViewsByEmailLogId(emailLogId: string): Promise<ContentView[]>;
 
   // Admin functions
   getAllUsers(): Promise<User[]>;
@@ -223,6 +231,33 @@ export class DatabaseStorage implements IStorage {
       .from(schema.emailLogs)
       .where(eq(schema.emailLogs.clinicianUserId, clinicianId))
       .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  // Content view methods
+  async createContentView(view: InsertContentView): Promise<ContentView> {
+    const token = crypto.randomUUID();
+    const [created] = await db.insert(schema.contentViews).values({ ...view, token }).returning();
+    return created!;
+  }
+
+  async getContentViewByToken(token: string): Promise<ContentView | undefined> {
+    const [view] = await db.select()
+      .from(schema.contentViews)
+      .where(eq(schema.contentViews.token, token));
+    return view;
+  }
+
+  async updateContentView(id: string, updates: { viewedAt?: Date; timeSpentSeconds?: number }): Promise<void> {
+    await db.update(schema.contentViews)
+      .set(updates)
+      .where(eq(schema.contentViews.id, id));
+  }
+
+  async getContentViewsByEmailLogId(emailLogId: string): Promise<ContentView[]> {
+    return await db.select()
+      .from(schema.contentViews)
+      .where(eq(schema.contentViews.emailLogId, emailLogId))
+      .orderBy(desc(schema.contentViews.createdAt));
   }
 
   // Admin methods

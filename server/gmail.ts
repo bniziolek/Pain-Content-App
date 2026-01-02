@@ -72,7 +72,7 @@ function createEmail(to: string, subject: string, htmlContent: string): string {
 interface ContentEmailData {
   toEmail: string;
   subject: string;
-  contentItems: { title: string; summary: string; body: string; imageUrl?: string | null; readTime?: string | null }[];
+  contentItems: { title: string; summary: string; readTime?: string | null; imageUrl?: string | null; viewUrl: string }[];
   providerNote?: string;
   clinicianName?: string;
 }
@@ -92,6 +92,7 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
     console.log('Content Items:', data.contentItems.length);
     data.contentItems.forEach((item, i) => {
       console.log(`  ${i + 1}. ${item.title} (${item.readTime || '5 min'} read)`);
+      console.log(`      View URL: ${item.viewUrl}`);
     });
     if (data.providerNote) console.log('Provider Note:', data.providerNote);
     console.log('===================================================\n');
@@ -102,11 +103,19 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
     const gmail = await getUncachableGmailClient();
     
     const contentHtml = data.contentItems.map(item => `
-      <div style="margin-bottom: 24px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.title}" style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 4px; margin-bottom: 12px;" />` : ''}
-        <h2 style="color: #1a5653; margin: 0 0 8px 0; font-size: 18px;">${item.title}</h2>
-        <p style="color: #666; margin: 0 0 12px 0; font-size: 14px;">${item.summary}</p>
-        <p style="color: #888; font-size: 12px; margin: 0;">${item.readTime || '5 min'} read</p>
+      <div style="margin-bottom: 16px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+        <a href="${item.viewUrl}" style="color: #1a5653; text-decoration: none; font-size: 18px; font-weight: 600; display: block; margin-bottom: 8px;">
+          ${item.title}
+        </a>
+        <p style="color: #666; margin: 0 0 12px 0; font-size: 14px; line-height: 1.5;">
+          Click the title above to read this educational content.
+        </p>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <span style="color: #888; font-size: 12px;">${item.readTime || '5 min'} read</span>
+          <a href="${item.viewUrl}" style="color: #1a5653; font-size: 13px; font-weight: 500; text-decoration: underline;">
+            Read Now &rarr;
+          </a>
+        </div>
       </div>
     `).join('');
 

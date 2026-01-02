@@ -141,6 +141,7 @@ export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({
 
 export const insertContentViewSchema = createInsertSchema(contentViews).omit({
   id: true,
+  token: true,
   viewedAt: true,
   timeSpentSeconds: true,
   createdAt: true,

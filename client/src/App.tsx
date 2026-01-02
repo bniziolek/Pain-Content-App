@@ -101,7 +101,7 @@ function Router() {
       <Route path="/assessment/invite/:token" component={PatientAssessment} />
       <Route path="/assessment/demo" component={PatientAssessment} />
       <Route path="/assessment/results" component={PatientResults} />
-      <Route path="/content/:id" component={ContentViewerPage} />
+      <Route path="/view/:token" component={ContentViewerPage} />
 
       <Route component={NotFound} />
     </Switch>

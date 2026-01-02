@@ -1,26 +1,76 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Loader2, Clock, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2, Clock } from "lucide-react";
+import { useEffect, useRef } from "react";
 
-async function getPublicContent(id: string) {
-  const res = await fetch(`/api/public/content/${id}`);
+async function getPublicContent(token: string) {
+  const res = await fetch(`/api/public/content-view/${token}`);
   if (!res.ok) {
     throw new Error("Content not found");
   }
   return res.json();
 }
 
+async function updateTimeSpent(token: string, seconds: number) {
+  try {
+    await fetch(`/api/public/content-view/${token}/time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timeSpentSeconds: seconds }),
+    });
+  } catch (e) {
+    console.error('Failed to update time spent:', e);
+  }
+}
+
 export default function ContentViewerPage() {
-  const params = useParams<{ id: string }>();
-  const contentId = params.id;
+  const params = useParams<{ token: string }>();
+  const viewToken = params.token;
+  const startTimeRef = useRef<number>(Date.now());
+  const lastSentRef = useRef<number>(0);
 
   const { data: content, isLoading, error } = useQuery({
-    queryKey: ["public-content", contentId],
-    queryFn: () => getPublicContent(contentId!),
-    enabled: !!contentId,
+    queryKey: ["public-content", viewToken],
+    queryFn: () => getPublicContent(viewToken!),
+    enabled: !!viewToken,
   });
+
+  useEffect(() => {
+    if (!viewToken || !content) return;
+
+    startTimeRef.current = Date.now();
+
+    const sendTimeUpdate = () => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      if (elapsed > lastSentRef.current) {
+        lastSentRef.current = elapsed;
+        updateTimeSpent(viewToken, elapsed);
+      }
+    };
+
+    const interval = setInterval(sendTimeUpdate, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendTimeUpdate();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      sendTimeUpdate();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      sendTimeUpdate();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [viewToken, content]);
 
   if (isLoading) {
     return (
