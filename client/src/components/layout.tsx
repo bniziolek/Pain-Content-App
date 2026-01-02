@@ -63,10 +63,10 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
           const isActive = location === link.href;
           return (
             <Link key={link.href} href={link.href}>
-              <a 
+              <div 
                 onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   isActive 
                     ? "bg-sidebar-accent text-sidebar-primary-foreground font-semibold" 
                     : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -74,7 +74,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
               >
                 <Icon className="w-4 h-4" />
                 {link.label}
-              </a>
+              </div>
             </Link>
           );
         })}
