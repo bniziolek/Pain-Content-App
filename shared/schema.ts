@@ -94,6 +94,18 @@ export const emailLogs = pgTable("email_logs", {
   sentAt: timestamp("sent_at").defaultNow().notNull(),
 });
 
+// Content view tracking - tracks when patients view content from emails
+export const contentViews = pgTable("content_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  emailLogId: varchar("email_log_id").references(() => emailLogs.id).notNull(),
+  contentId: varchar("content_id").notNull(),
+  patientEmail: text("patient_email").notNull(),
+  token: text("token").notNull().unique(),
+  viewedAt: timestamp("viewed_at"),
+  timeSpentSeconds: integer("time_spent_seconds"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -127,6 +139,13 @@ export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({
   sentAt: true,
 });
 
+export const insertContentViewSchema = createInsertSchema(contentViews).omit({
+  id: true,
+  viewedAt: true,
+  timeSpentSeconds: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -142,6 +161,9 @@ export type InternalScreening = typeof internalScreenings.$inferSelect;
 
 export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;
 export type EmailLog = typeof emailLogs.$inferSelect;
+
+export type InsertContentView = z.infer<typeof insertContentViewSchema>;
+export type ContentView = typeof contentViews.$inferSelect;
 
 export type Assessment = typeof assessments.$inferSelect;
 export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
