@@ -56,7 +56,10 @@ Preferred communication style: Simple, everyday language.
 - **Stripe**: Subscription management (customer IDs, subscription status tracked in users table)
 
 ### Email Delivery
-- **Nodemailer**: Configured for sending patient content and assessment invites
+- **Resend**: Transactional email service for sending patient content and assessment invites
+- **Integration**: `server/resend.ts` - Resend client service using Replit's connector
+- **Email Types**: Content bundles (educational materials), Assessment invites
+- **Features**: Professional HTML email templates with RehabPilot branding
 
 ### Content Management (Contentful CMS)
 - **Contentful**: Headless CMS for managing content library

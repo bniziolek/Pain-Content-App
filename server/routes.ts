@@ -9,6 +9,7 @@ import {
   insertEmailLogSchema 
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
+import { sendContentEmail, sendAssessmentInviteEmail } from "./resend";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -122,10 +123,23 @@ export function registerRoutes(app: Express): Server {
 
       const invite = await storage.createAssessmentInvite(validated);
       
-      // TODO: Send email via Resend here
-      // await sendAssessmentInvite(invite.patientEmail, invite.token);
+      // Send assessment invite email via Resend
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      const assessmentLink = `${baseUrl}/assessment/${invite.token}`;
+      
+      const emailResult = await sendAssessmentInviteEmail({
+        toEmail: invite.patientEmail,
+        assessmentLink,
+        clinicianName: req.user!.name || undefined,
+      });
+      
+      if (!emailResult.success) {
+        console.error('[Email] Failed to send assessment invite:', emailResult.error);
+      }
 
-      res.status(201).json(invite);
+      res.status(201).json({ ...invite, emailSent: emailResult.success });
     } catch (error) {
       next(error);
     }
@@ -201,10 +215,64 @@ export function registerRoutes(app: Express): Server {
       
       const log = await storage.createEmailLog(validated);
       
-      // TODO: Actually send email via Resend here
-      // await sendContentEmail(log);
+      // Fetch content items to include in email
+      let contentItems: Array<{title: string; summary: string; body: string; imageUrl: string | null; readTime: string | null}> = [];
+      if (validated.contentIds && validated.contentIds.length > 0) {
+        for (const contentId of validated.contentIds) {
+          try {
+            if (isContentfulConfigured()) {
+              const content = await getContentByIdFromContentful(contentId);
+              if (content) {
+                contentItems.push({
+                  title: content.title,
+                  summary: content.summary,
+                  body: content.body,
+                  imageUrl: content.imageUrl,
+                  readTime: content.readTime,
+                });
+              }
+            } else {
+              const content = await storage.getContentById(contentId);
+              if (content) {
+                contentItems.push({
+                  title: content.title,
+                  summary: content.summary,
+                  body: content.body,
+                  imageUrl: content.imageUrl,
+                  readTime: content.readTime,
+                });
+              }
+            }
+          } catch (e) {
+            // If Contentful fails, try database
+            const content = await storage.getContentById(contentId);
+            if (content) {
+              contentItems.push({
+                title: content.title,
+                summary: content.summary,
+                body: content.body,
+                imageUrl: content.imageUrl,
+                readTime: content.readTime,
+              });
+            }
+          }
+        }
+      }
       
-      res.status(201).json(log);
+      // Send email via Resend
+      const emailResult = await sendContentEmail({
+        toEmail: validated.patientEmail,
+        subject: validated.subject,
+        contentItems,
+        providerNote: validated.providerNote || undefined,
+        clinicianName: req.user!.name || undefined,
+      });
+      
+      if (!emailResult.success) {
+        console.error('[Email] Failed to send content email:', emailResult.error);
+      }
+      
+      res.status(201).json({ ...log, emailSent: emailResult.success });
     } catch (error) {
       next(error);
     }
