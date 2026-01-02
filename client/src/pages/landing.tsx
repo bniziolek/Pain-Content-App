@@ -41,9 +41,11 @@ export default function LandingPage() {
                     Start Free Trial <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full">
-                  View Demo
-                </Button>
+                <Link href="/auth">
+                  <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full">
+                    Provider Login
+                  </Button>
+                </Link>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex -space-x-2">
