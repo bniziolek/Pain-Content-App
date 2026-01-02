@@ -379,12 +379,23 @@ export function registerRoutes(app: Express): Server {
       const content = await storage.getAllContent();
       
       const activeSubscriptions = users.filter(u => u.subscriptionStatus === "active").length;
-      const totalRevenue = activeSubscriptions * 29; // $29/user
+      
+      // Calculate monthly revenue - only count subscriptions that will bill this month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const monthlyRevenue = users.filter(u => {
+        if (u.subscriptionStatus !== "active" || !u.subscriptionPeriodEnd) return false;
+        const endDate = new Date(u.subscriptionPeriodEnd);
+        // Include if subscription is active and end date is beyond this month
+        return endDate > monthEnd;
+      }).length * 29; // $29/user
       
       res.json({
         totalUsers: users.length,
         activeSubscriptions,
-        totalRevenue,
+        monthlyRevenue,
         totalContent: content.length,
         recentSignups: users.slice(0, 5),
       });

@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, UserPlus, Loader2, Key, Clock, MoreHorizontal } from "lucide-react";
+import { Trash2, UserPlus, Loader2, Key, Clock, MoreHorizontal, Eye } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
+import { formatDistanceToNow } from "date-fns";
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
@@ -19,6 +20,7 @@ export default function AdminUsersPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [userDetailDialogOpen, setUserDetailDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Create user form state
@@ -283,7 +285,15 @@ export default function AdminUsersPage() {
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
-                  <TableRow key={u.id} data-testid={`user-row-${u.id}`}>
+                  <TableRow 
+                    key={u.id} 
+                    data-testid={`user-row-${u.id}`}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setUserDetailDialogOpen(true);
+                    }}
+                  >
                     <TableCell className="font-medium">{u.name || "—"}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
@@ -311,7 +321,7 @@ export default function AdminUsersPage() {
                         : "Never"
                       }
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -445,6 +455,128 @@ export default function AdminUsersPage() {
             >
               {resetPasswordMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Detail Dialog */}
+      <Dialog open={userDetailDialogOpen} onOpenChange={setUserDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Complete information for {selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="space-y-6 py-4">
+              {/* Account Information */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Account Information</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Name</p>
+                    <p className="font-medium">{selectedUser.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Role</p>
+                    <Badge variant={selectedUser.role === "admin" ? "destructive" : "secondary"}>
+                      {selectedUser.role}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">User ID</p>
+                    <p className="font-mono text-xs">{selectedUser.id}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Activity</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Account Created</p>
+                    <p className="font-medium">
+                      {new Date(selectedUser.createdAt).toLocaleDateString()}
+                      <span className="text-muted-foreground ml-2">
+                        ({formatDistanceToNow(new Date(selectedUser.createdAt), { addSuffix: true })})
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Last Login</p>
+                    <p className="font-medium">
+                      {selectedUser.lastLogin
+                        ? new Date(selectedUser.lastLogin).toLocaleDateString()
+                        : "Never"}
+                      {selectedUser.lastLogin && (
+                        <span className="text-muted-foreground ml-2">
+                          ({formatDistanceToNow(new Date(selectedUser.lastLogin), { addSuffix: true })})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Last Updated</p>
+                    <p className="font-medium">
+                      {new Date(selectedUser.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subscription & Billing */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Subscription & Billing</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Status</p>
+                    <Badge 
+                      variant={selectedUser.subscriptionStatus === "active" ? "default" : "outline"}
+                      className={selectedUser.subscriptionStatus === "active" ? "bg-green-600" : ""}
+                    >
+                      {selectedUser.subscriptionStatus}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Subscription End Date</p>
+                    <p className="font-medium">
+                      {selectedUser.subscriptionPeriodEnd
+                        ? new Date(selectedUser.subscriptionPeriodEnd).toLocaleDateString()
+                        : "—"}
+                    </p>
+                  </div>
+                  {selectedUser.stripeCustomerId && (
+                    <div>
+                      <p className="text-muted-foreground">Stripe Customer</p>
+                      <p className="font-mono text-xs">{selectedUser.stripeCustomerId}</p>
+                    </div>
+                  )}
+                  {selectedUser.subscriptionStatus === "active" && selectedUser.subscriptionPeriodEnd && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">Time Remaining</p>
+                      <p className="font-medium">
+                        {new Date(selectedUser.subscriptionPeriodEnd) > new Date()
+                          ? formatDistanceToNow(new Date(selectedUser.subscriptionPeriodEnd))
+                          : "Expired"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUserDetailDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
