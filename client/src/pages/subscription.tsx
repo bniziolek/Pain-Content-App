@@ -61,8 +61,8 @@ export default function SubscriptionPage() {
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Plan Selection */}
-          <Card className={`relative transition-all cursor-pointer border-2 ${step === "plan" ? "border-primary shadow-lg" : "border-gray-200"}`} onClick={() => setStep("plan")}>
-            {step === "plan" && <div className="absolute top-4 right-4 text-primary"><Check className="w-6 h-6" /></div>}
+          <Card className={`relative transition-all border-2 ${step === "payment" ? "border-primary shadow-lg" : "border-gray-200"}`}>
+            {step === "payment" && <div className="absolute top-4 right-4 text-primary"><Check className="w-6 h-6" /></div>}
             <CardHeader>
               <CardTitle>Professional</CardTitle>
               <CardDescription>Everything you need for a solo practice.</CardDescription>
@@ -85,7 +85,14 @@ export default function SubscriptionPage() {
               </ul>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={() => setStep("payment")} disabled={step === "payment"}>Select Plan</Button>
+              <Button 
+                className="w-full" 
+                onClick={() => setStep("payment")} 
+                disabled={step === "payment"}
+                data-testid="button-select-plan"
+              >
+                {step === "payment" ? "Plan Selected" : "Select Plan"}
+              </Button>
             </CardFooter>
           </Card>
 
