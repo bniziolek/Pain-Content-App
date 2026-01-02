@@ -68,6 +68,7 @@ export interface IStorage {
   // Email logs
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
+  updateEmailLogStatus(id: string, status: string): Promise<void>;
 
   // Content views
   createContentView(view: InsertContentView): Promise<ContentView>;
@@ -231,6 +232,12 @@ export class DatabaseStorage implements IStorage {
       .from(schema.emailLogs)
       .where(eq(schema.emailLogs.clinicianUserId, clinicianId))
       .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async updateEmailLogStatus(id: string, status: string): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set({ status })
+      .where(eq(schema.emailLogs.id, id));
   }
 
   // Content view methods

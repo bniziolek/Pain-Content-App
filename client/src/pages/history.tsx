@@ -2,16 +2,106 @@ import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2 } from "lucide-react";
+import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { getEmailLogs, getContent } from "@/lib/api";
+import { getEmailLogs, getContent, getContentViewsByEmailLog } from "@/lib/api";
 import { useState, useMemo } from "react";
+import type { ContentView } from "@shared/schema";
+
+function formatTimeSpent(seconds: number | null | undefined): string {
+  if (!seconds || seconds === 0) return "Not viewed";
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return `${hours}h ${remainingMins}m`;
+}
+
+function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; contentMap: Record<string, string> }) {
+  const { data: views, isLoading } = useQuery({
+    queryKey: ["content-views", emailLogId],
+    queryFn: () => getContentViewsByEmailLog(emailLogId),
+  });
+
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={5} className="bg-muted/30">
+          <div className="flex items-center gap-2 pl-8 py-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading content views...</span>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (!views || views.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={5} className="bg-muted/30">
+          <div className="pl-8 py-2 text-sm text-muted-foreground">
+            No content tracking data available
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  return (
+    <>
+      {views.map((view: ContentView) => (
+        <TableRow key={view.id} className="bg-muted/30">
+          <TableCell colSpan={2} className="pl-10">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {contentMap[view.contentId] || view.contentId}
+              </span>
+            </div>
+          </TableCell>
+          <TableCell>
+            {view.viewedAt ? (
+              <div className="flex items-center gap-1 text-sm text-green-600">
+                <Eye className="w-3 h-3" />
+                <span>{format(new Date(view.viewedAt), "MMM d, h:mm a")}</span>
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">Not viewed</span>
+            )}
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-1 text-sm">
+              <Clock className="w-3 h-3 text-muted-foreground" />
+              <span className={view.timeSpentSeconds ? "text-primary font-medium" : "text-muted-foreground"}>
+                {formatTimeSpent(view.timeSpentSeconds)}
+              </span>
+            </div>
+          </TableCell>
+          <TableCell>
+            {view.viewedAt ? (
+              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                <Eye className="w-3 h-3 mr-1" /> Viewed
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Pending
+              </Badge>
+            )}
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   
   const { data: emailLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["email-logs"],
@@ -41,6 +131,18 @@ export default function HistoryPage() {
       log.type.toLowerCase().includes(q)
     );
   }, [emailLogs, searchQuery]);
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
   
   const getStatusBadge = (status: string) => {
     switch(status?.toLowerCase()) {
@@ -51,7 +153,7 @@ export default function HistoryPage() {
       case 'opened':
         return <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50"><ExternalLink className="w-3 h-3 mr-1"/> Opened</Badge>;
       case 'clicked':
-        return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50"><ExternalLink className="w-3 h-3 mr-1"/> Clicked</Badge>;
+        return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50"><Eye className="w-3 h-3 mr-1"/> Clicked</Badge>;
       default:
         return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 border-none"><Mail className="w-3 h-3 mr-1"/> Sent</Badge>;
     }
@@ -81,7 +183,7 @@ export default function HistoryPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Transmission Log</CardTitle>
-                <CardDescription>Recent email activity</CardDescription>
+                <CardDescription>Recent email activity with engagement tracking</CardDescription>
               </div>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -110,46 +212,64 @@ export default function HistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8"></TableHead>
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Patient</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Content / Details</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLogs.map((log) => (
-                    <TableRow key={log.id} data-testid={`row-email-log-${log.id}`}>
-                      <TableCell className="text-muted-foreground text-sm font-medium">
-                        {format(new Date(log.sentAt), "MMM d, h:mm a")}
-                      </TableCell>
-                      <TableCell className="font-medium">{log.patientEmail}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {log.type === 'assessment_invite' ? (
-                            <FileText className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Mail className="w-4 h-4 text-secondary-foreground" />
-                          )}
-                          <span>{getTypeLabel(log.type)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {log.contentIds && log.contentIds.length > 0 ? (
-                            log.contentIds.map((contentId, idx) => (
-                              <span key={idx} className="text-sm text-muted-foreground truncate max-w-[200px]" title={contentMap[contentId] || contentId}>
-                                {contentMap[contentId] || contentId}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-sm text-muted-foreground">{log.subject}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(log.status || 'sent')}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredLogs.map((log) => {
+                    const isExpanded = expandedRows.has(log.id);
+                    const hasContentItems = log.type === 'content_bundle' && log.contentIds && log.contentIds.length > 0;
+                    
+                    return (
+                      <>
+                        <TableRow 
+                          key={log.id} 
+                          data-testid={`row-email-log-${log.id}`}
+                          className={hasContentItems ? "cursor-pointer hover:bg-muted/50" : ""}
+                          onClick={() => hasContentItems && toggleRow(log.id)}
+                        >
+                          <TableCell className="w-8">
+                            {hasContentItems && (
+                              <button className="p-1 hover:bg-muted rounded" data-testid={`expand-log-${log.id}`}>
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                )}
+                              </button>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm font-medium">
+                            {format(new Date(log.sentAt), "MMM d, h:mm a")}
+                          </TableCell>
+                          <TableCell className="font-medium">{log.patientEmail}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {log.type === 'assessment_invite' ? (
+                                <FileText className="w-4 h-4 text-primary" />
+                              ) : (
+                                <Mail className="w-4 h-4 text-secondary-foreground" />
+                              )}
+                              <span>{getTypeLabel(log.type)}</span>
+                              {hasContentItems && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({log.contentIds?.length} items)
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(log.status || 'sent')}</TableCell>
+                        </TableRow>
+                        {isExpanded && hasContentItems && (
+                          <ContentViewsRow emailLogId={log.id} contentMap={contentMap} />
+                        )}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

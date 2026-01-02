@@ -23,9 +23,10 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Content not found" });
       }
       
-      // Mark as viewed if first time
+      // Mark as viewed if first time and update email log status to clicked
       if (!view.viewedAt) {
         await storage.updateContentView(view.id, { viewedAt: new Date() });
+        await storage.updateEmailLogStatus(view.emailLogId, 'clicked');
       }
       
       // Fetch the content
@@ -345,6 +346,15 @@ export function registerRoutes(app: Express): Server {
     try {
       const logs = await storage.getEmailLogsByClinicianId(req.user!.id);
       res.json(logs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/email-logs/:id/content-views", requireSubscription, async (req, res, next) => {
+    try {
+      const views = await storage.getContentViewsByEmailLogId(req.params.id);
+      res.json(views);
     } catch (error) {
       next(error);
     }

@@ -1,4 +1,4 @@
-import type { ContentItem, EmailLog, AssessmentInvite, InternalScreening } from "@shared/schema";
+import type { ContentItem, EmailLog, AssessmentInvite, InternalScreening, ContentView } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -98,6 +98,10 @@ export async function createEmailLog(log: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(log),
   });
+}
+
+export async function getContentViewsByEmailLog(emailLogId: string): Promise<ContentView[]> {
+  return fetchAPI(`/email-logs/${emailLogId}/content-views`);
 }
 
 // Stats API
