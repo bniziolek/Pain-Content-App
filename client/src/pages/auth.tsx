@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 export default function AuthPage() {
   const [location, setLocation] = useLocation();
@@ -13,21 +14,41 @@ export default function AuthPage() {
   const isSignup = searchParams.get("signup") === "true";
   
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const { toast } = useToast();
+  const { login, register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      if (isSignup) {
+        await register(email, password, name || undefined);
+        toast({
+          title: "Account created!",
+          description: "Please complete your subscription setup.",
+        });
+        setLocation("/subscription");
+      } else {
+        await login(email, password);
+        toast({
+          title: "Welcome back",
+          description: "Redirecting to dashboard...",
+        });
+        setLocation("/dashboard");
+      }
+    } catch (error: any) {
       toast({
-        title: isSignup ? "Account created!" : "Welcome back",
-        description: isSignup ? "Please complete your subscription setup." : "Redirecting to dashboard...",
+        title: "Error",
+        description: error.message || "Authentication failed",
+        variant: "destructive",
       });
-      setLocation(isSignup ? "/subscription" : "/dashboard");
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -53,9 +74,30 @@ export default function AuthPage() {
             </CardHeader>
             <CardContent className="px-0">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {isSignup && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name (optional)</Label>
+                    <Input 
+                      id="name" 
+                      type="text" 
+                      placeholder="Dr. Jane Smith" 
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      data-testid="input-name"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="m@example.com" required />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="m@example.com" 
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    data-testid="input-email"
+                  />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -66,9 +108,16 @@ export default function AuthPage() {
                       </a>
                     )}
                   </div>
-                  <Input id="password" type="password" required />
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    data-testid="input-password"
+                  />
                 </div>
-                <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                <Button type="submit" className="w-full h-11" disabled={isLoading} data-testid="button-submit">
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSignup ? "Create Account" : "Sign In"}
                 </Button>
