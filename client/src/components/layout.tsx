@@ -25,8 +25,8 @@ interface SidebarProps {
 }
 
 function Sidebar({ className, onNavigate }: SidebarProps) {
-  const [location] = useLocation();
-  const { user } = useAuth();
+  const [location, navigate] = useLocation();
+  const { user, logout } = useAuth();
 
   const isAdmin = user?.role === "admin";
 
@@ -92,17 +92,19 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
             </span>
           </div>
         </div>
-        <form method="POST" action="/api/logout">
-          <Button 
-            type="submit" 
-            variant="ghost" 
-            className="w-full justify-start text-muted-foreground hover:text-destructive" 
-            size="sm"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
-        </form>
+        <Button 
+          onClick={async () => {
+            await logout();
+            navigate("/");
+          }}
+          variant="ghost" 
+          className="w-full justify-start text-muted-foreground hover:text-destructive" 
+          size="sm"
+          data-testid="button-logout"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out
+        </Button>
       </div>
     </div>
   );
