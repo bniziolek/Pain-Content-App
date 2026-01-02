@@ -8,13 +8,16 @@ import {
   Menu,
   User,
   Activity,
-  History
+  History,
+  Users,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/lib/auth";
 
 interface SidebarProps {
   className?: string;
@@ -23,14 +26,27 @@ interface SidebarProps {
 
 function Sidebar({ className, onNavigate }: SidebarProps) {
   const [location] = useLocation();
+  const { user } = useAuth();
 
-  const links = [
+  const isAdmin = user?.role === "admin";
+
+  // Admin gets different navigation
+  const adminLinks = [
+    { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
+    { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/library", label: "Content Oversight", icon: Library },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  const clinicianLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/library", label: "Content Library", icon: Library },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/history", label: "Send History", icon: History },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
+
+  const links = isAdmin ? adminLinks : clinicianLinks;
 
   return (
     <div className={cn("flex flex-col h-full bg-sidebar border-r border-sidebar-border", className)}>
@@ -67,20 +83,26 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2 mb-2">
           <Avatar className="w-8 h-8">
-            <AvatarImage src="https://github.com/shadcn.png" />
-            <AvatarFallback>SM</AvatarFallback>
+            <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-sidebar-foreground">Dr. Mitchell</span>
-            <span className="text-xs text-muted-foreground">Pro Plan</span>
+            <span className="text-sm font-medium text-sidebar-foreground">{user?.name || user?.email}</span>
+            <span className="text-xs text-muted-foreground">
+              {isAdmin ? "Administrator" : "Pro Plan"}
+            </span>
           </div>
         </div>
-        <Link href="/">
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive" size="sm">
+        <form method="POST" action="/api/logout">
+          <Button 
+            type="submit" 
+            variant="ghost" 
+            className="w-full justify-start text-muted-foreground hover:text-destructive" 
+            size="sm"
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
-        </Link>
+        </form>
       </div>
     </div>
   );
