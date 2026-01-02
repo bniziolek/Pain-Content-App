@@ -1,12 +1,28 @@
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox } from "lucide-react";
+import { Send, Users, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 import { getStats } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+
+function getStatusBadge(status: string) {
+  switch(status?.toLowerCase()) {
+    case 'completed':
+      return <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none text-xs"><CheckCircle className="w-3 h-3 mr-1"/> Completed</Badge>;
+    case 'sent':
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 border-none text-xs"><Mail className="w-3 h-3 mr-1"/> Sent</Badge>;
+    case 'opened':
+      return <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-xs"><ExternalLink className="w-3 h-3 mr-1"/> Opened</Badge>;
+    case 'clicked':
+      return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50 text-xs"><Eye className="w-3 h-3 mr-1"/> Clicked</Badge>;
+    default:
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 border-none text-xs"><Mail className="w-3 h-3 mr-1"/> Sent</Badge>;
+  }
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -156,10 +172,13 @@ export default function Dashboard() {
                   {stats.recentActivity.map((item, i) => (
                     <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
                       <div className="w-2 h-2 mt-2 rounded-full bg-secondary" />
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate max-w-[180px]" title={item.email}>{item.email}</div>
                         <div className="text-sm text-muted-foreground">{item.action}</div>
-                        <div className="text-xs text-muted-foreground/60 mt-1">{item.timeAgo}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {getStatusBadge(item.status)}
+                          <span className="text-xs text-muted-foreground/60">{item.timeAgo}</span>
+                        </div>
                       </div>
                     </div>
                   ))}

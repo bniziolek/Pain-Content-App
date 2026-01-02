@@ -425,13 +425,14 @@ export function registerRoutes(app: Express): Server {
       }
       
       // Build recent activity (last 10 items combining email logs and invites)
-      const recentActivity: { email: string; action: string; time: Date }[] = [];
+      const recentActivity: { email: string; action: string; status: string; time: Date }[] = [];
       
       emailLogs.slice(0, 10).forEach(log => {
         recentActivity.push({
           email: log.patientEmail,
-          action: log.type === 'content_bundle' ? 'Content sent' : 
-                  log.type === 'assessment_invite' ? 'Assessment invite sent' : 'Email sent',
+          action: log.type === 'content_bundle' ? 'Content Bundle' : 
+                  log.type === 'assessment_invite' ? 'Assessment Invite' : 'Email',
+          status: log.status || 'sent',
           time: log.sentAt,
         });
       });
@@ -439,7 +440,8 @@ export function registerRoutes(app: Express): Server {
       invites.filter(inv => inv.status === 'completed').slice(0, 5).forEach(inv => {
         recentActivity.push({
           email: inv.patientEmail,
-          action: 'Completed assessment',
+          action: 'Assessment',
+          status: 'completed',
           time: inv.completedAt || inv.createdAt,
         });
       });
