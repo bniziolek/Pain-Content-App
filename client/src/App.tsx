@@ -18,6 +18,7 @@ import PatientResults from "@/pages/patient-results";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsersPage from "@/pages/admin/users";
+import UserDetailPage from "@/pages/admin/user-detail";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 
@@ -47,6 +48,13 @@ function Router() {
         {() => (
           <RequireAuth>
             <AdminUsersPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/admin/users/:id">
+        {() => (
+          <RequireAuth>
+            <UserDetailPage />
           </RequireAuth>
         )}
       </Route>

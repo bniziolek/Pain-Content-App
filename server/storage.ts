@@ -31,6 +31,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: string, updates: { name?: string; email?: string; role?: string }): Promise<void>;
   updateUserRole(userId: string, role: string): Promise<void>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
   updateLastLogin(userId: string): Promise<void>;
@@ -97,6 +98,12 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(schema.users).values(insertUser).returning();
     return user!;
+  }
+
+  async updateUser(userId: string, updates: { name?: string; email?: string; role?: string }): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
   }
 
   async updateUserRole(userId: string, role: string): Promise<void> {

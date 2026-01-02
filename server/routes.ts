@@ -316,6 +316,29 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.get("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const { name, email, role } = req.body;
+      await storage.updateUser(req.params.id, { name, email, role });
+      const updatedUser = await storage.getUser(req.params.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.patch("/api/admin/users/:id/subscription", requireAdmin, async (req, res, next) => {
     try {
       const { subscriptionStatus, subscriptionPeriodEnd } = req.body;
