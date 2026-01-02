@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import type { User } from "@shared/schema";
 export default function AdminUsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // Create user form state
@@ -190,40 +191,40 @@ export default function AdminUsersPage() {
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
-                  <Link key={u.id} href={`/admin/users/${u.id}`}>
-                    <TableRow 
-                      data-testid={`user-row-${u.id}`}
-                      className="cursor-pointer hover:bg-muted/50"
-                    >
-                      <TableCell className="font-medium">{u.name || "—"}</TableCell>
-                      <TableCell>{u.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={u.role === "admin" ? "destructive" : "secondary"}>
-                          {u.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={u.subscriptionStatus === "active" ? "default" : "outline"}
-                          className={u.subscriptionStatus === "active" ? "bg-green-600" : ""}
-                        >
-                          {u.subscriptionStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {u.subscriptionPeriodEnd
-                          ? new Date(u.subscriptionPeriodEnd).toLocaleDateString()
-                          : "—"
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {u.lastLogin
-                          ? new Date(u.lastLogin).toLocaleDateString()
-                          : "Never"
-                        }
-                      </TableCell>
-                    </TableRow>
-                  </Link>
+                  <TableRow 
+                    key={u.id}
+                    data-testid={`user-row-${u.id}`}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/admin/users/${u.id}`)}
+                  >
+                    <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={u.role === "admin" ? "destructive" : "secondary"}>
+                        {u.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={u.subscriptionStatus === "active" ? "default" : "outline"}
+                        className={u.subscriptionStatus === "active" ? "bg-green-600" : ""}
+                      >
+                        {u.subscriptionStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {u.subscriptionPeriodEnd
+                        ? new Date(u.subscriptionPeriodEnd).toLocaleDateString()
+                        : "—"
+                      }
+                    </TableCell>
+                    <TableCell>
+                      {u.lastLogin
+                        ? new Date(u.lastLogin).toLocaleDateString()
+                        : "Never"
+                      }
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
