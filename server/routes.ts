@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth, requireAuth, requireSubscription, requireAdmin } from "./auth";
+import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { 
   insertContentItemSchema, 
@@ -243,6 +243,39 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Admin Routes ======
+  app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
+    try {
+      const { email, name } = req.body;
+      
+      // Check if user already exists
+      let user = await storage.getUserByEmail(email);
+      
+      if (user) {
+        // Update existing user to have trial access
+        await storage.updateUserSubscription(user.id, {
+          subscriptionStatus: "active",
+          subscriptionPeriodEnd: new Date("9999-12-31"),
+        });
+        user = await storage.getUser(user.id);
+      } else {
+        // Create new user with trial access
+        const hashedPassword = await hashPassword("changeme123"); // Default password
+        user = await storage.createUser({
+          email,
+          name: name || email.split("@")[0],
+          password: hashedPassword,
+          role: "clinician",
+          subscriptionStatus: "active",
+          subscriptionPeriodEnd: new Date("9999-12-31"),
+        });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
     try {
       const users = await storage.getAllUsers();
