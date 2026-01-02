@@ -24,9 +24,9 @@ export default function AuthPage() {
       setIsLoading(false);
       toast({
         title: isSignup ? "Account created!" : "Welcome back",
-        description: "Redirecting to dashboard...",
+        description: isSignup ? "Please complete your subscription setup." : "Redirecting to dashboard...",
       });
-      setLocation("/dashboard");
+      setLocation(isSignup ? "/subscription" : "/dashboard");
     }, 1500);
   };
 

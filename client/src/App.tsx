@@ -15,12 +15,15 @@ import PatientAssessment from "@/pages/patient-assessment";
 import PatientResults from "@/pages/patient-results";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
+import SubscriptionPage from "@/pages/subscription";
+import SettingsPage from "@/pages/settings";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/subscription" component={SubscriptionPage} />
       
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLoginPage} />
@@ -31,7 +34,7 @@ function Router() {
       <Route path="/library" component={LibraryPage} />
       <Route path="/assessments" component={AssessmentsPage} />
       <Route path="/history" component={HistoryPage} />
-      <Route path="/settings" component={() => <div>Settings Placeholder</div>} />
+      <Route path="/settings" component={SettingsPage} />
 
       {/* Patient Public Routes */}
       <Route path="/assessment/invite/:token" component={PatientAssessment} />
