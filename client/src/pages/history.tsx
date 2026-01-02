@@ -11,7 +11,7 @@ import { useState, useMemo } from "react";
 import type { ContentView } from "@shared/schema";
 
 function formatTimeSpent(seconds: number | null | undefined): string {
-  if (!seconds || seconds === 0) return "Not viewed";
+  if (!seconds || seconds === 0) return "—";
   if (seconds < 60) return `${seconds}s`;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -54,6 +54,20 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
 
   return (
     <>
+      <TableRow className="bg-muted/50 border-b-0">
+        <TableCell colSpan={2} className="pl-10 py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content</span>
+        </TableCell>
+        <TableCell className="py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Last Accessed</span>
+        </TableCell>
+        <TableCell className="py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Time Spent</span>
+        </TableCell>
+        <TableCell className="py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
+        </TableCell>
+      </TableRow>
       {views.map((view: ContentView) => (
         <TableRow key={view.id} className="bg-muted/30">
           <TableCell colSpan={2} className="pl-10">
@@ -71,7 +85,7 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
                 <span>{format(new Date(view.viewedAt), "MMM d, h:mm a")}</span>
               </div>
             ) : (
-              <span className="text-sm text-muted-foreground">Not viewed</span>
+              <span className="text-sm text-muted-foreground">—</span>
             )}
           </TableCell>
           <TableCell>
