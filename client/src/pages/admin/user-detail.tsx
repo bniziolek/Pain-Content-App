@@ -225,7 +225,7 @@ export default function UserDetailPage() {
                         setIsEditing(false);
                         setEditedName(user.name || "");
                         setEditedEmail(user.email);
-                        setEditedRole(user.role);
+                        setEditedRole(user.role as "clinician" | "admin");
                       }}
                       data-testid="button-cancel-edit"
                     >
