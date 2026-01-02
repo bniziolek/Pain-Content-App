@@ -67,6 +67,21 @@ export interface AssessmentInviteEmailData {
 }
 
 export async function sendContentEmail(data: ContentEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  // Check if Resend is configured, otherwise use dev mode logging
+  const isConfigured = await isResendConfigured();
+  if (!isConfigured) {
+    console.log('\n========== DEV MODE: EMAIL WOULD BE SENT ==========');
+    console.log('To:', data.toEmail);
+    console.log('Subject:', data.subject);
+    console.log('Content Items:', data.contentItems.length);
+    data.contentItems.forEach((item, i) => {
+      console.log(`  ${i + 1}. ${item.title} (${item.readTime || '5 min'} read)`);
+    });
+    if (data.providerNote) console.log('Provider Note:', data.providerNote);
+    console.log('===================================================\n');
+    return { success: true, messageId: 'dev-mode-' + Date.now() };
+  }
+
   try {
     const { client, fromEmail } = await getResendClient();
     
@@ -128,6 +143,17 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
 }
 
 export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  // Check if Resend is configured, otherwise use dev mode logging
+  const isConfigured = await isResendConfigured();
+  if (!isConfigured) {
+    console.log('\n========== DEV MODE: ASSESSMENT INVITE EMAIL ==========');
+    console.log('To:', data.toEmail);
+    console.log('Assessment Link:', data.assessmentLink);
+    if (data.clinicianName) console.log('From Clinician:', data.clinicianName);
+    console.log('========================================================\n');
+    return { success: true, messageId: 'dev-mode-' + Date.now() };
+  }
+
   try {
     const { client, fromEmail } = await getResendClient();
 
