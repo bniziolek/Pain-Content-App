@@ -62,11 +62,35 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Professional HTML email templates with RehabPilot branding
 
 ### Content Management (Contentful CMS)
-- **Contentful**: Headless CMS for managing content library
+- **Contentful**: Headless CMS for managing content library and care pathways
 - **Integration**: `server/contentful.ts` - Contentful client service layer
 - **Fallback**: If Contentful fails or is not configured, content is served from PostgreSQL database
-- **Content Type**: `contentItem` with fields: title, summary, body, tags, imageUrl, readTime
-- **API Behavior**: GET `/api/content` tries Contentful first, falls back to database on error
+
+#### Content Types in Contentful:
+
+**contentItem** (for educational content):
+- `title` (Short text, required)
+- `summary` (Rich text or short text)
+- `body` (Rich text or long text)
+- `tags` (Array of short text)
+- `imageUrl` (Media - image)
+- `readTime` (Short text, e.g., "5 min")
+
+**carePathway** (for treatment protocols):
+- `name` (Short text, required)
+- `description` (Rich text or short text)
+- `condition` (Short text, e.g., "Chronic Low Back Pain")
+- `durationWeeks` (Integer, default 8)
+- `milestones` (Reference, many - to pathwayMilestone)
+- `isActive` (Boolean, default true)
+
+**pathwayMilestone** (linked to carePathway):
+- `title` (Short text, required)
+- `weekNumber` (Integer, required)
+- `description` (Rich text or short text)
+- `contentReferences` (Reference, many - to contentItem)
+
+- **API Behavior**: GET `/api/content` and `/api/pathways` try Contentful first, fall back to database on error
 
 ### Required Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string

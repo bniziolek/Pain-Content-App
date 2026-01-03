@@ -1,5 +1,5 @@
 import { createClient, type Entry, type EntrySkeletonType, type Asset } from "contentful";
-import type { ContentItem } from "@shared/schema";
+import type { ContentItem, CarePathway, PathwayMilestone } from "@shared/schema";
 
 interface RichTextNode {
   nodeType: string;
@@ -157,4 +157,118 @@ export async function getContentByIdFromContentful(id: string): Promise<ContentI
 
 export function isContentfulConfigured(): boolean {
   return client !== null;
+}
+
+// Care Pathway Contentful Types
+interface ContentfulPathwayMilestoneFields {
+  title: string;
+  weekNumber: number;
+  description?: string | ContentfulRichText;
+  contentReferences?: Entry<ContentfulContentItem>[];
+}
+
+interface ContentfulPathwayMilestone extends EntrySkeletonType {
+  contentTypeId: "pathwayMilestone";
+  fields: ContentfulPathwayMilestoneFields;
+}
+
+interface ContentfulCarePathwayFields {
+  name: string;
+  description?: string | ContentfulRichText;
+  condition?: string;
+  durationWeeks?: number;
+  milestones?: Entry<ContentfulPathwayMilestone>[];
+  isActive?: boolean;
+}
+
+interface ContentfulCarePathway extends EntrySkeletonType {
+  contentTypeId: "carePathway";
+  fields: ContentfulCarePathwayFields;
+}
+
+function parseContentfulPathwayMilestone(entry: Entry<ContentfulPathwayMilestone>, pathwayId: string): PathwayMilestone {
+  const fields = entry.fields as unknown as ContentfulPathwayMilestoneFields;
+  
+  const contentIds = (fields.contentReferences || [])
+    .map(ref => ref?.sys?.id)
+    .filter((id): id is string => Boolean(id));
+  
+  return {
+    id: entry.sys.id,
+    pathwayId,
+    weekNumber: fields.weekNumber || 1,
+    title: fields.title || "",
+    description: extractTextFromRichText(fields.description || ""),
+    contentIds,
+    assessmentId: null,
+    createdAt: new Date(entry.sys.createdAt),
+  };
+}
+
+function parseContentfulCarePathway(entry: Entry<ContentfulCarePathway>): CarePathway & { milestones: PathwayMilestone[] } {
+  const fields = entry.fields as unknown as ContentfulCarePathwayFields;
+  
+  console.log("[Contentful] Parsing pathway:", entry.sys.id, "Name:", fields.name);
+  
+  const milestones = (fields.milestones || [])
+    .map(m => parseContentfulPathwayMilestone(m, entry.sys.id))
+    .sort((a, b) => a.weekNumber - b.weekNumber);
+  
+  return {
+    id: entry.sys.id,
+    clinicianUserId: null,
+    name: fields.name || "",
+    description: extractTextFromRichText(fields.description || ""),
+    condition: fields.condition || null,
+    durationWeeks: fields.durationWeeks || 8,
+    isTemplate: true,
+    isActive: fields.isActive !== false,
+    createdAt: new Date(entry.sys.createdAt),
+    milestones,
+  };
+}
+
+export async function getAllPathwaysFromContentful(): Promise<(CarePathway & { milestones: PathwayMilestone[] })[]> {
+  if (!client) {
+    throw new ContentfulError("Contentful client not initialized");
+  }
+
+  console.log("[Contentful] Fetching all care pathways...");
+
+  try {
+    const entries = await client.getEntries<ContentfulCarePathway>({
+      content_type: "carePathway",
+      include: 2,
+    });
+
+    console.log(`[Contentful] Found ${entries.items.length} care pathways`);
+    
+    return entries.items.map(parseContentfulCarePathway);
+  } catch (error: any) {
+    if (error?.sys?.id === "NotFound" || error?.message?.includes("Unknown content type")) {
+      console.log("[Contentful] carePathway content type not found, returning empty array");
+      return [];
+    }
+    console.error("[Contentful] Error fetching pathways:", error);
+    throw new ContentfulError("Failed to fetch pathways from Contentful", error);
+  }
+}
+
+export async function getPathwayByIdFromContentful(id: string): Promise<(CarePathway & { milestones: PathwayMilestone[] }) | null> {
+  if (!client) {
+    throw new ContentfulError("Contentful client not initialized");
+  }
+
+  console.log(`[Contentful] Fetching pathway by ID: ${id}`);
+
+  try {
+    const entry = await client.getEntry<ContentfulCarePathway>(id, { include: 2 });
+    return parseContentfulCarePathway(entry);
+  } catch (error: any) {
+    if (error?.sys?.id === "NotFound") {
+      return null;
+    }
+    console.error(`[Contentful] Error fetching pathway by ID ${id}:`, error);
+    throw new ContentfulError(`Failed to fetch pathway with ID ${id} from Contentful`, error);
+  }
 }

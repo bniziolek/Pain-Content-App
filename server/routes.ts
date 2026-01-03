@@ -8,7 +8,7 @@ import {
   insertInternalScreeningSchema,
   insertEmailLogSchema 
 } from "@shared/schema";
-import { getAllContentFromContentful, getContentByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
+import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail } from "./gmail";
 
 export function registerRoutes(app: Express): Server {
@@ -832,8 +832,25 @@ export function registerRoutes(app: Express): Server {
   // ====== Care Pathways Routes ======
   app.get("/api/pathways", requireSubscription, async (req, res, next) => {
     try {
+      // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
-      const templatePathways = await storage.getCarePathways();
+      
+      // Try to get template pathways from Contentful first
+      let templatePathways: any[] = [];
+      if (isContentfulConfigured()) {
+        try {
+          const contentfulPathways = await getAllPathwaysFromContentful();
+          templatePathways = contentfulPathways;
+        } catch (error) {
+          if (error instanceof ContentfulError) {
+            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
+          }
+          templatePathways = await storage.getCarePathways();
+        }
+      } else {
+        templatePathways = await storage.getCarePathways();
+      }
+      
       res.json({ custom: customPathways, templates: templatePathways });
     } catch (error) {
       next(error);
@@ -842,6 +859,22 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/pathways/:id", requireSubscription, async (req, res, next) => {
     try {
+      // Try Contentful first for pathway templates
+      if (isContentfulConfigured()) {
+        try {
+          const contentfulPathway = await getPathwayByIdFromContentful(req.params.id);
+          if (contentfulPathway) {
+            res.json(contentfulPathway);
+            return;
+          }
+        } catch (error) {
+          if (error instanceof ContentfulError) {
+            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
+          }
+        }
+      }
+      
+      // Fallback to database
       const pathway = await storage.getCarePathwayById(req.params.id);
       if (!pathway) {
         return res.status(404).json({ error: "Pathway not found" });

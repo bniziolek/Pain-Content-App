@@ -2,7 +2,7 @@ import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Send, Check, Loader2, Eye, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getContent, createEmailLog } from "@/lib/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ContentItem {
   id: string;
@@ -26,6 +28,7 @@ interface ContentItem {
 export default function LibraryPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [patientEmail, setPatientEmail] = useState("");
   const [providerNote, setProviderNote] = useState("");
@@ -37,6 +40,25 @@ export default function LibraryPage() {
     queryKey: ["content"],
     queryFn: getContent,
   });
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    contentItems.forEach(item => {
+      item.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [contentItems]);
+
+  const toggleTagFilter = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedTags([]);
+    setSearchQuery("");
+  };
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -68,10 +90,16 @@ export default function LibraryPage() {
     },
   });
 
-  const filteredContent = contentItems.filter(item => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredContent = contentItems.filter(item => {
+    const matchesSearch = !searchQuery || 
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesTags = selectedTags.length === 0 || 
+      selectedTags.every(tag => item.tags?.includes(tag));
+    
+    return matchesSearch && matchesTags;
+  });
 
   const toggleSelection = (id: string) => {
     if (selectedItems.includes(id)) {
@@ -120,7 +148,7 @@ export default function LibraryPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
@@ -128,12 +156,75 @@ export default function LibraryPage() {
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="input-search"
             />
           </div>
-          <Button variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" data-testid="button-filters">
+                <Filter className="w-4 h-4 mr-2" />
+                Filters
+                {selectedTags.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{selectedTags.length}</Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64" align="start">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm">Filter by Tag</h4>
+                  {selectedTags.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto p-1 text-xs" data-testid="button-clear-filters">
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+                <ScrollArea className="h-48">
+                  <div className="space-y-2">
+                    {allTags.map(tag => (
+                      <div key={tag} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`tag-${tag}`} 
+                          checked={selectedTags.includes(tag)}
+                          onCheckedChange={() => toggleTagFilter(tag)}
+                          data-testid={`checkbox-tag-${tag}`}
+                        />
+                        <label 
+                          htmlFor={`tag-${tag}`} 
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          {tag}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          {/* Active filter badges */}
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedTags.map(tag => (
+                <Badge 
+                  key={tag} 
+                  variant="secondary" 
+                  className="cursor-pointer hover:bg-destructive/20"
+                  onClick={() => toggleTagFilter(tag)}
+                  data-testid={`badge-filter-${tag}`}
+                >
+                  {tag}
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Results count */}
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredContent.length} of {contentItems.length} items
         </div>
 
         {/* Grid */}
