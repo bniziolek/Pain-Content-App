@@ -87,7 +87,10 @@ export interface IStorage {
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
   getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]>;
   getEmailLogsByPatientEmailAndAccessCode(patientEmail: string, accessCode: string): Promise<EmailLog[]>;
+  getEmailLogByAccessCode(accessCode: string): Promise<EmailLog | undefined>;
   updateEmailLogStatus(id: string, status: string): Promise<void>;
+  updateEmailLogLockout(id: string, updates: { failedAttempts?: number; lockedUntil?: Date | null; permanentlyLocked?: boolean }): Promise<void>;
+  unlockEmailLog(id: string): Promise<void>;
 
   // Content views
   createContentView(view: InsertContentView): Promise<ContentView>;
@@ -357,6 +360,33 @@ export class DatabaseStorage implements IStorage {
   async updateEmailLogStatus(id: string, status: string): Promise<void> {
     await db.update(schema.emailLogs)
       .set({ status })
+      .where(eq(schema.emailLogs.id, id));
+  }
+
+  async updateEmailLogLockout(id: string, updates: { 
+    failedAttempts?: number; 
+    lockedUntil?: Date | null; 
+    permanentlyLocked?: boolean;
+  }): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set(updates)
+      .where(eq(schema.emailLogs.id, id));
+  }
+
+  async getEmailLogByAccessCode(accessCode: string): Promise<EmailLog | undefined> {
+    const [log] = await db.select()
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.accessCode, accessCode));
+    return log;
+  }
+
+  async unlockEmailLog(id: string): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set({ 
+        failedAttempts: 0, 
+        lockedUntil: null, 
+        permanentlyLocked: false 
+      })
       .where(eq(schema.emailLogs.id, id));
   }
 

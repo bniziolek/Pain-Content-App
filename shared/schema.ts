@@ -93,6 +93,10 @@ export const emailLogs = pgTable("email_logs", {
   accessCode: text("access_code"), // Random 6-digit code for patient portal authentication
   status: text("status").default("sent"), // 'sent' | 'opened' | 'clicked'
   sentAt: timestamp("sent_at").defaultNow().notNull(),
+  // Lockout tracking
+  failedAttempts: integer("failed_attempts").default(0),
+  lockedUntil: timestamp("locked_until"),
+  permanentlyLocked: boolean("permanently_locked").default(false),
 });
 
 // Content view tracking - tracks when patients view content from emails
