@@ -14,11 +14,25 @@ import {
   type InsertEmailLog,
   type Assessment,
   type ContentView,
-  type InsertContentView
+  type InsertContentView,
+  type FollowUpRule,
+  type InsertFollowUpRule,
+  type ScheduledFollowUp,
+  type InsertScheduledFollowUp,
+  type CarePathway,
+  type InsertCarePathway,
+  type PathwayMilestone,
+  type InsertPathwayMilestone,
+  type PatientPathway,
+  type InsertPatientPathway,
+  type ContentRecommendation,
+  type InsertContentRecommendation,
+  type AuditLog,
+  type InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count, sql } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -81,6 +95,57 @@ export interface IStorage {
   // Admin functions
   getAllUsers(): Promise<User[]>;
   deleteUser(userId: string): Promise<void>;
+
+  // Follow-up rules
+  createFollowUpRule(rule: InsertFollowUpRule): Promise<FollowUpRule>;
+  getFollowUpRulesByClinicianId(clinicianId: string): Promise<FollowUpRule[]>;
+  updateFollowUpRule(id: string, updates: Partial<InsertFollowUpRule> & { isActive?: boolean }): Promise<void>;
+  deleteFollowUpRule(id: string): Promise<void>;
+
+  // Scheduled follow-ups
+  createScheduledFollowUp(followUp: InsertScheduledFollowUp): Promise<ScheduledFollowUp>;
+  getPendingFollowUps(): Promise<ScheduledFollowUp[]>;
+  getScheduledFollowUpsByClinicianId(clinicianId: string): Promise<ScheduledFollowUp[]>;
+  updateScheduledFollowUpStatus(id: string, status: string, sentAt?: Date): Promise<void>;
+
+  // Care pathways
+  createCarePathway(pathway: InsertCarePathway): Promise<CarePathway>;
+  getCarePathways(clinicianId?: string): Promise<CarePathway[]>;
+  getCarePathwayById(id: string): Promise<CarePathway | undefined>;
+  updateCarePathway(id: string, updates: Partial<InsertCarePathway> & { isActive?: boolean }): Promise<void>;
+  deleteCarePathway(id: string): Promise<void>;
+
+  // Pathway milestones
+  createPathwayMilestone(milestone: InsertPathwayMilestone): Promise<PathwayMilestone>;
+  getMilestonesByPathwayId(pathwayId: string): Promise<PathwayMilestone[]>;
+  updatePathwayMilestone(id: string, updates: Partial<InsertPathwayMilestone>): Promise<void>;
+  deletePathwayMilestone(id: string): Promise<void>;
+
+  // Patient pathways
+  createPatientPathway(enrollment: InsertPatientPathway): Promise<PatientPathway>;
+  getPatientPathwaysByClinicianId(clinicianId: string): Promise<PatientPathway[]>;
+  getPatientPathwayById(id: string): Promise<PatientPathway | undefined>;
+  updatePatientPathway(id: string, updates: Partial<PatientPathway>): Promise<void>;
+
+  // Content recommendations
+  createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation>;
+  getContentRecommendations(): Promise<ContentRecommendation[]>;
+  getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]>;
+  deleteContentRecommendation(id: string): Promise<void>;
+
+  // Audit logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(filters?: { userId?: string; action?: string; limit?: number }): Promise<AuditLog[]>;
+
+  // Admin analytics
+  getAdminStats(): Promise<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    totalContentSent: number;
+    totalAssessments: number;
+    recentSignups: number;
+    mrr: number;
+  }>;
 
   sessionStore: session.Store;
 }
@@ -300,6 +365,222 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<void> {
     await db.delete(schema.users).where(eq(schema.users.id, userId));
+  }
+
+  // Follow-up rule methods
+  async createFollowUpRule(rule: InsertFollowUpRule): Promise<FollowUpRule> {
+    const [created] = await db.insert(schema.followUpRules).values(rule).returning();
+    return created!;
+  }
+
+  async getFollowUpRulesByClinicianId(clinicianId: string): Promise<FollowUpRule[]> {
+    return await db.select()
+      .from(schema.followUpRules)
+      .where(eq(schema.followUpRules.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.followUpRules.createdAt));
+  }
+
+  async updateFollowUpRule(id: string, updates: Partial<InsertFollowUpRule> & { isActive?: boolean }): Promise<void> {
+    await db.update(schema.followUpRules)
+      .set(updates)
+      .where(eq(schema.followUpRules.id, id));
+  }
+
+  async deleteFollowUpRule(id: string): Promise<void> {
+    await db.delete(schema.followUpRules).where(eq(schema.followUpRules.id, id));
+  }
+
+  // Scheduled follow-up methods
+  async createScheduledFollowUp(followUp: InsertScheduledFollowUp): Promise<ScheduledFollowUp> {
+    const [created] = await db.insert(schema.scheduledFollowUps).values(followUp).returning();
+    return created!;
+  }
+
+  async getPendingFollowUps(): Promise<ScheduledFollowUp[]> {
+    return await db.select()
+      .from(schema.scheduledFollowUps)
+      .where(eq(schema.scheduledFollowUps.status, 'pending'))
+      .orderBy(schema.scheduledFollowUps.scheduledFor);
+  }
+
+  async getScheduledFollowUpsByClinicianId(clinicianId: string): Promise<ScheduledFollowUp[]> {
+    const followUps = await db.select()
+      .from(schema.scheduledFollowUps)
+      .innerJoin(schema.followUpRules, eq(schema.scheduledFollowUps.ruleId, schema.followUpRules.id))
+      .where(eq(schema.followUpRules.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.scheduledFollowUps.scheduledFor));
+    return followUps.map(f => f.scheduled_follow_ups);
+  }
+
+  async updateScheduledFollowUpStatus(id: string, status: string, sentAt?: Date): Promise<void> {
+    await db.update(schema.scheduledFollowUps)
+      .set({ status, sentAt })
+      .where(eq(schema.scheduledFollowUps.id, id));
+  }
+
+  // Care pathway methods
+  async createCarePathway(pathway: InsertCarePathway): Promise<CarePathway> {
+    const [created] = await db.insert(schema.carePathways).values(pathway).returning();
+    return created!;
+  }
+
+  async getCarePathways(clinicianId?: string): Promise<CarePathway[]> {
+    if (clinicianId) {
+      return await db.select()
+        .from(schema.carePathways)
+        .where(eq(schema.carePathways.clinicianUserId, clinicianId))
+        .orderBy(desc(schema.carePathways.createdAt));
+    }
+    return await db.select()
+      .from(schema.carePathways)
+      .where(eq(schema.carePathways.isTemplate, true))
+      .orderBy(desc(schema.carePathways.createdAt));
+  }
+
+  async getCarePathwayById(id: string): Promise<CarePathway | undefined> {
+    const [pathway] = await db.select()
+      .from(schema.carePathways)
+      .where(eq(schema.carePathways.id, id));
+    return pathway;
+  }
+
+  async updateCarePathway(id: string, updates: Partial<InsertCarePathway> & { isActive?: boolean }): Promise<void> {
+    await db.update(schema.carePathways)
+      .set(updates)
+      .where(eq(schema.carePathways.id, id));
+  }
+
+  async deleteCarePathway(id: string): Promise<void> {
+    await db.delete(schema.carePathways).where(eq(schema.carePathways.id, id));
+  }
+
+  // Pathway milestone methods
+  async createPathwayMilestone(milestone: InsertPathwayMilestone): Promise<PathwayMilestone> {
+    const [created] = await db.insert(schema.pathwayMilestones).values(milestone).returning();
+    return created!;
+  }
+
+  async getMilestonesByPathwayId(pathwayId: string): Promise<PathwayMilestone[]> {
+    return await db.select()
+      .from(schema.pathwayMilestones)
+      .where(eq(schema.pathwayMilestones.pathwayId, pathwayId))
+      .orderBy(schema.pathwayMilestones.weekNumber);
+  }
+
+  async updatePathwayMilestone(id: string, updates: Partial<InsertPathwayMilestone>): Promise<void> {
+    await db.update(schema.pathwayMilestones)
+      .set(updates)
+      .where(eq(schema.pathwayMilestones.id, id));
+  }
+
+  async deletePathwayMilestone(id: string): Promise<void> {
+    await db.delete(schema.pathwayMilestones).where(eq(schema.pathwayMilestones.id, id));
+  }
+
+  // Patient pathway methods
+  async createPatientPathway(enrollment: InsertPatientPathway): Promise<PatientPathway> {
+    const [created] = await db.insert(schema.patientPathways).values(enrollment).returning();
+    return created!;
+  }
+
+  async getPatientPathwaysByClinicianId(clinicianId: string): Promise<PatientPathway[]> {
+    return await db.select()
+      .from(schema.patientPathways)
+      .where(eq(schema.patientPathways.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.patientPathways.createdAt));
+  }
+
+  async getPatientPathwayById(id: string): Promise<PatientPathway | undefined> {
+    const [enrollment] = await db.select()
+      .from(schema.patientPathways)
+      .where(eq(schema.patientPathways.id, id));
+    return enrollment;
+  }
+
+  async updatePatientPathway(id: string, updates: Partial<PatientPathway>): Promise<void> {
+    await db.update(schema.patientPathways)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.patientPathways.id, id));
+  }
+
+  // Content recommendation methods
+  async createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation> {
+    const [created] = await db.insert(schema.contentRecommendations).values(rec).returning();
+    return created!;
+  }
+
+  async getContentRecommendations(): Promise<ContentRecommendation[]> {
+    return await db.select()
+      .from(schema.contentRecommendations)
+      .orderBy(schema.contentRecommendations.priority);
+  }
+
+  async getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]> {
+    const allRecs = await this.getContentRecommendations();
+    return allRecs.filter(rec => {
+      const score = tagScores[rec.tag];
+      if (score === undefined) return false;
+      return score >= (rec.minScore ?? 0) && score <= (rec.maxScore ?? 100);
+    });
+  }
+
+  async deleteContentRecommendation(id: string): Promise<void> {
+    await db.delete(schema.contentRecommendations).where(eq(schema.contentRecommendations.id, id));
+  }
+
+  // Audit log methods
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(schema.auditLogs).values(log).returning();
+    return created!;
+  }
+
+  async getAuditLogs(filters?: { userId?: string; action?: string; limit?: number }): Promise<AuditLog[]> {
+    let query = db.select().from(schema.auditLogs);
+    
+    if (filters?.userId) {
+      query = query.where(eq(schema.auditLogs.userId, filters.userId)) as typeof query;
+    }
+    if (filters?.action) {
+      query = query.where(eq(schema.auditLogs.action, filters.action)) as typeof query;
+    }
+    
+    const results = await query.orderBy(desc(schema.auditLogs.createdAt)).limit(filters?.limit ?? 100);
+    return results;
+  }
+
+  // Admin analytics methods
+  async getAdminStats(): Promise<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    totalContentSent: number;
+    totalAssessments: number;
+    recentSignups: number;
+    mrr: number;
+  }> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [usersResult] = await db.select({ count: count() }).from(schema.users);
+    const [activeSubsResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(eq(schema.users.subscriptionStatus, 'active'));
+    const [emailsResult] = await db.select({ count: count() }).from(schema.emailLogs);
+    const [assessmentsResult] = await db.select({ count: count() }).from(schema.assessmentInvites);
+    const [recentSignupsResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.createdAt, thirtyDaysAgo));
+
+    const activeSubs = activeSubsResult?.count ?? 0;
+    const mrr = Number(activeSubs) * 49; // $49/month per subscription
+
+    return {
+      totalUsers: usersResult?.count ?? 0,
+      activeSubscriptions: activeSubs,
+      totalContentSent: emailsResult?.count ?? 0,
+      totalAssessments: assessmentsResult?.count ?? 0,
+      recentSignups: recentSignupsResult?.count ?? 0,
+      mrr,
+    };
   }
 }
 

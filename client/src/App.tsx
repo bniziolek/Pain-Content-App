@@ -23,6 +23,8 @@ import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
+import FollowUpsPage from "@/pages/follow-ups";
+import PathwaysPage from "@/pages/pathways";
 
 function Router() {
   return (
@@ -102,6 +104,20 @@ function Router() {
           <RequireAuth>
             <SettingsPage />
           </RequireAuth>
+        )}
+      </Route>
+      <Route path="/follow-ups">
+        {() => (
+          <RequireSubscription>
+            <FollowUpsPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/pathways">
+        {() => (
+          <RequireSubscription>
+            <PathwaysPage />
+          </RequireSubscription>
         )}
       </Route>
 

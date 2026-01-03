@@ -106,6 +106,98 @@ export const contentViews = pgTable("content_views", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Automated follow-up rules
+export const followUpRules = pgTable("follow_up_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  triggerType: text("trigger_type").notNull(), // 'no_view' | 'partial_view' | 'time_based' | 'assessment_complete'
+  triggerDays: integer("trigger_days").notNull().default(3), // days after initial send
+  action: text("action").notNull(), // 'send_reminder' | 'send_new_content' | 'send_assessment'
+  contentIds: text("content_ids").array(), // content to send if action is send_new_content
+  message: text("message"), // custom message to include
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Scheduled follow-ups (instances of rules triggered)
+export const scheduledFollowUps = pgTable("scheduled_follow_ups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").references(() => followUpRules.id).notNull(),
+  emailLogId: varchar("email_log_id").references(() => emailLogs.id).notNull(),
+  patientEmail: text("patient_email").notNull(),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'sent' | 'cancelled' | 'skipped'
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Care pathways - structured treatment protocols
+export const carePathways = pgTable("care_pathways", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  condition: text("condition"), // e.g., 'low_back_pain', 'neck_pain'
+  durationWeeks: integer("duration_weeks").default(8),
+  isTemplate: boolean("is_template").default(false), // system templates vs custom
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Pathway milestones - stages within a care pathway
+export const pathwayMilestones = pgTable("pathway_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pathwayId: varchar("pathway_id").references(() => carePathways.id).notNull(),
+  weekNumber: integer("week_number").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  contentIds: text("content_ids").array(), // content to deliver at this milestone
+  assessmentId: varchar("assessment_id").references(() => assessments.id), // optional assessment
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Patient pathway enrollments
+export const patientPathways = pgTable("patient_pathways", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  pathwayId: varchar("pathway_id").references(() => carePathways.id).notNull(),
+  patientEmail: text("patient_email").notNull(),
+  patientName: text("patient_name"),
+  startDate: timestamp("start_date").notNull(),
+  currentWeek: integer("current_week").default(1),
+  status: text("status").notNull().default("active"), // 'active' | 'completed' | 'paused' | 'discontinued'
+  completedMilestones: text("completed_milestones").array().default(sql`ARRAY[]::text[]`),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Content recommendations based on assessment scores
+export const contentRecommendations = pgTable("content_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tag: text("tag").notNull(), // the content tag this rule applies to
+  minScore: integer("min_score").default(0), // minimum assessment score for this tag
+  maxScore: integer("max_score").default(100), // maximum score
+  priority: integer("priority").default(1), // recommendation priority (1 = highest)
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  rationale: text("rationale"), // why this content is recommended
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Audit log for compliance tracking
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  action: text("action").notNull(), // 'login' | 'content_access' | 'patient_data_view' | 'email_sent' | 'export'
+  resourceType: text("resource_type"), // 'patient' | 'content' | 'assessment'
+  resourceId: text("resource_id"),
+  details: jsonb("details"), // additional context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -147,6 +239,49 @@ export const insertContentViewSchema = createInsertSchema(contentViews).omit({
   createdAt: true,
 });
 
+export const insertFollowUpRuleSchema = createInsertSchema(followUpRules).omit({
+  id: true,
+  isActive: true,
+  createdAt: true,
+});
+
+export const insertScheduledFollowUpSchema = createInsertSchema(scheduledFollowUps).omit({
+  id: true,
+  status: true,
+  sentAt: true,
+  createdAt: true,
+});
+
+export const insertCarePathwaySchema = createInsertSchema(carePathways).omit({
+  id: true,
+  isActive: true,
+  createdAt: true,
+});
+
+export const insertPathwayMilestoneSchema = createInsertSchema(pathwayMilestones).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPatientPathwaySchema = createInsertSchema(patientPathways).omit({
+  id: true,
+  currentWeek: true,
+  status: true,
+  completedMilestones: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContentRecommendationSchema = createInsertSchema(contentRecommendations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -168,3 +303,24 @@ export type ContentView = typeof contentViews.$inferSelect;
 
 export type Assessment = typeof assessments.$inferSelect;
 export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
+
+export type InsertFollowUpRule = z.infer<typeof insertFollowUpRuleSchema>;
+export type FollowUpRule = typeof followUpRules.$inferSelect;
+
+export type InsertScheduledFollowUp = z.infer<typeof insertScheduledFollowUpSchema>;
+export type ScheduledFollowUp = typeof scheduledFollowUps.$inferSelect;
+
+export type InsertCarePathway = z.infer<typeof insertCarePathwaySchema>;
+export type CarePathway = typeof carePathways.$inferSelect;
+
+export type InsertPathwayMilestone = z.infer<typeof insertPathwayMilestoneSchema>;
+export type PathwayMilestone = typeof pathwayMilestones.$inferSelect;
+
+export type InsertPatientPathway = z.infer<typeof insertPatientPathwaySchema>;
+export type PatientPathway = typeof patientPathways.$inferSelect;
+
+export type InsertContentRecommendation = z.infer<typeof insertContentRecommendationSchema>;
+export type ContentRecommendation = typeof contentRecommendations.$inferSelect;
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;

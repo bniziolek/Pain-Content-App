@@ -766,29 +766,306 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
     try {
+      const stats = await storage.getAdminStats();
       const users = await storage.getAllUsers();
       const content = await storage.getAllContent();
       
-      const activeSubscriptions = users.filter(u => u.subscriptionStatus === "active").length;
-      
-      // Calculate monthly revenue - only count subscriptions that will bill this month
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      const monthlyRevenue = users.filter(u => {
-        if (u.subscriptionStatus !== "active" || !u.subscriptionPeriodEnd) return false;
-        const endDate = new Date(u.subscriptionPeriodEnd);
-        // Include if subscription is active and end date is beyond this month
-        return endDate > monthEnd;
-      }).length * 29; // $29/user
-      
       res.json({
-        totalUsers: users.length,
-        activeSubscriptions,
-        monthlyRevenue,
+        ...stats,
         totalContent: content.length,
         recentSignups: users.slice(0, 5),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Follow-up Rules Routes ======
+  app.get("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+    try {
+      const rules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
+      res.json(rules);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+    try {
+      const rule = await storage.createFollowUpRule({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+      });
+      res.status(201).json(rule);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.updateFollowUpRule(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.deleteFollowUpRule(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/scheduled-follow-ups", requireSubscription, async (req, res, next) => {
+    try {
+      const followUps = await storage.getScheduledFollowUpsByClinicianId(req.user!.id);
+      res.json(followUps);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Care Pathways Routes ======
+  app.get("/api/pathways", requireSubscription, async (req, res, next) => {
+    try {
+      const customPathways = await storage.getCarePathways(req.user!.id);
+      const templatePathways = await storage.getCarePathways();
+      res.json({ custom: customPathways, templates: templatePathways });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const pathway = await storage.getCarePathwayById(req.params.id);
+      if (!pathway) {
+        return res.status(404).json({ error: "Pathway not found" });
+      }
+      const milestones = await storage.getMilestonesByPathwayId(req.params.id);
+      res.json({ ...pathway, milestones });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/pathways", requireSubscription, async (req, res, next) => {
+    try {
+      const pathway = await storage.createCarePathway({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+      });
+      res.status(201).json(pathway);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.updateCarePathway(req.params.id, req.body);
+      const updated = await storage.getCarePathwayById(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.deleteCarePathway(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Pathway milestones
+  app.post("/api/pathways/:id/milestones", requireSubscription, async (req, res, next) => {
+    try {
+      const milestone = await storage.createPathwayMilestone({
+        ...req.body,
+        pathwayId: req.params.id,
+      });
+      res.status(201).json(milestone);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.updatePathwayMilestone(req.params.id, req.body);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.deletePathwayMilestone(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Patient pathway enrollments
+  app.get("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+    try {
+      const enrollments = await storage.getPatientPathwaysByClinicianId(req.user!.id);
+      res.json(enrollments);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+    try {
+      const enrollment = await storage.createPatientPathway({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+      });
+      res.status(201).json(enrollment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/patient-pathways/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await storage.updatePatientPathway(req.params.id, req.body);
+      const updated = await storage.getPatientPathwayById(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Content Recommendations Routes ======
+  app.get("/api/recommendations", requireSubscription, async (req, res, next) => {
+    try {
+      const recommendations = await storage.getContentRecommendations();
+      res.json(recommendations);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/recommendations/for-scores", requireSubscription, async (req, res, next) => {
+    try {
+      const { tagScores } = req.body;
+      const recommendations = await storage.getRecommendationsForScores(tagScores);
+      
+      // Get actual content for each recommendation
+      const contentPromises = recommendations.map(async rec => {
+        const content = await storage.getContentById(rec.contentId);
+        return { ...rec, content };
+      });
+      const withContent = await Promise.all(contentPromises);
+      
+      res.json(withContent);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Admin: Manage content recommendations
+  app.post("/api/admin/recommendations", requireAdmin, async (req, res, next) => {
+    try {
+      const rec = await storage.createContentRecommendation(req.body);
+      res.status(201).json(rec);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/recommendations/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteContentRecommendation(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Audit Logs Routes ======
+  app.get("/api/admin/audit-logs", requireAdmin, async (req, res, next) => {
+    try {
+      const { userId, action, limit } = req.query;
+      const logs = await storage.getAuditLogs({
+        userId: userId as string,
+        action: action as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+      res.json(logs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Admin Analytics Routes ======
+  app.get("/api/admin/analytics", requireAdmin, async (req, res, next) => {
+    try {
+      const users = await storage.getAllUsers();
+      const stats = await storage.getAdminStats();
+      
+      // Subscription health metrics
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+      
+      const activeUsers = users.filter(u => u.subscriptionStatus === 'active');
+      const canceledLastMonth = users.filter(u => 
+        u.subscriptionStatus === 'canceled' && 
+        u.updatedAt && 
+        new Date(u.updatedAt) >= thirtyDaysAgo
+      ).length;
+      
+      const newSubscriptionsLastMonth = users.filter(u => 
+        u.subscriptionStatus === 'active' && 
+        new Date(u.createdAt) >= thirtyDaysAgo
+      ).length;
+      
+      // Churn rate (canceled / total active at start of period)
+      const churnRate = activeUsers.length > 0 
+        ? Math.round((canceledLastMonth / activeUsers.length) * 100) 
+        : 0;
+      
+      // Usage analytics
+      const clinicians = users.filter(u => u.role === 'clinician');
+      const activeLastWeek = clinicians.filter(u => 
+        u.lastLogin && new Date(u.lastLogin) >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      ).length;
+      
+      res.json({
+        subscriptionHealth: {
+          totalActive: activeUsers.length,
+          mrr: stats.mrr,
+          newThisMonth: newSubscriptionsLastMonth,
+          canceledThisMonth: canceledLastMonth,
+          churnRate: `${churnRate}%`,
+          averageRevenue: activeUsers.length > 0 ? Math.round(stats.mrr / activeUsers.length) : 0,
+        },
+        usageMetrics: {
+          totalClinicians: clinicians.length,
+          activeLastWeek,
+          totalContentSent: stats.totalContentSent,
+          totalAssessments: stats.totalAssessments,
+          engagementRate: stats.totalContentSent > 0 ? Math.round((stats.totalAssessments / stats.totalContentSent) * 100) : 0,
+        },
+        growth: {
+          signupsLast30Days: stats.recentSignups,
+          previousPeriod: users.filter(u => 
+            new Date(u.createdAt) >= sixtyDaysAgo && 
+            new Date(u.createdAt) < thirtyDaysAgo
+          ).length,
+        },
       });
     } catch (error) {
       next(error);
