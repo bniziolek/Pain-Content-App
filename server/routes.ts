@@ -9,7 +9,7 @@ import {
   insertEmailLogSchema 
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail } from "./gmail";
+import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -267,9 +267,13 @@ export function registerRoutes(app: Express): Server {
   // ====== Email Log Routes ======
   app.post("/api/email-logs", requireSubscription, async (req, res, next) => {
     try {
+      // Generate a 6-digit access code for patient portal
+      const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
       const validated = insertEmailLogSchema.parse({
         ...req.body,
         clinicianUserId: req.user!.id,
+        accessCode,
       });
       
       const log = await storage.createEmailLog(validated);
@@ -323,17 +327,26 @@ export function registerRoutes(app: Express): Server {
         }
       }
       
-      // Send email via Gmail with tracking links
-      const emailResult = await sendContentEmail({
+      // Build the portal URL
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : process.env.REPLIT_DOMAINS 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+          : 'http://localhost:5000';
+      
+      // Send email via Gmail with patient portal access
+      const emailResult = await sendPatientPortalEmail({
         toEmail: validated.patientEmail,
         subject: validated.subject,
-        contentItems: contentItemsWithLinks,
+        accessCode: accessCode,
+        portalUrl: `${baseUrl}/patient-portal`,
+        contentCount: validated.contentIds?.length || 0,
         providerNote: validated.providerNote || undefined,
         clinicianName: req.user!.name || undefined,
       });
       
       if (!emailResult.success) {
-        console.error('[Email] Failed to send content email:', emailResult.error);
+        console.error('[Email] Failed to send patient portal email:', emailResult.error);
       }
       
       res.status(201).json({ ...log, emailSent: emailResult.success });

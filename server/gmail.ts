@@ -77,6 +77,16 @@ interface ContentEmailData {
   clinicianName?: string;
 }
 
+interface PatientPortalEmailData {
+  toEmail: string;
+  subject: string;
+  accessCode: string;
+  portalUrl: string;
+  contentCount: number;
+  providerNote?: string;
+  clinicianName?: string;
+}
+
 interface AssessmentInviteEmailData {
   toEmail: string;
   assessmentLink: string;
@@ -229,6 +239,83 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
     return { success: true, messageId: response.data.id || undefined };
   } catch (error) {
     console.error('[Gmail] Error sending assessment invite:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function sendPatientPortalEmail(data: PatientPortalEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const isConfigured = await isGmailConfigured();
+  if (!isConfigured) {
+    console.log('\n========== DEV MODE: PATIENT PORTAL EMAIL ==========');
+    console.log('To:', data.toEmail);
+    console.log('Subject:', data.subject);
+    console.log('Access Code:', data.accessCode);
+    console.log('Portal URL:', data.portalUrl);
+    console.log('Content Count:', data.contentCount);
+    if (data.providerNote) console.log('Provider Note:', data.providerNote);
+    console.log('=====================================================\n');
+    return { success: true, messageId: 'dev-mode-' + Date.now() };
+  }
+
+  try {
+    const gmail = await getUncachableGmailClient();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <p style="color: #666; margin: 4px 0 0 0;">Patient Education Portal</p>
+        </div>
+        
+        ${data.clinicianName ? `<p style="margin-bottom: 20px;">Your healthcare provider <strong>${data.clinicianName}</strong> has shared ${data.contentCount} educational resource${data.contentCount !== 1 ? 's' : ''} with you.</p>` : `<p style="margin-bottom: 20px;">Your healthcare provider has shared ${data.contentCount} educational resource${data.contentCount !== 1 ? 's' : ''} with you.</p>`}
+        
+        ${data.providerNote ? `
+          <div style="background: #e8f5f3; border-left: 4px solid #1a5653; padding: 12px 16px; margin-bottom: 24px; border-radius: 0 4px 4px 0;">
+            <strong>Note from your provider:</strong><br/>
+            ${data.providerNote}
+          </div>
+        ` : ''}
+        
+        <div style="background: #f8f9fa; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+          <p style="margin: 0 0 12px 0; color: #666; font-size: 14px;">Your secure access code:</p>
+          <div style="background: white; border: 2px solid #1a5653; border-radius: 8px; padding: 16px 24px; display: inline-block;">
+            <span style="font-family: 'SF Mono', Monaco, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1a5653;">${data.accessCode}</span>
+          </div>
+          <p style="margin: 16px 0 0 0; color: #888; font-size: 12px;">Keep this code private. Do not share it with anyone.</p>
+        </div>
+        
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${data.portalUrl}" style="background: #1a5653; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">View Your Content</a>
+        </div>
+        
+        <p style="color: #666; font-size: 14px; text-align: center;">You'll need to enter your email address and the access code above to view your content.</p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+        <p style="color: #888; font-size: 12px; text-align: center;">
+          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+        </p>
+      </body>
+      </html>
+    `;
+
+    const encodedEmail = createEmail(data.toEmail, data.subject, html);
+    
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedEmail
+      }
+    });
+
+    return { success: true, messageId: response.data.id || undefined };
+  } catch (error) {
+    console.error('[Gmail] Error sending patient portal email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
