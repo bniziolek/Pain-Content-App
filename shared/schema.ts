@@ -90,6 +90,7 @@ export const emailLogs = pgTable("email_logs", {
   type: text("type").notNull(), // 'content_bundle' | 'assessment_invite' | 'assessment_results'
   contentIds: text("content_ids").array(),
   providerNote: text("provider_note"),
+  accessCode: text("access_code"), // Random 6-digit code for patient portal authentication
   status: text("status").default("sent"), // 'sent' | 'opened' | 'clicked'
   sentAt: timestamp("sent_at").defaultNow().notNull(),
 });
