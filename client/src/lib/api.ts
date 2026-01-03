@@ -137,8 +137,18 @@ export async function getStats(): Promise<{
 }
 
 // Follow-up Rules API
-export async function getFollowUpRules(): Promise<FollowUpRule[]> {
+export type TemplateWithStatus = FollowUpRule & { isEnabled: boolean };
+
+export async function getFollowUpRules(): Promise<{ custom: FollowUpRule[]; templates: TemplateWithStatus[] }> {
   return fetchAPI("/follow-up-rules");
+}
+
+export async function toggleFollowUpTemplate(templateId: string, isEnabled: boolean): Promise<void> {
+  await fetchAPI(`/follow-up-templates/${templateId}/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isEnabled }),
+  });
 }
 
 export async function createFollowUpRule(rule: {

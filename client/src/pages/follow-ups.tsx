@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getFollowUpRules, createFollowUpRule, updateFollowUpRule, deleteFollowUpRule, getScheduledFollowUps } from "@/lib/api";
-import { Plus, Bell, Clock, Mail, Trash2, Edit, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { getFollowUpRules, createFollowUpRule, updateFollowUpRule, deleteFollowUpRule, getScheduledFollowUps, toggleFollowUpTemplate, type TemplateWithStatus } from "@/lib/api";
+import { Plus, Bell, Clock, Mail, Trash2, Edit, AlertCircle, CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
 
@@ -66,6 +66,11 @@ export default function FollowUpsPage() {
   
   const deleteMutation = useMutation({
     mutationFn: deleteFollowUpRule,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["follow-up-rules"] }),
+  });
+
+  const templateToggleMutation = useMutation({
+    mutationFn: ({ id, isEnabled }: { id: string; isEnabled: boolean }) => toggleFollowUpTemplate(id, isEnabled),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["follow-up-rules"] }),
   });
   
@@ -162,27 +167,78 @@ export default function FollowUpsPage() {
           </Dialog>
         </div>
 
-        <Tabs defaultValue="rules">
+        <Tabs defaultValue="templates">
           <TabsList>
-            <TabsTrigger value="rules">Active Rules</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="custom">Custom Rules</TabsTrigger>
             <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="rules" className="mt-4">
+          <TabsContent value="templates" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Follow-up Rules</CardTitle>
-                <CardDescription>Rules that automatically trigger follow-ups based on patient behavior.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Suggested Follow-up Templates
+                </CardTitle>
+                <CardDescription>Pre-built follow-up patterns you can enable with one click. Toggle on the ones you want to use.</CardDescription>
               </CardHeader>
               <CardContent>
                 {rulesLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
-                ) : !rules || rules.length === 0 ? (
+                ) : !rules?.templates || rules.templates.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No template rules available yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {rules.templates.map((template) => (
+                      <Card key={template.id} className={`relative transition-all ${template.isEnabled ? 'ring-2 ring-primary bg-primary/5' : 'opacity-75'}`} data-testid={`card-template-${template.id}`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{template.name}</CardTitle>
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">{triggerTypeLabels[template.triggerType]}</Badge>
+                                <Badge variant="secondary" className="text-xs">{template.triggerDays} days</Badge>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={template.isEnabled}
+                              onCheckedChange={(checked) => templateToggleMutation.mutate({ id: template.id, isEnabled: checked })}
+                              data-testid={`switch-template-${template.id}`}
+                            />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <p className="text-sm text-muted-foreground">{template.message}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="custom" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Custom Rules</CardTitle>
+                <CardDescription>Custom follow-up rules you've created for your practice.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {rulesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : !rules?.custom || rules.custom.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Bell className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>No follow-up rules created yet.</p>
+                    <p>No custom follow-up rules created yet.</p>
                     <p className="text-sm mt-1">Create your first rule to start automating patient follow-ups.</p>
                   </div>
                 ) : (
@@ -198,7 +254,7 @@ export default function FollowUpsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rules.map((rule) => (
+                      {rules.custom.map((rule) => (
                         <TableRow key={rule.id} data-testid={`row-rule-${rule.id}`}>
                           <TableCell className="font-medium">{rule.name}</TableCell>
                           <TableCell>

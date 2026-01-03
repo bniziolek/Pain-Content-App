@@ -2,7 +2,7 @@ import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye, ClipboardList, ShieldX, RefreshCw, AlertTriangle } from "lucide-react";
+import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye, ClipboardList, ShieldX, RefreshCw, AlertTriangle, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -203,6 +203,7 @@ export default function HistoryPage() {
       case 'content_bundle': return 'Content Bundle';
       case 'assessment_invite': return 'Assessment Invite';
       case 'assessment_results': return 'Assessment Results';
+      case 'follow_up_reminder': return 'Follow-up Reminder';
       default: return type;
     }
   };
@@ -290,10 +291,17 @@ export default function HistoryPage() {
                             <div className="flex items-center gap-2">
                               {log.type === 'assessment_invite' ? (
                                 <FileText className="w-4 h-4 text-primary" />
+                              ) : log.isFollowUp || log.type === 'follow_up_reminder' ? (
+                                <Repeat className="w-4 h-4 text-amber-600" />
                               ) : (
                                 <Mail className="w-4 h-4 text-secondary-foreground" />
                               )}
                               <span>{getTypeLabel(log.type)}</span>
+                              {(log.isFollowUp || log.type === 'follow_up_reminder') && (
+                                <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 bg-amber-50">
+                                  Follow-up
+                                </Badge>
+                              )}
                               {hasContentItems && (
                                 <span className="text-xs text-muted-foreground">
                                   ({log.contentIds?.length} items)
