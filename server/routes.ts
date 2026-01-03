@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { 
@@ -69,6 +70,131 @@ export function registerRoutes(app: Express): Server {
       }
       
       res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // In-memory patient portal sessions with expiration (24 hours)
+  const patientSessions = new Map<string, { email: string; emailLogIds: string[]; clinicianId: string; expiresAt: Date }>();
+  
+  // Clean up expired sessions every hour
+  setInterval(() => {
+    const now = new Date();
+    for (const [token, session] of patientSessions.entries()) {
+      if (session.expiresAt < now) {
+        patientSessions.delete(token);
+      }
+    }
+  }, 60 * 60 * 1000);
+
+  // ====== Patient Portal Authentication ======
+  app.post("/api/patient-portal/auth", async (req, res, next) => {
+    try {
+      const { email, accessCode } = req.body;
+      
+      if (!email || !accessCode) {
+        return res.status(400).json({ error: "Email and access code are required" });
+      }
+      
+      // Find email logs with matching email and access code
+      const emailLogs = await storage.getEmailLogsByPatientEmailAndAccessCode(email.toLowerCase(), accessCode);
+      
+      if (emailLogs.length === 0) {
+        return res.status(401).json({ error: "Invalid email or access code" });
+      }
+      
+      // Generate a secure session token (UUID) 
+      const sessionToken = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      
+      // Store session with scoped access - only email logs matching this access code
+      patientSessions.set(sessionToken, {
+        email: email.toLowerCase(),
+        emailLogIds: emailLogs.map(l => l.id),
+        clinicianId: emailLogs[0].clinicianUserId, // Scope to the clinician who sent content
+        expiresAt,
+      });
+      
+      res.json({ 
+        success: true, 
+        patientEmail: email.toLowerCase(),
+        sessionToken,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get patient's assigned content and assessments
+  app.get("/api/patient-portal/content", async (req, res, next) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "Authorization required" });
+      }
+      
+      const sessionToken = authHeader.slice(7);
+      const session = patientSessions.get(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Session expired or invalid" });
+      }
+      
+      // Check session expiration
+      if (session.expiresAt < new Date()) {
+        patientSessions.delete(sessionToken);
+        return res.status(401).json({ error: "Session expired" });
+      }
+      
+      // Get content views ONLY from the scoped email log IDs
+      const contentMap: Record<string, any> = {};
+      
+      for (const emailLogId of session.emailLogIds) {
+        const views = await storage.getContentViewsByEmailLogId(emailLogId);
+        const emailLog = await storage.getEmailLogById(emailLogId);
+        
+        for (const view of views) {
+          // Fetch content details
+          let content = null;
+          if (isContentfulConfigured()) {
+            try {
+              content = await getContentByIdFromContentful(view.contentId);
+            } catch (e) {
+              console.warn("Contentful fetch failed:", e);
+            }
+          }
+          if (!content) {
+            content = await storage.getContentById(view.contentId);
+          }
+          
+          if (content && !contentMap[view.contentId]) {
+            contentMap[view.contentId] = {
+              id: content.id,
+              title: content.title,
+              summary: content.summary,
+              readTime: content.readTime,
+              viewToken: view.token,
+              viewedAt: view.viewedAt,
+              assignedAt: emailLog?.sentAt,
+              providerNote: emailLog?.providerNote,
+            };
+          }
+        }
+      }
+      
+      // Get assessment invites ONLY from the same clinician
+      const assessmentInvites = await storage.getAssessmentInvitesByPatientEmail(session.clinicianId, session.email);
+      
+      res.json({
+        content: Object.values(contentMap),
+        assessments: assessmentInvites.map(invite => ({
+          id: invite.id,
+          token: invite.token,
+          status: invite.status,
+          createdAt: invite.createdAt,
+        })),
+      });
     } catch (error) {
       next(error);
     }

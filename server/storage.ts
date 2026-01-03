@@ -73,6 +73,7 @@ export interface IStorage {
   createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
   getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]>;
   getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]>;
+  getAssessmentInvitesByPatientEmailPublic(patientEmail: string): Promise<AssessmentInvite[]>;
   getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined>;
   updateAssessmentInviteStatus(id: string, status: string, completedAt?: Date): Promise<void>;
 
@@ -82,8 +83,10 @@ export interface IStorage {
 
   // Email logs
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
+  getEmailLogById(id: string): Promise<EmailLog | undefined>;
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
   getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]>;
+  getEmailLogsByPatientEmailAndAccessCode(patientEmail: string, accessCode: string): Promise<EmailLog[]>;
   updateEmailLogStatus(id: string, status: string): Promise<void>;
 
   // Content views
@@ -274,6 +277,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.assessmentInvites.createdAt));
   }
 
+  async getAssessmentInvitesByPatientEmailPublic(patientEmail: string): Promise<AssessmentInvite[]> {
+    return await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.patientEmail, patientEmail))
+      .orderBy(desc(schema.assessmentInvites.createdAt));
+  }
+
   async getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined> {
     const [invite] = await db.select()
       .from(schema.assessmentInvites)
@@ -306,6 +316,13 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
+  async getEmailLogById(id: string): Promise<EmailLog | undefined> {
+    const [log] = await db.select()
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.id, id));
+    return log;
+  }
+
   async getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]> {
     return await db.select()
       .from(schema.emailLogs)
@@ -320,6 +337,18 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(schema.emailLogs.clinicianUserId, clinicianId),
           eq(schema.emailLogs.patientEmail, patientEmail)
+        )
+      )
+      .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async getEmailLogsByPatientEmailAndAccessCode(patientEmail: string, accessCode: string): Promise<EmailLog[]> {
+    return await db.select()
+      .from(schema.emailLogs)
+      .where(
+        and(
+          eq(schema.emailLogs.patientEmail, patientEmail),
+          eq(schema.emailLogs.accessCode, accessCode)
         )
       )
       .orderBy(desc(schema.emailLogs.sentAt));

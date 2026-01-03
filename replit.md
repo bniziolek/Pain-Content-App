@@ -33,7 +33,18 @@ Preferred communication style: Simple, everyday language.
 - **Content Items**: Educational modules with tags, markdown body, and metadata
 - **Assessment Invites**: Patient-facing assessments sent via email
 - **Internal Screenings**: Clinician-conducted assessments
-- **Email Logs**: Tracking all content and assessment deliveries
+- **Email Logs**: Tracking all content and assessment deliveries, includes `access_code` for patient portal authentication
+
+### Patient Portal (/patient-portal)
+- **Authentication**: Email + 6-digit access code (sent via email)
+- **Session Management**: Server-side sessions with 24-hour expiration
+- **Security Features**:
+  - UUID session tokens (not predictable)
+  - Scoped access: patients only see content from the specific email that contained their access code
+  - Assessment invites scoped to the clinician who sent content
+- **API Routes**:
+  - POST `/api/patient-portal/auth` - Verify email + access code, returns session token
+  - GET `/api/patient-portal/content` - Returns assigned content and assessments (requires Bearer token)
 
 ### Authentication Flow
 - Session-based authentication with 30-day cookie expiration

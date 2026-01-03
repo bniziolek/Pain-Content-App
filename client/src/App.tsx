@@ -25,6 +25,7 @@ import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
 import PathwaysPage from "@/pages/pathways";
+import PatientPortal from "@/pages/patient-portal";
 
 function Router() {
   return (
@@ -122,6 +123,7 @@ function Router() {
       </Route>
 
       {/* Patient Public Routes */}
+      <Route path="/patient-portal" component={PatientPortal} />
       <Route path="/assessment/invite/:token" component={PatientAssessment} />
       <Route path="/assessment/demo" component={PatientAssessment} />
       <Route path="/assessment/results" component={PatientResults} />
