@@ -28,7 +28,9 @@ import {
   type ContentRecommendation,
   type InsertContentRecommendation,
   type AuditLog,
-  type InsertAuditLog
+  type InsertAuditLog,
+  type UserTemplatePreference,
+  type InsertUserTemplatePreference
 } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -105,8 +107,14 @@ export interface IStorage {
   // Follow-up rules
   createFollowUpRule(rule: InsertFollowUpRule): Promise<FollowUpRule>;
   getFollowUpRulesByClinicianId(clinicianId: string): Promise<FollowUpRule[]>;
+  getTemplateFollowUpRules(): Promise<FollowUpRule[]>;
   updateFollowUpRule(id: string, updates: Partial<InsertFollowUpRule> & { isActive?: boolean }): Promise<void>;
   deleteFollowUpRule(id: string): Promise<void>;
+
+  // User template preferences
+  getUserTemplatePreferences(userId: string): Promise<UserTemplatePreference[]>;
+  setUserTemplatePreference(userId: string, templateRuleId: string, isEnabled: boolean): Promise<UserTemplatePreference>;
+  getEnabledTemplatesForUser(userId: string): Promise<FollowUpRule[]>;
 
   // Scheduled follow-ups
   createScheduledFollowUp(followUp: InsertScheduledFollowUp): Promise<ScheduledFollowUp>;
@@ -447,6 +455,52 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFollowUpRule(id: string): Promise<void> {
     await db.delete(schema.followUpRules).where(eq(schema.followUpRules.id, id));
+  }
+
+  async getTemplateFollowUpRules(): Promise<FollowUpRule[]> {
+    return await db.select()
+      .from(schema.followUpRules)
+      .where(eq(schema.followUpRules.isTemplate, true))
+      .orderBy(schema.followUpRules.triggerDays);
+  }
+
+  async getUserTemplatePreferences(userId: string): Promise<UserTemplatePreference[]> {
+    return await db.select()
+      .from(schema.userTemplatePreferences)
+      .where(eq(schema.userTemplatePreferences.userId, userId));
+  }
+
+  async setUserTemplatePreference(userId: string, templateRuleId: string, isEnabled: boolean): Promise<UserTemplatePreference> {
+    const existing = await db.select()
+      .from(schema.userTemplatePreferences)
+      .where(and(
+        eq(schema.userTemplatePreferences.userId, userId),
+        eq(schema.userTemplatePreferences.templateRuleId, templateRuleId)
+      ));
+
+    if (existing.length > 0) {
+      await db.update(schema.userTemplatePreferences)
+        .set({ isEnabled })
+        .where(eq(schema.userTemplatePreferences.id, existing[0].id));
+      return { ...existing[0], isEnabled };
+    }
+
+    const [created] = await db.insert(schema.userTemplatePreferences)
+      .values({ userId, templateRuleId, isEnabled })
+      .returning();
+    return created!;
+  }
+
+  async getEnabledTemplatesForUser(userId: string): Promise<FollowUpRule[]> {
+    const prefs = await this.getUserTemplatePreferences(userId);
+    const enabledIds = prefs.filter(p => p.isEnabled).map(p => p.templateRuleId);
+    
+    if (enabledIds.length === 0) {
+      return [];
+    }
+    
+    const templates = await this.getTemplateFollowUpRules();
+    return templates.filter(t => enabledIds.includes(t.id));
   }
 
   // Scheduled follow-up methods

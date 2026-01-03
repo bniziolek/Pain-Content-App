@@ -100,5 +100,49 @@ export async function seedDatabase() {
     }
   }
 
+  // Seed template follow-up rules
+  const templateRules = [
+    {
+      name: "3-Day No View Reminder",
+      triggerType: "no_view",
+      triggerDays: 3,
+      action: "send_reminder",
+      message: "We noticed you haven't had a chance to view the educational materials we sent. These resources can be really helpful for your recovery journey.",
+      isTemplate: true,
+      templateKey: "no_view_3day",
+    },
+    {
+      name: "5-Day Partial View Follow-up",
+      triggerType: "partial_view",
+      triggerDays: 5,
+      action: "send_reminder",
+      message: "We see you started reviewing your educational materials. There's more helpful content waiting for you whenever you're ready.",
+      isTemplate: true,
+      templateKey: "partial_view_5day",
+    },
+    {
+      name: "7-Day Check-in Reminder",
+      triggerType: "time_based",
+      triggerDays: 7,
+      action: "send_reminder",
+      message: "It's been a week since we sent your educational materials. Just a friendly reminder that these resources are here to support your recovery.",
+      isTemplate: true,
+      templateKey: "time_based_7day",
+    },
+  ];
+
+  for (const rule of templateRules) {
+    try {
+      const existingTemplates = await storage.getTemplateFollowUpRules();
+      const exists = existingTemplates.some(t => t.templateKey === rule.templateKey);
+      if (!exists) {
+        await storage.createFollowUpRule(rule as any);
+        console.log(`Created template rule: ${rule.name}`);
+      }
+    } catch (error) {
+      console.log(`Skipping existing template rule: ${rule.name}`);
+    }
+  }
+
   console.log("Database seeded successfully!");
 }

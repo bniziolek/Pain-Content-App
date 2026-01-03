@@ -1068,8 +1068,16 @@ export function registerRoutes(app: Express): Server {
   // ====== Follow-up Rules Routes ======
   app.get("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
     try {
-      const rules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
-      res.json(rules);
+      const customRules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
+      const templates = await storage.getTemplateFollowUpRules();
+      const userPrefs = await storage.getUserTemplatePreferences(req.user!.id);
+      
+      const templatesWithStatus = templates.map(t => ({
+        ...t,
+        isEnabled: userPrefs.find(p => p.templateRuleId === t.id)?.isEnabled ?? false,
+      }));
+      
+      res.json({ custom: customRules, templates: templatesWithStatus });
     } catch (error) {
       next(error);
     }
@@ -1100,6 +1108,16 @@ export function registerRoutes(app: Express): Server {
     try {
       await storage.deleteFollowUpRule(req.params.id);
       res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/follow-up-templates/:id/toggle", requireSubscription, async (req, res, next) => {
+    try {
+      const { isEnabled } = req.body;
+      const pref = await storage.setUserTemplatePreference(req.user!.id, req.params.id, isEnabled);
+      res.json(pref);
     } catch (error) {
       next(error);
     }
