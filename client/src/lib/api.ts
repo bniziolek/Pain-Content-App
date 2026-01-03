@@ -116,6 +116,12 @@ export async function getContentViewsByEmailLog(emailLogId: string): Promise<Con
   return fetchAPI(`/email-logs/${emailLogId}/content-views`);
 }
 
+export async function resendEmailContent(emailLogId: string): Promise<EmailLog> {
+  return fetchAPI(`/email-logs/${emailLogId}/resend`, {
+    method: "POST",
+  });
+}
+
 // Stats API
 export async function getStats(): Promise<{
   sendsThisWeek: number;

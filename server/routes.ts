@@ -81,11 +81,11 @@ export function registerRoutes(app: Express): Server {
   // Clean up expired sessions every hour
   setInterval(() => {
     const now = new Date();
-    for (const [token, session] of patientSessions.entries()) {
+    Array.from(patientSessions.entries()).forEach(([token, session]) => {
       if (session.expiresAt < now) {
         patientSessions.delete(token);
       }
-    }
+    });
   }, 60 * 60 * 1000);
 
   // ====== Patient Portal Authentication ======
@@ -571,6 +571,75 @@ export function registerRoutes(app: Express): Server {
     try {
       const views = await storage.getContentViewsByEmailLogId(req.params.id);
       res.json(views);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Resend content to patient with new access code
+  app.post("/api/email-logs/:id/resend", requireSubscription, async (req, res, next) => {
+    try {
+      const clinicianId = req.user!.id;
+      
+      // Get the original email log
+      const originalLog = await storage.getEmailLogById(req.params.id);
+      if (!originalLog) {
+        return res.status(404).json({ error: "Email log not found" });
+      }
+      
+      // Verify this belongs to the current clinician
+      if (originalLog.clinicianUserId !== clinicianId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      // Generate new 6-digit access code
+      const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Determine base URL for patient portal
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+          : 'http://localhost:5000';
+      
+      // Send new email via Gmail
+      const emailResult = await sendPatientPortalEmail({
+        toEmail: originalLog.patientEmail,
+        subject: `[Resent] ${originalLog.subject}`,
+        accessCode: accessCode,
+        portalUrl: `${baseUrl}/patient-portal`,
+        contentCount: originalLog.contentIds?.length || 0,
+        providerNote: originalLog.providerNote || undefined,
+      });
+      
+      if (!emailResult.success) {
+        return res.status(500).json({ error: emailResult.error || "Failed to send email" });
+      }
+      
+      // Create new email log with the same content but new access code
+      const newEmailLog = await storage.createEmailLog({
+        clinicianUserId: clinicianId,
+        patientEmail: originalLog.patientEmail,
+        subject: `[Resent] ${originalLog.subject}`,
+        type: originalLog.type,
+        contentIds: originalLog.contentIds,
+        providerNote: originalLog.providerNote,
+        accessCode: accessCode,
+        status: "sent",
+      });
+      
+      // Create content view entries for tracking (only for content_bundle type)
+      if (originalLog.type === 'content_bundle' && originalLog.contentIds && originalLog.contentIds.length > 0) {
+        for (const contentId of originalLog.contentIds) {
+          await storage.createContentView({
+            emailLogId: newEmailLog.id,
+            contentId,
+            patientEmail: originalLog.patientEmail,
+          });
+        }
+      }
+      
+      res.json(newEmailLog);
     } catch (error) {
       next(error);
     }

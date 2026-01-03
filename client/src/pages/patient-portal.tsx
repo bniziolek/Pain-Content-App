@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Activity, BookOpen, ClipboardCheck, Clock, Eye, Lock, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Activity, BookOpen, ClipboardCheck, Clock, Eye, Lock, CheckCircle, AlertTriangle, ShieldX, Timer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ContentItem {
@@ -30,6 +31,14 @@ interface PortalData {
   assessments: Assessment[];
 }
 
+interface LockoutState {
+  permanentlyLocked?: boolean;
+  lockedUntil?: string;
+  minutesRemaining?: number;
+  attemptsRemaining?: number | null;
+  warning?: string;
+}
+
 export default function PatientPortal() {
   const [email, setEmail] = useState("");
   const [accessCode, setAccessCode] = useState("");
@@ -37,11 +46,15 @@ export default function PatientPortal() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [portalData, setPortalData] = useState<PortalData | null>(null);
+  const [lockoutState, setLockoutState] = useState<LockoutState | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(null);
+    setLockoutState(null);
 
     try {
       const res = await fetch("/api/patient-portal/auth", {
@@ -53,11 +66,17 @@ export default function PatientPortal() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast({
-          title: "Access Denied",
-          description: data.error || "Invalid email or access code",
-          variant: "destructive",
+        setErrorMessage(data.error || "Invalid email or access code");
+        
+        // Update lockout state from response
+        setLockoutState({
+          permanentlyLocked: data.permanentlyLocked,
+          lockedUntil: data.lockedUntil,
+          minutesRemaining: data.minutesRemaining,
+          attemptsRemaining: data.attemptsRemaining,
+          warning: data.warning,
         });
+        
         return;
       }
 
@@ -150,6 +169,41 @@ export default function PatientPortal() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {lockoutState?.permanentlyLocked ? (
+              <Alert variant="destructive" className="mb-4" data-testid="alert-permanent-lockout">
+                <ShieldX className="h-4 w-4" />
+                <AlertTitle>Access Permanently Locked</AlertTitle>
+                <AlertDescription>
+                  This access code has been permanently locked due to too many failed attempts. 
+                  Please contact your healthcare provider to request new access to your content.
+                </AlertDescription>
+              </Alert>
+            ) : lockoutState?.minutesRemaining ? (
+              <Alert variant="destructive" className="mb-4" data-testid="alert-temp-lockout">
+                <Timer className="h-4 w-4" />
+                <AlertTitle>Temporarily Locked</AlertTitle>
+                <AlertDescription>
+                  Too many failed attempts. Please try again in {lockoutState.minutesRemaining} minute{lockoutState.minutesRemaining > 1 ? 's' : ''}.
+                </AlertDescription>
+              </Alert>
+            ) : errorMessage ? (
+              <Alert variant="destructive" className="mb-4" data-testid="alert-error">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Access Denied</AlertTitle>
+                <AlertDescription>
+                  {errorMessage}
+                  {lockoutState?.warning && (
+                    <p className="mt-2 font-semibold text-amber-200">{lockoutState.warning}</p>
+                  )}
+                  {lockoutState?.attemptsRemaining !== undefined && lockoutState?.attemptsRemaining !== null && lockoutState.attemptsRemaining > 0 && (
+                    <p className="mt-1 text-sm opacity-80">
+                      {lockoutState.attemptsRemaining} attempt{lockoutState.attemptsRemaining !== 1 ? 's' : ''} remaining before lockout.
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -160,6 +214,7 @@ export default function PatientPortal() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={lockoutState?.permanentlyLocked || !!lockoutState?.minutesRemaining}
                   data-testid="input-email"
                 />
               </div>
@@ -174,6 +229,7 @@ export default function PatientPortal() {
                   maxLength={6}
                   pattern="[0-9]{6}"
                   required
+                  disabled={lockoutState?.permanentlyLocked || !!lockoutState?.minutesRemaining}
                   className="text-center text-2xl tracking-widest font-mono"
                   data-testid="input-access-code"
                 />
@@ -184,7 +240,7 @@ export default function PatientPortal() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading}
+                disabled={isLoading || lockoutState?.permanentlyLocked || !!lockoutState?.minutesRemaining}
                 data-testid="button-login"
               >
                 {isLoading ? "Verifying..." : "Access My Content"}

@@ -2,15 +2,16 @@ import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye, ClipboardList } from "lucide-react";
+import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye, ClipboardList, ShieldX, RefreshCw, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
-import { getEmailLogs, getContent, getContentViewsByEmailLog } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getEmailLogs, getContent, getContentViewsByEmailLog, resendEmailContent } from "@/lib/api";
 import { useState, useMemo, Fragment } from "react";
 import { Link } from "wouter";
 import type { ContentView } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 function formatTimeSpent(seconds: number | null | undefined): string {
   if (!seconds || seconds === 0) return "—";
@@ -120,6 +121,8 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
 export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const { data: emailLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["email-logs"],
@@ -129,6 +132,24 @@ export default function HistoryPage() {
   const { data: contentItems } = useQuery({
     queryKey: ["content"],
     queryFn: getContent,
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: resendEmailContent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-logs"] });
+      toast({
+        title: "Content Resent",
+        description: "A new email with a fresh access code has been sent to the patient.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Resend",
+        description: error.message || "Could not resend the content. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
   
   const contentMap = useMemo(() => {
@@ -280,20 +301,54 @@ export default function HistoryPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(log.status || 'sent')}</TableCell>
                           <TableCell>
-                            <Link href={`/patient/${encodeURIComponent(log.patientEmail)}`}>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 text-xs"
-                                onClick={(e) => e.stopPropagation()}
-                                data-testid={`button-emr-${log.id}`}
-                              >
-                                <ClipboardList className="w-3 h-3 mr-1" />
-                                EMR Note
-                              </Button>
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(log.status || 'sent')}
+                              {log.permanentlyLocked && (
+                                <Badge variant="destructive" className="text-xs" data-testid={`badge-locked-${log.id}`}>
+                                  <ShieldX className="w-3 h-3 mr-1" />
+                                  Locked
+                                </Badge>
+                              )}
+                              {!log.permanentlyLocked && log.lockedUntil && new Date(log.lockedUntil) > new Date() && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  Temp Lock
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {log.permanentlyLocked && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-7 text-xs border-primary text-primary hover:bg-primary hover:text-white"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resendMutation.mutate(log.id);
+                                  }}
+                                  disabled={resendMutation.isPending}
+                                  data-testid={`button-resend-${log.id}`}
+                                >
+                                  <RefreshCw className={`w-3 h-3 mr-1 ${resendMutation.isPending ? 'animate-spin' : ''}`} />
+                                  Resend
+                                </Button>
+                              )}
+                              <Link href={`/patient/${encodeURIComponent(log.patientEmail)}`}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-7 text-xs"
+                                  onClick={(e) => e.stopPropagation()}
+                                  data-testid={`button-emr-${log.id}`}
+                                >
+                                  <ClipboardList className="w-3 h-3 mr-1" />
+                                  EMR
+                                </Button>
+                              </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                         {isExpanded && hasContentItems && (
