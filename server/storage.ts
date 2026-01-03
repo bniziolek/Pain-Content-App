@@ -18,7 +18,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -58,6 +58,7 @@ export interface IStorage {
   getDefaultAssessment(): Promise<Assessment | undefined>;
   createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
   getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]>;
+  getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]>;
   getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined>;
   updateAssessmentInviteStatus(id: string, status: string, completedAt?: Date): Promise<void>;
 
@@ -68,6 +69,7 @@ export interface IStorage {
   // Email logs
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
+  getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]>;
   updateEmailLogStatus(id: string, status: string): Promise<void>;
 
   // Content views
@@ -195,6 +197,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.assessmentInvites.createdAt));
   }
 
+  async getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]> {
+    return await db.select()
+      .from(schema.assessmentInvites)
+      .where(
+        and(
+          eq(schema.assessmentInvites.clinicianUserId, clinicianId),
+          eq(schema.assessmentInvites.patientEmail, patientEmail)
+        )
+      )
+      .orderBy(desc(schema.assessmentInvites.createdAt));
+  }
+
   async getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined> {
     const [invite] = await db.select()
       .from(schema.assessmentInvites)
@@ -231,6 +245,18 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(schema.emailLogs)
       .where(eq(schema.emailLogs.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]> {
+    return await db.select()
+      .from(schema.emailLogs)
+      .where(
+        and(
+          eq(schema.emailLogs.clinicianUserId, clinicianId),
+          eq(schema.emailLogs.patientEmail, patientEmail)
+        )
+      )
       .orderBy(desc(schema.emailLogs.sentAt));
   }
 

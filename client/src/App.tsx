@@ -16,6 +16,7 @@ import HistoryPage from "@/pages/history";
 import PatientAssessment from "@/pages/patient-assessment";
 import PatientResults from "@/pages/patient-results";
 import ContentViewerPage from "@/pages/content-viewer";
+import PatientSummaryPage from "@/pages/patient-summary";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsersPage from "@/pages/admin/users";
@@ -86,6 +87,13 @@ function Router() {
         {() => (
           <RequireSubscription>
             <HistoryPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/patient/:email">
+        {() => (
+          <RequireSubscription>
+            <PatientSummaryPage />
           </RequireSubscription>
         )}
       </Route>

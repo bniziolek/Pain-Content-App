@@ -360,6 +360,85 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Patient Summary / EMR Documentation ======
+  app.get("/api/patient-summary/:email", requireSubscription, async (req, res, next) => {
+    try {
+      const patientEmail = decodeURIComponent(req.params.email);
+      const clinicianId = req.user!.id;
+      
+      // Gather all data for this patient
+      const emailLogs = await storage.getEmailLogsByPatientEmail(clinicianId, patientEmail);
+      const assessmentInvites = await storage.getAssessmentInvitesByPatientEmail(clinicianId, patientEmail);
+      
+      // Get content views for all email logs
+      const contentViewsPromises = emailLogs.map(log => storage.getContentViewsByEmailLogId(log.id));
+      const contentViewsArrays = await Promise.all(contentViewsPromises);
+      const allContentViews = contentViewsArrays.flat();
+      
+      // Get content details for viewed items
+      const contentIds = Array.from(new Set(allContentViews.map(v => v.contentId)));
+      const contentDetails: Record<string, { title: string; tags: string[] }> = {};
+      for (const id of contentIds) {
+        const content = await storage.getContentById(id);
+        if (content) {
+          contentDetails[id] = { title: content.title, tags: content.tags };
+        }
+      }
+      
+      // Calculate engagement stats
+      const totalContentSent = emailLogs.reduce((sum, log) => sum + (log.contentIds?.length || 0), 0);
+      const viewedContent = allContentViews.filter(v => v.viewedAt).length;
+      const totalTimeSpent = allContentViews.reduce((sum, v) => sum + (v.timeSpentSeconds || 0), 0);
+      
+      // Build summary
+      const summary = {
+        patientEmail,
+        generatedAt: new Date().toISOString(),
+        clinicianName: req.user!.name || 'Unknown',
+        
+        // Overview stats
+        stats: {
+          totalEmailsSent: emailLogs.length,
+          totalContentSent,
+          contentViewed: viewedContent,
+          engagementRate: totalContentSent > 0 ? Math.round((viewedContent / totalContentSent) * 100) : 0,
+          totalReadingTimeMinutes: Math.round(totalTimeSpent / 60),
+          assessmentsSent: assessmentInvites.length,
+          assessmentsCompleted: assessmentInvites.filter(a => a.status === 'completed').length,
+        },
+        
+        // Content engagement details
+        contentEngagement: allContentViews.map(view => ({
+          contentTitle: contentDetails[view.contentId]?.title || 'Unknown Content',
+          tags: contentDetails[view.contentId]?.tags || [],
+          sentAt: emailLogs.find(l => l.id === view.emailLogId)?.sentAt,
+          viewedAt: view.viewedAt,
+          timeSpentSeconds: view.timeSpentSeconds || 0,
+        })),
+        
+        // Email history
+        emailHistory: emailLogs.map(log => ({
+          date: log.sentAt,
+          subject: log.subject,
+          type: log.type,
+          status: log.status,
+          contentCount: log.contentIds?.length || 0,
+        })),
+        
+        // Assessment history
+        assessmentHistory: assessmentInvites.map(invite => ({
+          sentAt: invite.createdAt,
+          status: invite.status,
+          completedAt: invite.completedAt,
+        })),
+      };
+      
+      res.json(summary);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Subscription Routes (Stripe integration will come later) ======
   app.post("/api/subscription/create", requireAuth, async (req, res, next) => {
     try {

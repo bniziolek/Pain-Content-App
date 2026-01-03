@@ -2,12 +2,14 @@ import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye } from "lucide-react";
+import { Search, Mail, FileText, CheckCircle, ExternalLink, Inbox, Loader2, ChevronDown, ChevronRight, Clock, Eye, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { getEmailLogs, getContent, getContentViewsByEmailLog } from "@/lib/api";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
+import { Link } from "wouter";
 import type { ContentView } from "@shared/schema";
 
 function formatTimeSpent(seconds: number | null | undefined): string {
@@ -30,7 +32,7 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
   if (isLoading) {
     return (
       <TableRow>
-        <TableCell colSpan={5} className="bg-muted/30">
+        <TableCell colSpan={6} className="bg-muted/30">
           <div className="flex items-center gap-2 pl-8 py-2">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span className="text-sm text-muted-foreground">Loading content views...</span>
@@ -43,7 +45,7 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
   if (!views || views.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={5} className="bg-muted/30">
+        <TableCell colSpan={6} className="bg-muted/30">
           <div className="pl-8 py-2 text-sm text-muted-foreground">
             No content tracking data available
           </div>
@@ -67,6 +69,7 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
         <TableCell className="py-2">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
         </TableCell>
+        <TableCell className="py-2"></TableCell>
       </TableRow>
       {views.map((view: ContentView) => (
         <TableRow key={view.id} className="bg-muted/30">
@@ -107,6 +110,7 @@ function ContentViewsRow({ emailLogId, contentMap }: { emailLogId: string; conte
               </Badge>
             )}
           </TableCell>
+          <TableCell></TableCell>
         </TableRow>
       ))}
     </>
@@ -231,6 +235,7 @@ export default function HistoryPage() {
                     <TableHead>Patient</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -239,9 +244,8 @@ export default function HistoryPage() {
                     const hasContentItems = log.type === 'content_bundle' && log.contentIds && log.contentIds.length > 0;
                     
                     return (
-                      <>
+                      <Fragment key={log.id}>
                         <TableRow 
-                          key={log.id} 
                           data-testid={`row-email-log-${log.id}`}
                           className={hasContentItems ? "cursor-pointer hover:bg-muted/50" : ""}
                           onClick={() => hasContentItems && toggleRow(log.id)}
@@ -277,11 +281,25 @@ export default function HistoryPage() {
                             </div>
                           </TableCell>
                           <TableCell>{getStatusBadge(log.status || 'sent')}</TableCell>
+                          <TableCell>
+                            <Link href={`/patient/${encodeURIComponent(log.patientEmail)}`}>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`button-emr-${log.id}`}
+                              >
+                                <ClipboardList className="w-3 h-3 mr-1" />
+                                EMR Note
+                              </Button>
+                            </Link>
+                          </TableCell>
                         </TableRow>
                         {isExpanded && hasContentItems && (
                           <ContentViewsRow emailLogId={log.id} contentMap={contentMap} />
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
