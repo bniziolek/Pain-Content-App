@@ -87,7 +87,7 @@ export const emailLogs = pgTable("email_logs", {
   clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
   patientEmail: text("patient_email").notNull(),
   subject: text("subject").notNull(),
-  type: text("type").notNull(), // 'content_bundle' | 'assessment_invite' | 'assessment_results'
+  type: text("type").notNull(), // 'content_bundle' | 'assessment_invite' | 'assessment_results' | 'follow_up_reminder'
   contentIds: text("content_ids").array(),
   providerNote: text("provider_note"),
   accessCode: text("access_code"), // Random 6-digit code for patient portal authentication
@@ -97,6 +97,10 @@ export const emailLogs = pgTable("email_logs", {
   failedAttempts: integer("failed_attempts").default(0),
   lockedUntil: timestamp("locked_until"),
   permanentlyLocked: boolean("permanently_locked").default(false),
+  // Follow-up tracking
+  isFollowUp: boolean("is_follow_up").default(false),
+  parentEmailLogId: varchar("parent_email_log_id"), // references the original email this is following up on
+  followUpRuleId: varchar("follow_up_rule_id"), // which rule triggered this follow-up
 });
 
 // Content view tracking - tracks when patients view content from emails
@@ -114,7 +118,7 @@ export const contentViews = pgTable("content_views", {
 // Automated follow-up rules
 export const followUpRules = pgTable("follow_up_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system templates
   name: text("name").notNull(),
   triggerType: text("trigger_type").notNull(), // 'no_view' | 'partial_view' | 'time_based' | 'assessment_complete'
   triggerDays: integer("trigger_days").notNull().default(3), // days after initial send
@@ -122,6 +126,17 @@ export const followUpRules = pgTable("follow_up_rules", {
   contentIds: text("content_ids").array(), // content to send if action is send_new_content
   message: text("message"), // custom message to include
   isActive: boolean("is_active").default(true),
+  isTemplate: boolean("is_template").default(false), // true for system templates
+  templateKey: text("template_key"), // unique key for templates (e.g., 'no_view_3day')
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User preferences for template follow-up rules
+export const userTemplatePreferences = pgTable("user_template_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  templateRuleId: varchar("template_rule_id").references(() => followUpRules.id).notNull(),
+  isEnabled: boolean("is_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -247,6 +262,12 @@ export const insertContentViewSchema = createInsertSchema(contentViews).omit({
 export const insertFollowUpRuleSchema = createInsertSchema(followUpRules).omit({
   id: true,
   isActive: true,
+  isTemplate: true,
+  createdAt: true,
+});
+
+export const insertUserTemplatePreferenceSchema = createInsertSchema(userTemplatePreferences).omit({
+  id: true,
   createdAt: true,
 });
 
@@ -311,6 +332,9 @@ export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
 
 export type InsertFollowUpRule = z.infer<typeof insertFollowUpRuleSchema>;
 export type FollowUpRule = typeof followUpRules.$inferSelect;
+
+export type InsertUserTemplatePreference = z.infer<typeof insertUserTemplatePreferenceSchema>;
+export type UserTemplatePreference = typeof userTemplatePreferences.$inferSelect;
 
 export type InsertScheduledFollowUp = z.infer<typeof insertScheduledFollowUpSchema>;
 export type ScheduledFollowUp = typeof scheduledFollowUps.$inferSelect;
