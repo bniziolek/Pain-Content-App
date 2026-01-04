@@ -5,6 +5,7 @@ import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword
 import { storage } from "./storage";
 import { 
   insertContentItemSchema, 
+  insertAssessmentSchema,
   insertAssessmentInviteSchema,
   insertInternalScreeningSchema,
   insertEmailLogSchema 
@@ -12,6 +13,8 @@ import {
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
+import { scoreAssessmentResponse } from "./scoring";
+import { getRecommendationsWithFallback, createRecommendationRule, getRecommendationRules, deleteRecommendationRule } from "./recommendation";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -427,6 +430,111 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Assessment CRUD Routes (Clinician-facing) ======
+  app.get("/api/assessments", requireSubscription, async (req, res, next) => {
+    try {
+      const assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
+      const templates = await storage.getTemplateAssessments();
+      
+      await logClinicianAction(req, req.user!, 'assessment_access', {
+        resourceType: 'assessment',
+        details: { count: assessments.length + templates.length },
+      });
+      
+      res.json([...assessments, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const assessment = await storage.getAssessmentById(req.params.id);
+      if (!assessment) {
+        return res.status(404).send("Assessment not found");
+      }
+      
+      await logClinicianAction(req, req.user!, 'assessment_access', {
+        resourceType: 'assessment',
+        resourceId: req.params.id,
+        details: { name: assessment.name },
+      });
+      
+      res.json(assessment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/assessments", requireSubscription, async (req, res, next) => {
+    try {
+      const validated = insertAssessmentSchema.parse({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+      });
+      
+      const assessment = await storage.createAssessment(validated);
+      
+      await logClinicianAction(req, req.user!, 'assessment_create', {
+        resourceType: 'assessment',
+        resourceId: assessment.id,
+        details: { name: assessment.name },
+      });
+      
+      res.status(201).json(assessment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const existing = await storage.getAssessmentById(req.params.id);
+      if (!existing) {
+        return res.status(404).send("Assessment not found");
+      }
+      
+      if (existing.clinicianUserId !== req.user!.id && !existing.isTemplate) {
+        return res.status(403).send("Cannot edit assessments you don't own");
+      }
+      
+      const assessment = await storage.updateAssessment(req.params.id, req.body);
+      
+      await logClinicianAction(req, req.user!, 'assessment_update', {
+        resourceType: 'assessment',
+        resourceId: req.params.id,
+        details: { name: assessment?.name },
+      });
+      
+      res.json(assessment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const existing = await storage.getAssessmentById(req.params.id);
+      if (!existing) {
+        return res.status(404).send("Assessment not found");
+      }
+      
+      if (existing.clinicianUserId !== req.user!.id) {
+        return res.status(403).send("Cannot delete assessments you don't own");
+      }
+      
+      await logClinicianAction(req, req.user!, 'assessment_delete', {
+        resourceType: 'assessment',
+        resourceId: req.params.id,
+      });
+      
+      await storage.deleteAssessment(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Assessment Invite Routes (Patient-facing) ======
   app.post("/api/assessment-invites", requireSubscription, async (req, res, next) => {
     try {
@@ -508,6 +616,119 @@ export function registerRoutes(app: Express): Server {
       }
       
       res.json(invite);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/assessment-invites/:inviteId/complete", async (req, res, next) => {
+    try {
+      const { answers } = req.body;
+      if (!answers) {
+        return res.status(400).send("Answers are required");
+      }
+      
+      const invite = await storage.getAssessmentInviteById(req.params.inviteId);
+      if (!invite) {
+        return res.status(404).send("Invite not found");
+      }
+      
+      if (invite.status === "completed") {
+        return res.status(400).send("Assessment already completed");
+      }
+      
+      // Score the assessment
+      const scoringResult = await scoreAssessmentResponse(invite.assessmentId, answers);
+      
+      // Create the assessment response with scores
+      const response = await storage.createAssessmentResponse({
+        inviteId: invite.id,
+        answers,
+        tagScores: scoringResult.tagScores,
+        recommendedContentIds: scoringResult.recommendations,
+      });
+      
+      // Update invite status to completed
+      await storage.updateAssessmentInviteStatus(invite.id, "completed", new Date());
+      
+      // Log the patient action
+      await logPatientAction(req, invite.patientEmail, 'assessment_submit', {
+        resourceType: 'assessment',
+        resourceId: invite.assessmentId,
+        phiAccessed: true,
+        phiScope: 'assessment responses',
+        details: { inviteId: invite.id, responseId: response.id },
+      });
+      
+      res.status(201).json({ success: true, responseId: response.id });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Recommendation Rules Routes ======
+  app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+    try {
+      const rules = await getRecommendationRules();
+      res.json(rules);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+    try {
+      const { tag, minScore, maxScore, contentId, priority, rationale } = req.body;
+      
+      if (!tag || !contentId) {
+        return res.status(400).send("Tag and contentId are required");
+      }
+      
+      const rule = await createRecommendationRule(
+        tag,
+        minScore ?? 0,
+        maxScore ?? 100,
+        contentId,
+        priority ?? 1,
+        rationale
+      );
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'create_recommendation_rule', ruleId: rule.id, tag },
+      });
+      
+      res.status(201).json(rule);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/recommendation-rules/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'delete_recommendation_rule', ruleId: req.params.id },
+      });
+      
+      await deleteRecommendationRule(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Endpoint to get recommendations for a set of tag scores
+  app.post("/api/recommendations", requireSubscription, async (req, res, next) => {
+    try {
+      const { tagScores } = req.body;
+      
+      if (!tagScores || !Array.isArray(tagScores)) {
+        return res.status(400).send("tagScores array is required");
+      }
+      
+      const recommendations = await getRecommendationsWithFallback(tagScores);
+      res.json(recommendations);
     } catch (error) {
       next(error);
     }

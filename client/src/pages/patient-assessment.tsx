@@ -1,117 +1,325 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useCallback, useEffect } from "react";
+import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { assessmentQuestions } from "@/lib/mockData";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { ArrowRight, ArrowLeft, Check, Activity } from "lucide-react";
+import { Activity, Loader2, AlertCircle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Model } from "survey-core";
+import { Survey } from "survey-react-ui";
+import "survey-core/defaultV2.min.css";
+
+interface AssessmentInvite {
+  id: string;
+  assessmentId: string;
+  patientEmail: string;
+  status: string;
+}
+
+interface Assessment {
+  id: string;
+  name: string;
+  description: string | null;
+  surveyJson: object;
+}
 
 export default function PatientAssessment() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [, setLocation] = useLocation();
-
-  const question = assessmentQuestions[currentStep];
-  const isLastQuestion = currentStep === assessmentQuestions.length - 1;
-
-  const handleNext = () => {
-    if (isLastQuestion) {
+  const [, params] = useRoute("/assessment/invite/:token");
+  const [isDemoRoute] = useRoute("/assessment/demo");
+  const token = params?.token;
+  const isDemo = isDemoRoute;
+  
+  const [surveyModel, setSurveyModel] = useState<Model | null>(null);
+  
+  const { data: invite, isLoading: inviteLoading, error: inviteError } = useQuery<AssessmentInvite>({
+    queryKey: ["assessment-invite", token],
+    queryFn: async () => {
+      const res = await fetch(`/api/assessment-invites/token/${token}`);
+      if (!res.ok) throw new Error("Assessment invite not found");
+      return res.json();
+    },
+    enabled: !!token && !isDemo,
+  });
+  
+  const { data: assessment, isLoading: assessmentLoading, error: assessmentError } = useQuery<Assessment>({
+    queryKey: ["assessment", invite?.assessmentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/assessments/${invite!.assessmentId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Assessment not found");
+      return res.json();
+    },
+    enabled: !!invite?.assessmentId,
+  });
+  
+  const submitMutation = useMutation({
+    mutationFn: async (answers: object) => {
+      const res = await fetch(`/api/assessment-invites/${invite!.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      if (!res.ok) throw new Error("Failed to submit assessment");
+      return res.json();
+    },
+    onSuccess: () => {
       setLocation("/assessment/results");
-    } else {
-      setCurrentStep(prev => prev + 1);
+    },
+  });
+  
+  useEffect(() => {
+    if (assessment?.surveyJson || isDemo) {
+      const surveyJson = isDemo ? getDemoSurvey() : assessment!.surveyJson;
+      const model = new Model(surveyJson);
+      
+      model.onComplete.add((sender) => {
+        const answers = sender.data;
+        if (isDemo) {
+          setLocation("/assessment/results");
+        } else {
+          submitMutation.mutate(answers);
+        }
+      });
+      
+      model.applyTheme({
+        cssVariables: {
+          "--sjs-primary-backcolor": "rgba(37, 99, 235, 1)",
+          "--sjs-primary-backcolor-light": "rgba(37, 99, 235, 0.1)",
+          "--sjs-primary-forecolor": "rgba(255, 255, 255, 1)",
+          "--sjs-base-unit": "8px",
+          "--sjs-corner-radius": "8px",
+          "--sjs-font-family": "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif",
+        }
+      });
+      
+      setSurveyModel(model);
     }
-  };
-
-  const handlePrev = () => {
-    setCurrentStep(prev => Math.max(0, prev - 1));
-  };
-
-  const progress = ((currentStep + 1) / assessmentQuestions.length) * 100;
+  }, [assessment, isDemo, submitMutation, setLocation]);
+  
+  if (!isDemo && (inviteLoading || assessmentLoading)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
+        <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
+          <Activity className="w-6 h-6" />
+          <span>RehabPilot</span>
+        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">Loading your assessment...</p>
+      </div>
+    );
+  }
+  
+  if (!isDemo && (inviteError || assessmentError)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
+        <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
+          <Activity className="w-6 h-6" />
+          <span>RehabPilot</span>
+        </div>
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Assessment Not Found</h2>
+            <p className="text-muted-foreground">
+              This assessment link may have expired or is no longer valid. 
+              Please contact your healthcare provider for a new link.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (invite?.status === "completed" && !isDemo) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
+        <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
+          <Activity className="w-6 h-6" />
+          <span>RehabPilot</span>
+        </div>
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Already Completed</h2>
+            <p className="text-muted-foreground">
+              You have already completed this assessment. Your responses have been recorded.
+            </p>
+            <Button className="mt-6" onClick={() => setLocation("/assessment/results")}>
+              View Results
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4">
-      {/* Brand */}
       <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
         <Activity className="w-6 h-6" />
         <span>RehabPilot</span>
       </div>
 
-      <div className="w-full max-w-2xl space-y-6">
-        {/* Progress */}
-        <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-primary transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+      <div className="w-full max-w-3xl">
+        {assessment && !isDemo && (
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-serif font-bold">{assessment.name}</h1>
+            {assessment.description && (
+              <p className="text-muted-foreground mt-2">{assessment.description}</p>
+            )}
+          </div>
+        )}
+        
+        {isDemo && (
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-serif font-bold">Pain Assessment Demo</h1>
+            <p className="text-muted-foreground mt-2">
+              This is a demonstration of our patient assessment system.
+            </p>
+          </div>
+        )}
 
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-8 sm:p-12 min-h-[400px] flex flex-col justify-between">
-            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 key={currentStep}">
-              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Question {currentStep + 1} of {assessmentQuestions.length}
-              </span>
-              
-              <h2 className="text-2xl sm:text-3xl font-serif leading-tight">
-                {question.text}
-              </h2>
-
-              <div className="pt-4">
-                {question.type === 'scale' && (
-                  <div className="space-y-6">
-                    <Slider 
-                      defaultValue={[5]} 
-                      max={10} 
-                      step={1} 
-                      className="py-4"
-                      onValueChange={(val) => setAnswers({...answers, [question.id]: val[0]})}
-                    />
-                    <div className="flex justify-between text-sm text-muted-foreground font-medium">
-                      <span>{question.minLabel}</span>
-                      <span>{question.maxLabel}</span>
-                    </div>
-                  </div>
-                )}
-
-                {question.type === 'yes_no' && (
-                  <RadioGroup 
-                    onValueChange={(val) => setAnswers({...answers, [question.id]: val})}
-                    className="flex flex-col space-y-3"
-                  >
-                    <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors [&:has(:checked)]:border-primary [&:has(:checked)]:bg-blue-50/50">
-                      <RadioGroupItem value="yes" id="yes" />
-                      <Label htmlFor="yes" className="flex-1 cursor-pointer">Yes, frequently</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors [&:has(:checked)]:border-primary [&:has(:checked)]:bg-blue-50/50">
-                      <RadioGroupItem value="no" id="no" />
-                      <Label htmlFor="no" className="flex-1 cursor-pointer">No, rarely</Label>
-                    </div>
-                  </RadioGroup>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-8 mt-8 border-t">
-              <Button 
-                variant="ghost" 
-                onClick={handlePrev} 
-                disabled={currentStep === 0}
-                className="text-muted-foreground"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button onClick={handleNext} className="px-8" size="lg">
-                {isLastQuestion ? "Complete" : "Next"}
-                {!isLastQuestion && <ArrowRight className="w-4 h-4 ml-2" />}
-                {isLastQuestion && <Check className="w-4 h-4 ml-2" />}
-              </Button>
-            </div>
+        <Card className="border-none shadow-lg overflow-hidden" data-testid="survey-container">
+          <CardContent className="p-0">
+            {surveyModel && (
+              <Survey model={surveyModel} />
+            )}
           </CardContent>
         </Card>
+        
+        {submitMutation.isPending && (
+          <div className="flex items-center justify-center mt-4 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            Submitting your responses...
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function getDemoSurvey() {
+  return {
+    title: "Pain Assessment",
+    showProgressBar: "top",
+    pages: [
+      {
+        name: "page1",
+        title: "About Your Pain",
+        elements: [
+          {
+            type: "rating",
+            name: "pain_intensity",
+            title: "On a scale of 0-10, how would you rate your current pain level?",
+            rateMin: 0,
+            rateMax: 10,
+            minRateDescription: "No pain",
+            maxRateDescription: "Worst pain imaginable",
+            isRequired: true,
+          },
+          {
+            type: "checkbox",
+            name: "pain_location",
+            title: "Where do you experience pain? (Select all that apply)",
+            choices: [
+              "Lower back",
+              "Upper back",
+              "Neck",
+              "Shoulders",
+              "Hips",
+              "Knees",
+              "Ankles/Feet",
+              "Other",
+            ],
+            isRequired: true,
+          },
+        ],
+      },
+      {
+        name: "page2",
+        title: "Pain Characteristics",
+        elements: [
+          {
+            type: "radiogroup",
+            name: "pain_duration",
+            title: "How long have you been experiencing this pain?",
+            choices: [
+              "Less than 1 week",
+              "1-4 weeks",
+              "1-3 months",
+              "3-6 months",
+              "More than 6 months",
+            ],
+            isRequired: true,
+          },
+          {
+            type: "radiogroup",
+            name: "pain_pattern",
+            title: "How would you describe your pain pattern?",
+            choices: [
+              "Constant - present all the time",
+              "Intermittent - comes and goes",
+              "Activity-related - only with certain movements",
+              "Time-related - worse at certain times of day",
+            ],
+            isRequired: true,
+          },
+        ],
+      },
+      {
+        name: "page3",
+        title: "Impact on Daily Life",
+        elements: [
+          {
+            type: "matrix",
+            name: "daily_activities",
+            title: "How much does your pain affect the following activities?",
+            columns: [
+              { value: 0, text: "Not at all" },
+              { value: 1, text: "Slightly" },
+              { value: 2, text: "Moderately" },
+              { value: 3, text: "Severely" },
+            ],
+            rows: [
+              { value: "sleep", text: "Sleeping" },
+              { value: "work", text: "Working or daily tasks" },
+              { value: "exercise", text: "Exercise or physical activity" },
+              { value: "mood", text: "Mood and emotions" },
+              { value: "social", text: "Social activities" },
+            ],
+            isRequired: true,
+          },
+        ],
+      },
+      {
+        name: "page4",
+        title: "Your Beliefs About Pain",
+        elements: [
+          {
+            type: "radiogroup",
+            name: "pain_cause_belief",
+            title: "What do you believe is the primary cause of your pain?",
+            choices: [
+              "Physical injury or damage",
+              "Wear and tear / aging",
+              "Stress and tension",
+              "Poor posture or movement habits",
+              "I'm not sure",
+            ],
+            isRequired: true,
+          },
+          {
+            type: "boolean",
+            name: "fear_movement",
+            title: "Do you worry that physical activity might make your pain worse?",
+            isRequired: true,
+          },
+        ],
+      },
+    ],
+    completedHtml: "<h3>Thank you for completing this assessment!</h3><p>Your healthcare provider will review your responses and create a personalized care plan for you.</p>",
+  };
 }

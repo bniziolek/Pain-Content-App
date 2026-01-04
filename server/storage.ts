@@ -14,6 +14,8 @@ import {
   type InsertEmailLog,
   type Assessment,
   type InsertAssessment,
+  type AssessmentResponse,
+  type InsertAssessmentResponse,
   type ContentView,
   type InsertContentView,
   type FollowUpRule,
@@ -90,8 +92,13 @@ export interface IStorage {
   updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined>;
   deleteAssessment(id: string): Promise<void>;
   
+  // Assessment responses
+  createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse>;
+  getAssessmentResponseByInviteId(inviteId: string): Promise<AssessmentResponse | undefined>;
+  
   // Assessment invites
   createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
+  getAssessmentInviteById(id: string): Promise<AssessmentInvite | undefined>;
   getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]>;
   getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]>;
   getAssessmentInvitesByPatientEmailPublic(patientEmail: string): Promise<AssessmentInvite[]>;
@@ -347,6 +354,19 @@ export class DatabaseStorage implements IStorage {
     await db.delete(schema.assessments).where(eq(schema.assessments.id, id));
   }
 
+  // Assessment response methods
+  async createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse> {
+    const [created] = await db.insert(schema.assessmentResponses).values(response).returning();
+    return created!;
+  }
+
+  async getAssessmentResponseByInviteId(inviteId: string): Promise<AssessmentResponse | undefined> {
+    const [response] = await db.select()
+      .from(schema.assessmentResponses)
+      .where(eq(schema.assessmentResponses.inviteId, inviteId));
+    return response;
+  }
+
   // Assessment invite methods
   async createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite> {
     const token = crypto.randomUUID();
@@ -354,6 +374,13 @@ export class DatabaseStorage implements IStorage {
       .values({ ...invite, token })
       .returning();
     return created!;
+  }
+
+  async getAssessmentInviteById(id: string): Promise<AssessmentInvite | undefined> {
+    const [invite] = await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.id, id));
+    return invite;
   }
 
   async getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]> {

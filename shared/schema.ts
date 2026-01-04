@@ -427,6 +427,12 @@ export const insertAssessmentSchema = createInsertSchema(assessments).omit({
 
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type Assessment = typeof assessments.$inferSelect;
+
+export const insertAssessmentResponseSchema = createInsertSchema(assessmentResponses).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAssessmentResponse = z.infer<typeof insertAssessmentResponseSchema>;
 export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
 
 export type InsertFollowUpRule = z.infer<typeof insertFollowUpRuleSchema>;

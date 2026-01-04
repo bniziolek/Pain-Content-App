@@ -24,6 +24,8 @@ export type AuditAction =
   | 'patient_portal_auth_failed'
   | 'assessment_create'
   | 'assessment_access'
+  | 'assessment_update'
+  | 'assessment_delete'
   | 'assessment_submit'
   | 'screening_create'
   | 'screening_access'

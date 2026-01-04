@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assessmentInvites, internalScreenings } from "@/lib/mockData";
-import { Plus, Search, Mail, Eye, CheckCircle, Clock, Stethoscope, FileText, Send } from "lucide-react";
+import { Plus, Search, Mail, Eye, CheckCircle, Stethoscope, Send, PenTool, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+
+interface Assessment {
+  id: string;
+  name: string;
+  description: string | null;
+  isTemplate: boolean;
+  isPublished: boolean;
+  createdAt: string;
+}
 
 export default function AssessmentsPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
+
+  const { data: assessments = [] } = useQuery<Assessment[]>({
+    queryKey: ["assessments"],
+    queryFn: async () => {
+      const res = await fetch("/api/assessments", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch assessments");
+      return res.json();
+    },
+  });
 
   const handleInvite = () => {
     setIsInviteOpen(false);
@@ -55,14 +76,18 @@ export default function AssessmentsPage() {
           <p className="text-muted-foreground">Manage patient invites and internal screenings.</p>
         </div>
 
-        <Tabs defaultValue="external" className="space-y-6">
+        <Tabs defaultValue="builder" className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <TabsList>
-              <TabsTrigger value="external" className="gap-2">
+              <TabsTrigger value="builder" className="gap-2" data-testid="tab-builder">
+                <PenTool className="w-4 h-4" />
+                My Assessments
+              </TabsTrigger>
+              <TabsTrigger value="external" className="gap-2" data-testid="tab-invites">
                 <Send className="w-4 h-4" />
                 Patient Invites
               </TabsTrigger>
-              <TabsTrigger value="internal" className="gap-2">
+              <TabsTrigger value="internal" className="gap-2" data-testid="tab-screenings">
                 <Stethoscope className="w-4 h-4" />
                 Internal Screenings
               </TabsTrigger>
@@ -131,8 +156,94 @@ export default function AssessmentsPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              <Button 
+                onClick={() => setLocation("/assessments/builder")}
+                data-testid="button-build-assessment"
+              >
+                <PenTool className="w-4 h-4 mr-2" />
+                Build Assessment
+              </Button>
             </div>
           </div>
+
+          <TabsContent value="builder" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>My Assessments</CardTitle>
+                    <CardDescription>Custom assessments you've created using the visual builder</CardDescription>
+                  </div>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input placeholder="Search assessments..." className="pl-9 h-9" data-testid="input-search-assessments" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {assessments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <PenTool className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No assessments yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Create your first custom assessment using our visual builder.
+                    </p>
+                    <Button onClick={() => setLocation("/assessments/builder")} data-testid="button-create-first">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Assessment
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assessments.map((assessment) => (
+                        <TableRow key={assessment.id} data-testid={`row-assessment-${assessment.id}`}>
+                          <TableCell className="font-medium">{assessment.name}</TableCell>
+                          <TableCell>
+                            {assessment.isPublished ? (
+                              <Badge className="bg-green-100 text-green-700 border-none">Published</Badge>
+                            ) : (
+                              <Badge variant="secondary">Draft</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {assessment.isTemplate ? (
+                              <Badge variant="outline">Template</Badge>
+                            ) : (
+                              <Badge variant="outline">Custom</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {new Date(assessment.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setLocation(`/assessments/builder/${assessment.id}`)}
+                              data-testid={`button-edit-${assessment.id}`}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="external" className="space-y-4">
             <Card>

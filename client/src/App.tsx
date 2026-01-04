@@ -26,6 +26,7 @@ import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
 import PathwaysPage from "@/pages/pathways";
 import PatientPortal from "@/pages/patient-portal";
+import AssessmentBuilderPage from "@/pages/assessment-builder";
 
 function Router() {
   return (
@@ -83,6 +84,20 @@ function Router() {
         {() => (
           <RequireSubscription>
             <AssessmentsPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/assessments/builder">
+        {() => (
+          <RequireSubscription>
+            <AssessmentBuilderPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/assessments/builder/:id">
+        {() => (
+          <RequireSubscription>
+            <AssessmentBuilderPage />
           </RequireSubscription>
         )}
       </Route>
