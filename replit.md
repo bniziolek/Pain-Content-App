@@ -175,11 +175,16 @@ Preferred communication style: Simple, everyday language.
 - **Integration**: Automatically runs on assessment completion
 
 ### Recommendation Service (server/recommendation.ts)
-- **Purpose**: Generates content suggestions based on assessment scores
-- **Rules-Based Matching**: Uses `content_recommendations` table to map tag score ranges to content
-- **Fields**: tag, minScore, maxScore, priority, contentId, rationale
-- **Fallback Logic**: Tag-based content matching when rules don't provide enough recommendations
-- **Deduplication**: Ensures each content piece appears only once in recommendations
+- **Purpose**: Generates content suggestions based on assessment scores using a three-tier architecture
+- **Three-Tier Logic**:
+  1. **Clinician Rules**: Explicit rules in `recommendation_configs` table with tag/score ranges, pathway/assessment scoping
+  2. **Pathway Context**: Content from current milestone when patient is enrolled in a care pathway
+  3. **Tag-Based Fallback**: Matches elevated assessment tags to content with matching tags
+- **Tables**:
+  - `recommendation_configs`: Clinician-defined rules linking tags/scores to content (with priority, assessment/pathway scoping)
+  - `patient_recommendations`: Tracks recommendations generated per patient email log for clinician review
+- **Features**: Preview functionality to test rules, priority ordering, deduplication, rationale tracking
+- **Management UI**: `/recommendation-rules` page for clinicians to create, edit, delete rules and preview results
 
 ### API Endpoints
 - **Assessment CRUD**:
@@ -187,6 +192,9 @@ Preferred communication style: Simple, everyday language.
   - GET/PUT/DELETE `/api/assessments/:id` - Individual assessment operations
 - **Assessment Completion**:
   - POST `/api/patient-portal/assessments/:token` - Submit responses (triggers scoring + recommendations)
-- **Recommendation Rules**:
-  - GET/POST/DELETE `/api/recommendation-rules` - Manage content recommendation rules
-  - POST `/api/recommendations` - Generate recommendations from tag scores
+- **Recommendation Config Management**:
+  - GET/POST `/api/recommendation-configs` - List and create recommendation rules
+  - GET/PUT/DELETE `/api/recommendation-configs/:id` - Individual rule operations
+  - POST `/api/recommendations/preview` - Preview recommendations for given tag scores
+- **Patient Recommendations**:
+  - GET `/api/patient-recommendations` - View recommendation history for a patient email log
