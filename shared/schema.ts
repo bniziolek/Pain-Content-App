@@ -35,14 +35,20 @@ export const contentItems = pgTable("content_items", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Assessment definitions
+// Assessment definitions - supports SurveyJS format
 export const assessments = pgTable("assessments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system assessments
   name: text("name").notNull(),
+  description: text("description"),
   version: text("version").default("1.0"),
-  questions: jsonb("questions").notNull(), // array of question objects
-  scoringRules: jsonb("scoring_rules"), // how to calculate tag scores
+  surveyJson: jsonb("survey_json").notNull(), // Full SurveyJS definition (questions, pages, logic)
+  scoringConfig: jsonb("scoring_config"), // Custom scoring rules: { tags: { tagName: { questionWeights: {...} } } }
+  outcomeRules: jsonb("outcome_rules"), // Rules to determine primary outcome from tag scores
+  isTemplate: boolean("is_template").default(false), // System templates vs clinician custom
+  isPublished: boolean("is_published").default(false), // Draft vs published
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Patient invites (external assessments)
@@ -412,6 +418,14 @@ export type EmailLog = typeof emailLogs.$inferSelect;
 export type InsertContentView = z.infer<typeof insertContentViewSchema>;
 export type ContentView = typeof contentViews.$inferSelect;
 
+export const insertAssessmentSchema = createInsertSchema(assessments).omit({
+  id: true,
+  isPublished: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type Assessment = typeof assessments.$inferSelect;
 export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
 

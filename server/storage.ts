@@ -13,6 +13,7 @@ import {
   type EmailLog,
   type InsertEmailLog,
   type Assessment,
+  type InsertAssessment,
   type ContentView,
   type InsertContentView,
   type FollowUpRule,
@@ -81,6 +82,15 @@ export interface IStorage {
 
   // Assessments
   getDefaultAssessment(): Promise<Assessment | undefined>;
+  getAssessmentById(id: string): Promise<Assessment | undefined>;
+  getAssessmentsByClinicianId(clinicianId: string): Promise<Assessment[]>;
+  getTemplateAssessments(): Promise<Assessment[]>;
+  getAllAssessments(): Promise<Assessment[]>;
+  createAssessment(assessment: InsertAssessment): Promise<Assessment>;
+  updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined>;
+  deleteAssessment(id: string): Promise<void>;
+  
+  // Assessment invites
   createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
   getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]>;
   getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]>;
@@ -293,10 +303,51 @@ export class DatabaseStorage implements IStorage {
 
   // Assessment methods
   async getDefaultAssessment(): Promise<Assessment | undefined> {
-    const [assessment] = await db.select().from(schema.assessments).limit(1);
+    const [assessment] = await db.select().from(schema.assessments).where(eq(schema.assessments.isPublished, true)).limit(1);
     return assessment;
   }
 
+  async getAssessmentById(id: string): Promise<Assessment | undefined> {
+    const [assessment] = await db.select().from(schema.assessments).where(eq(schema.assessments.id, id));
+    return assessment;
+  }
+
+  async getAssessmentsByClinicianId(clinicianId: string): Promise<Assessment[]> {
+    return await db.select()
+      .from(schema.assessments)
+      .where(eq(schema.assessments.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async getTemplateAssessments(): Promise<Assessment[]> {
+    return await db.select()
+      .from(schema.assessments)
+      .where(eq(schema.assessments.isTemplate, true))
+      .orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async getAllAssessments(): Promise<Assessment[]> {
+    return await db.select().from(schema.assessments).orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async createAssessment(assessment: InsertAssessment): Promise<Assessment> {
+    const [created] = await db.insert(schema.assessments).values(assessment).returning();
+    return created!;
+  }
+
+  async updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined> {
+    const [updated] = await db.update(schema.assessments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.assessments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAssessment(id: string): Promise<void> {
+    await db.delete(schema.assessments).where(eq(schema.assessments.id, id));
+  }
+
+  // Assessment invite methods
   async createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite> {
     const token = crypto.randomUUID();
     const [created] = await db.insert(schema.assessmentInvites)
