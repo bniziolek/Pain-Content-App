@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
+import { seedPermissions } from "./rbac";
 
 const scryptAsync = promisify(scrypt);
 
@@ -142,6 +143,144 @@ export async function seedDatabase() {
     } catch (error) {
       console.log(`Skipping existing template rule: ${rule.name}`);
     }
+  }
+
+  // Seed RBAC permissions
+  try {
+    await seedPermissions();
+    console.log("Permissions seeded");
+  } catch (error) {
+    console.log("Permissions seeding error:", error);
+  }
+
+  // Seed data inventory for PHI classification
+  const dataInventoryItems = [
+    {
+      dataAssetName: "Patient Email Addresses",
+      tableName: "email_logs",
+      fieldName: "patient_email",
+      dataClassification: "PHI",
+      description: "Email addresses of patients receiving educational content",
+      containsPhi: true,
+      phiTypes: ["email"],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 2555, // 7 years
+      disposalMethod: "secure_delete",
+      accessRoles: ["clinician", "admin"],
+    },
+    {
+      dataAssetName: "Patient Names",
+      tableName: "patient_pathways",
+      fieldName: "patient_name",
+      dataClassification: "PHI",
+      description: "Names of patients enrolled in care pathways",
+      containsPhi: true,
+      phiTypes: ["name"],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 2555,
+      disposalMethod: "secure_delete",
+      accessRoles: ["clinician", "admin"],
+    },
+    {
+      dataAssetName: "Assessment Responses",
+      tableName: "assessment_responses",
+      fieldName: "answers",
+      dataClassification: "PHI",
+      description: "Patient responses to health assessments",
+      containsPhi: true,
+      phiTypes: ["health_data", "assessment_scores"],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 2555,
+      disposalMethod: "secure_delete",
+      accessRoles: ["clinician", "admin"],
+    },
+    {
+      dataAssetName: "Internal Screening Data",
+      tableName: "internal_screenings",
+      fieldName: "answers",
+      dataClassification: "PHI",
+      description: "Clinician-conducted assessment results",
+      containsPhi: true,
+      phiTypes: ["name", "health_data", "assessment_scores"],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 2555,
+      disposalMethod: "secure_delete",
+      accessRoles: ["clinician", "admin"],
+    },
+    {
+      dataAssetName: "Access Codes",
+      tableName: "email_logs",
+      fieldName: "access_code_hash",
+      dataClassification: "Sensitive",
+      description: "Hashed access codes for patient portal authentication",
+      containsPhi: false,
+      phiTypes: [],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 365,
+      disposalMethod: "secure_delete",
+      accessRoles: ["admin"],
+    },
+    {
+      dataAssetName: "Clinician Credentials",
+      tableName: "users",
+      fieldName: "password",
+      dataClassification: "Sensitive",
+      description: "Hashed passwords for clinician accounts",
+      containsPhi: false,
+      phiTypes: [],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: null,
+      disposalMethod: "secure_delete",
+      accessRoles: ["admin"],
+    },
+    {
+      dataAssetName: "Audit Logs",
+      tableName: "audit_logs",
+      fieldName: null,
+      dataClassification: "Internal",
+      description: "System audit trail for compliance tracking",
+      containsPhi: false,
+      phiTypes: [],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: 2555, // 7 years for HIPAA
+      disposalMethod: "archive",
+      accessRoles: ["admin"],
+    },
+    {
+      dataAssetName: "Educational Content",
+      tableName: "content_items",
+      fieldName: null,
+      dataClassification: "Internal",
+      description: "Educational materials for patient education",
+      containsPhi: false,
+      phiTypes: [],
+      encryptedAtRest: true,
+      encryptedInTransit: true,
+      retentionDays: null,
+      disposalMethod: "archive",
+      accessRoles: ["clinician", "admin", "readonly"],
+    },
+  ];
+
+  try {
+    const existingInventory = await storage.getDataInventory();
+    for (const item of dataInventoryItems) {
+      const exists = existingInventory.some(i => i.dataAssetName === item.dataAssetName);
+      if (!exists) {
+        await storage.createDataInventoryItem(item as any);
+        console.log(`Created data inventory: ${item.dataAssetName}`);
+      }
+    }
+    console.log("Data inventory seeded");
+  } catch (error) {
+    console.log("Data inventory seeding error:", error);
   }
 
   console.log("Database seeded successfully!");
