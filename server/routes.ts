@@ -14,7 +14,19 @@ import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwa
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
-import { getRecommendationsWithFallback, createRecommendationRule, getRecommendationRules, deleteRecommendationRule } from "./recommendation";
+import { 
+  getRecommendationsWithFallback, 
+  createRecommendationRule, 
+  getRecommendationRules, 
+  deleteRecommendationRule,
+  createRecommendationConfig,
+  getRecommendationConfigs,
+  updateRecommendationConfig,
+  deleteRecommendationConfig,
+  previewRecommendations,
+  generateRecommendations,
+  savePatientRecommendation
+} from "./recommendation";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -729,6 +741,141 @@ export function registerRoutes(app: Express): Server {
       
       const recommendations = await getRecommendationsWithFallback(tagScores);
       res.json(recommendations);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Preview recommendations for given tag scores (for testing rules)
+  app.post("/api/recommendations/preview", requireSubscription, async (req, res, next) => {
+    try {
+      const { tagScores, assessmentId, pathwayId, pathwayWeek } = req.body;
+      
+      if (!tagScores || !Array.isArray(tagScores)) {
+        return res.status(400).send("tagScores array is required");
+      }
+      
+      const result = await previewRecommendations(tagScores, assessmentId, pathwayId, pathwayWeek);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Recommendation Config Routes (Advanced Rules) ======
+  app.get("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+    try {
+      const { assessmentId, pathwayId } = req.query;
+      const configs = await getRecommendationConfigs({
+        clinicianId: req.user!.id,
+        assessmentId: assessmentId as string | undefined,
+        pathwayId: pathwayId as string | undefined,
+      });
+      res.json(configs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+    try {
+      const { name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, priority, contentIds, rationale } = req.body;
+      
+      if (!name || !tag || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name, tag, and contentIds are required");
+      }
+      
+      const config = await createRecommendationConfig({
+        clinicianUserId: req.user!.id,
+        name,
+        assessmentId,
+        pathwayId,
+        pathwayWeek,
+        tag,
+        minScore: minScore ?? 0,
+        maxScore: maxScore ?? 100,
+        priority: priority ?? 1,
+        contentIds,
+        rationale,
+      });
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'create_recommendation_config', configId: config.id, name },
+      });
+      
+      res.status(201).json(config);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
+      
+      const updated = await updateRecommendationConfig(req.params.id, {
+        name,
+        tag,
+        minScore,
+        maxScore,
+        priority,
+        contentIds,
+        rationale,
+        isActive,
+      });
+      
+      if (!updated) {
+        return res.status(404).send("Recommendation config not found");
+      }
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'update_recommendation_config', configId: req.params.id },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+    try {
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'delete_recommendation_config', configId: req.params.id },
+      });
+      
+      await deleteRecommendationConfig(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Patient Recommendations History ======
+  app.get("/api/patient-recommendations", requireSubscription, async (req, res, next) => {
+    try {
+      const { patientEmail, source } = req.query;
+      const recs = await storage.getPatientRecommendations({
+        clinicianId: req.user!.id,
+        patientEmail: patientEmail as string | undefined,
+        source: source as string | undefined,
+      });
+      res.json(recs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/patient-recommendations/:id", requireSubscription, async (req, res, next) => {
+    try {
+      const rec = await storage.getPatientRecommendationById(req.params.id);
+      if (!rec) {
+        return res.status(404).send("Recommendation not found");
+      }
+      res.json(rec);
     } catch (error) {
       next(error);
     }

@@ -12,7 +12,8 @@ import {
   Users,
   ShieldCheck,
   Bell,
-  Route
+  Route,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
     { href: "/library", label: "Content Library", icon: Library },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/pathways", label: "Care Pathways", icon: Route },
+    { href: "/recommendation-rules", label: "Recommendations", icon: Sparkles },
     { href: "/follow-ups", label: "Follow-ups", icon: Bell },
     { href: "/history", label: "Send History", icon: History },
     { href: "/settings", label: "Settings", icon: Settings },

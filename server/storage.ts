@@ -41,7 +41,11 @@ import {
   type RolePermission,
   type InsertRolePermission,
   type DataInventory,
-  type InsertDataInventory
+  type InsertDataInventory,
+  type RecommendationConfig,
+  type InsertRecommendationConfig,
+  type PatientRecommendation,
+  type InsertPatientRecommendation
 } from "@shared/schema";
 import crypto from "crypto";
 import session from "express-session";
@@ -167,11 +171,24 @@ export interface IStorage {
   getPatientPathwayById(id: string): Promise<PatientPathway | undefined>;
   updatePatientPathway(id: string, updates: Partial<PatientPathway>): Promise<void>;
 
-  // Content recommendations
+  // Content recommendations (legacy simple rules)
   createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation>;
   getContentRecommendations(): Promise<ContentRecommendation[]>;
   getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]>;
   deleteContentRecommendation(id: string): Promise<void>;
+
+  // Recommendation configs (advanced rules with pathway support)
+  createRecommendationConfig(config: InsertRecommendationConfig): Promise<RecommendationConfig>;
+  getRecommendationConfigs(filters?: { clinicianId?: string; assessmentId?: string; pathwayId?: string; isActive?: boolean }): Promise<RecommendationConfig[]>;
+  getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined>;
+  updateRecommendationConfig(id: string, updates: Partial<InsertRecommendationConfig> & { isActive?: boolean }): Promise<RecommendationConfig | undefined>;
+  deleteRecommendationConfig(id: string): Promise<void>;
+
+  // Patient recommendations (tracking what was recommended)
+  createPatientRecommendation(rec: InsertPatientRecommendation): Promise<PatientRecommendation>;
+  getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string }): Promise<PatientRecommendation[]>;
+  getPatientRecommendationById(id: string): Promise<PatientRecommendation | undefined>;
+  updatePatientRecommendationStatus(id: string, status: string, emailLogId?: string): Promise<void>;
 
   // Audit logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
@@ -753,6 +770,87 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContentRecommendation(id: string): Promise<void> {
     await db.delete(schema.contentRecommendations).where(eq(schema.contentRecommendations.id, id));
+  }
+
+  // Recommendation config methods (advanced rules)
+  async createRecommendationConfig(config: InsertRecommendationConfig): Promise<RecommendationConfig> {
+    const [created] = await db.insert(schema.recommendationConfigs).values(config).returning();
+    return created!;
+  }
+
+  async getRecommendationConfigs(filters?: { clinicianId?: string; assessmentId?: string; pathwayId?: string; isActive?: boolean }): Promise<RecommendationConfig[]> {
+    const conditions = [];
+    if (filters?.clinicianId) {
+      conditions.push(eq(schema.recommendationConfigs.clinicianUserId, filters.clinicianId));
+    }
+    if (filters?.assessmentId) {
+      conditions.push(eq(schema.recommendationConfigs.assessmentId, filters.assessmentId));
+    }
+    if (filters?.pathwayId) {
+      conditions.push(eq(schema.recommendationConfigs.pathwayId, filters.pathwayId));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(schema.recommendationConfigs.isActive, filters.isActive));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select().from(schema.recommendationConfigs).where(and(...conditions)).orderBy(schema.recommendationConfigs.priority);
+    }
+    return db.select().from(schema.recommendationConfigs).orderBy(schema.recommendationConfigs.priority);
+  }
+
+  async getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined> {
+    const [config] = await db.select().from(schema.recommendationConfigs).where(eq(schema.recommendationConfigs.id, id));
+    return config;
+  }
+
+  async updateRecommendationConfig(id: string, updates: Partial<InsertRecommendationConfig> & { isActive?: boolean }): Promise<RecommendationConfig | undefined> {
+    const [updated] = await db.update(schema.recommendationConfigs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.recommendationConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteRecommendationConfig(id: string): Promise<void> {
+    await db.delete(schema.recommendationConfigs).where(eq(schema.recommendationConfigs.id, id));
+  }
+
+  // Patient recommendation methods (tracking)
+  async createPatientRecommendation(rec: InsertPatientRecommendation): Promise<PatientRecommendation> {
+    const [created] = await db.insert(schema.patientRecommendations).values(rec).returning();
+    return created!;
+  }
+
+  async getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string }): Promise<PatientRecommendation[]> {
+    const conditions = [];
+    if (filters.clinicianId) {
+      conditions.push(eq(schema.patientRecommendations.clinicianUserId, filters.clinicianId));
+    }
+    if (filters.patientEmail) {
+      conditions.push(eq(schema.patientRecommendations.patientEmail, filters.patientEmail));
+    }
+    if (filters.source) {
+      conditions.push(eq(schema.patientRecommendations.source, filters.source));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select().from(schema.patientRecommendations).where(and(...conditions)).orderBy(desc(schema.patientRecommendations.createdAt));
+    }
+    return db.select().from(schema.patientRecommendations).orderBy(desc(schema.patientRecommendations.createdAt));
+  }
+
+  async getPatientRecommendationById(id: string): Promise<PatientRecommendation | undefined> {
+    const [rec] = await db.select().from(schema.patientRecommendations).where(eq(schema.patientRecommendations.id, id));
+    return rec;
+  }
+
+  async updatePatientRecommendationStatus(id: string, status: string, emailLogId?: string): Promise<void> {
+    const updates: any = { status };
+    if (emailLogId) {
+      updates.sentViaEmailLogId = emailLogId;
+    }
+    await db.update(schema.patientRecommendations).set(updates).where(eq(schema.patientRecommendations.id, id));
   }
 
   // Audit log methods

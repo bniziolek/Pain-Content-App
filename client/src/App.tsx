@@ -24,6 +24,7 @@ import UserDetailPage from "@/pages/admin/user-detail";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
+import RecommendationRulesPage from "@/pages/recommendation-rules";
 import PathwaysPage from "@/pages/pathways";
 import PatientPortal from "@/pages/patient-portal";
 import AssessmentBuilderPage from "@/pages/assessment-builder";
@@ -120,6 +121,13 @@ function Router() {
           <RequireAuth>
             <SettingsPage />
           </RequireAuth>
+        )}
+      </Route>
+      <Route path="/recommendation-rules">
+        {() => (
+          <RequireSubscription>
+            <RecommendationRulesPage />
+          </RequireSubscription>
         )}
       </Route>
       <Route path="/follow-ups">

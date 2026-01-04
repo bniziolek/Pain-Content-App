@@ -214,6 +214,44 @@ export const contentRecommendations = pgTable("content_recommendations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Recommendation configs - links assessments, pathways, and content with clinician rules
+export const recommendationConfigs = pgTable("recommendation_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system rules
+  name: text("name").notNull(), // descriptive name for the rule
+  assessmentId: varchar("assessment_id").references(() => assessments.id), // optional: scope to specific assessment
+  pathwayId: varchar("pathway_id").references(() => carePathways.id), // optional: scope to specific pathway
+  pathwayWeek: integer("pathway_week"), // optional: scope to specific week in pathway
+  tag: text("tag").notNull(), // the assessment tag this rule triggers on
+  minScore: integer("min_score").default(0),
+  maxScore: integer("max_score").default(100),
+  priority: integer("priority").default(1), // lower = higher priority
+  contentIds: text("content_ids").array().notNull().default(sql`ARRAY[]::text[]`), // content to recommend
+  rationale: text("rationale"), // clinician-facing explanation of why this rule exists
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Patient recommendations - tracks what was recommended and why (for clinician review)
+export const patientRecommendations = pgTable("patient_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientEmail: text("patient_email").notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  source: text("source").notNull(), // 'assessment' | 'pathway_milestone' | 'manual'
+  sourceId: text("source_id"), // assessment_response_id or patient_pathway_id
+  assessmentId: varchar("assessment_id").references(() => assessments.id),
+  pathwayId: varchar("pathway_id").references(() => carePathways.id),
+  pathwayWeek: integer("pathway_week"),
+  tagScores: jsonb("tag_scores"), // snapshot of scores at recommendation time
+  matchedRuleIds: text("matched_rule_ids").array(), // which rules fired
+  recommendedContentIds: text("recommended_content_ids").array().notNull(),
+  contentRationale: jsonb("content_rationale"), // { contentId: "rationale for this content" }
+  status: text("status").notNull().default("generated"), // 'generated' | 'sent' | 'viewed' | 'dismissed'
+  sentViaEmailLogId: varchar("sent_via_email_log_id").references(() => emailLogs.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Audit log for compliance tracking (HIPAA-compliant immutable log)
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -370,6 +408,19 @@ export const insertContentRecommendationSchema = createInsertSchema(contentRecom
   createdAt: true,
 });
 
+export const insertRecommendationConfigSchema = createInsertSchema(recommendationConfigs).omit({
+  id: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPatientRecommendationSchema = createInsertSchema(patientRecommendations).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+});
+
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true,
@@ -455,6 +506,12 @@ export type PatientPathway = typeof patientPathways.$inferSelect;
 
 export type InsertContentRecommendation = z.infer<typeof insertContentRecommendationSchema>;
 export type ContentRecommendation = typeof contentRecommendations.$inferSelect;
+
+export type InsertRecommendationConfig = z.infer<typeof insertRecommendationConfigSchema>;
+export type RecommendationConfig = typeof recommendationConfigs.$inferSelect;
+
+export type InsertPatientRecommendation = z.infer<typeof insertPatientRecommendationSchema>;
+export type PatientRecommendation = typeof patientRecommendations.$inferSelect;
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
