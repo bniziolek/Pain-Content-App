@@ -538,7 +538,7 @@ export function registerRoutes(app: Express): Server {
         resourceId: screening.id,
         phiAccessed: true,
         phiScope: 'patient name/identifier, screening responses',
-        details: { patientIdentifier: validated.patientIdentifier },
+        details: { patientName: validated.patientName },
       });
       
       res.status(201).json(screening);
@@ -1032,6 +1032,13 @@ export function registerRoutes(app: Express): Server {
         subscriptionPeriodEnd: periodEnd,
       });
       
+      // Audit log: admin created user
+      await logClinicianAction(req, req.user!, 'user_create', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { targetEmail: email, createdByAdmin: true },
+      });
+      
       res.json(user);
     } catch (error) {
       next(error);
@@ -1097,6 +1104,14 @@ export function registerRoutes(app: Express): Server {
       const { name, email, role } = req.body;
       await storage.updateUser(req.params.id, { name, email, role });
       const updatedUser = await storage.getUser(req.params.id);
+      
+      // Audit log: admin updated user
+      await logClinicianAction(req, req.user!, 'user_update', {
+        resourceType: 'user',
+        resourceId: req.params.id,
+        details: { changes: { name, email, role } },
+      });
+      
       res.json(updatedUser);
     } catch (error) {
       next(error);
@@ -1111,6 +1126,14 @@ export function registerRoutes(app: Express): Server {
         subscriptionPeriodEnd: subscriptionPeriodEnd ? new Date(subscriptionPeriodEnd) : undefined,
       });
       const user = await storage.getUser(req.params.id);
+      
+      // Audit log: subscription status changed
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'user',
+        resourceId: req.params.id,
+        details: { subscriptionStatus, subscriptionPeriodEnd },
+      });
+      
       res.json(user);
     } catch (error) {
       next(error);
@@ -1145,6 +1168,14 @@ export function registerRoutes(app: Express): Server {
       const { password } = req.body;
       const hashedPassword = await hashPassword(password || "changeme123");
       await storage.updateUserPassword(req.params.id, hashedPassword);
+      
+      // Audit log: password reset by admin
+      await logClinicianAction(req, req.user!, 'password_change', {
+        resourceType: 'user',
+        resourceId: req.params.id,
+        details: { resetByAdmin: true },
+      });
+      
       res.json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       next(error);
@@ -1153,6 +1184,12 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
     try {
+      // Audit log: user deletion by admin
+      await logClinicianAction(req, req.user!, 'user_delete', {
+        resourceType: 'user',
+        resourceId: req.params.id,
+      });
+      
       await storage.deleteUser(req.params.id);
       res.sendStatus(204);
     } catch (error) {
