@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
+import { logClinicianAction, logPatientAction } from "./audit";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -75,18 +76,25 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // In-memory patient portal sessions with expiration (24 hours)
-  const patientSessions = new Map<string, { email: string; emailLogIds: string[]; clinicianId: string; expiresAt: Date }>();
-  
-  // Clean up expired sessions every hour
-  setInterval(() => {
-    const now = new Date();
-    Array.from(patientSessions.entries()).forEach(([token, session]) => {
-      if (session.expiresAt < now) {
-        patientSessions.delete(token);
+  // Clean up expired patient sessions every hour (from database)
+  setInterval(async () => {
+    try {
+      const count = await storage.invalidateExpiredSessions();
+      if (count > 0) {
+        console.log(`[Session cleanup] Invalidated ${count} expired patient sessions`);
       }
-    });
+    } catch (error) {
+      console.error('[Session cleanup] Error:', error);
+    }
   }, 60 * 60 * 1000);
+
+  // Helper to get client IP
+  const getClientIp = (req: any): string => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+    if (Array.isArray(forwarded)) return forwarded[0];
+    return req.socket?.remoteAddress || 'unknown';
+  };
 
   // ====== Patient Portal Authentication ======
   app.post("/api/patient-portal/auth", async (req, res, next) => {
@@ -102,6 +110,11 @@ export function registerRoutes(app: Express): Server {
       
       // If no email log found with this code, return generic error (don't reveal if code exists)
       if (!emailLog) {
+        // Audit log: failed auth attempt (code not found)
+        await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth_failed', {
+          details: { reason: 'invalid_code' },
+          outcome: 'failure',
+        });
         return res.status(401).json({ 
           error: "Invalid email or access code",
           attemptsRemaining: null 
@@ -185,12 +198,23 @@ export function registerRoutes(app: Express): Server {
       const sessionToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       
-      // Store session with scoped access - only this specific email log
-      patientSessions.set(sessionToken, {
-        email: email.toLowerCase(),
-        emailLogIds: [emailLog.id], // Only this specific email log
-        clinicianId: emailLog.clinicianUserId,
+      // Store session in database (persistent, trackable)
+      await storage.createPatientSession({
+        token: sessionToken,
+        patientEmail: email.toLowerCase(),
+        emailLogId: emailLog.id,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || 'unknown',
         expiresAt,
+      });
+      
+      // Audit log: successful patient portal login
+      await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth', {
+        resourceType: 'session',
+        resourceId: emailLog.id,
+        phiAccessed: true,
+        phiScope: 'patient email, session created',
+        sessionId: sessionToken,
       });
       
       res.json({ 
@@ -212,7 +236,7 @@ export function registerRoutes(app: Express): Server {
       }
       
       const sessionToken = authHeader.slice(7);
-      const session = patientSessions.get(sessionToken);
+      const session = await storage.getPatientSessionByToken(sessionToken);
       
       if (!session) {
         return res.status(401).json({ error: "Session expired or invalid" });
@@ -220,48 +244,60 @@ export function registerRoutes(app: Express): Server {
       
       // Check session expiration
       if (session.expiresAt < new Date()) {
-        patientSessions.delete(sessionToken);
+        await storage.invalidatePatientSession(sessionToken);
         return res.status(401).json({ error: "Session expired" });
       }
       
-      // Get content views ONLY from the scoped email log IDs
-      const contentMap: Record<string, any> = {};
+      // Update session activity (sliding window)
+      await storage.updatePatientSessionActivity(sessionToken);
       
-      for (const emailLogId of session.emailLogIds) {
-        const views = await storage.getContentViewsByEmailLogId(emailLogId);
-        const emailLog = await storage.getEmailLogById(emailLogId);
+      // Get email log for this session
+      const emailLog = await storage.getEmailLogById(session.emailLogId);
+      
+      // Get content views from the scoped email log
+      const contentMap: Record<string, any> = {};
+      const views = await storage.getContentViewsByEmailLogId(session.emailLogId);
+      
+      for (const view of views) {
+        let content = null;
+        if (isContentfulConfigured()) {
+          try {
+            content = await getContentByIdFromContentful(view.contentId);
+          } catch (e) {
+            console.warn("Contentful fetch failed:", e);
+          }
+        }
+        if (!content) {
+          content = await storage.getContentById(view.contentId);
+        }
         
-        for (const view of views) {
-          // Fetch content details
-          let content = null;
-          if (isContentfulConfigured()) {
-            try {
-              content = await getContentByIdFromContentful(view.contentId);
-            } catch (e) {
-              console.warn("Contentful fetch failed:", e);
-            }
-          }
-          if (!content) {
-            content = await storage.getContentById(view.contentId);
-          }
-          
-          if (content && !contentMap[view.contentId]) {
-            contentMap[view.contentId] = {
-              id: content.id,
-              title: content.title,
-              summary: content.summary,
-              readTime: content.readTime,
-              viewToken: view.token,
-              viewedAt: view.viewedAt,
-              assignedAt: emailLog?.sentAt,
-              providerNote: emailLog?.providerNote,
-            };
-          }
+        if (content && !contentMap[view.contentId]) {
+          contentMap[view.contentId] = {
+            id: content.id,
+            title: content.title,
+            summary: content.summary,
+            readTime: content.readTime,
+            viewToken: view.token,
+            viewedAt: view.viewedAt,
+            assignedAt: emailLog?.sentAt,
+            providerNote: emailLog?.providerNote,
+          };
         }
       }
       
-      // Get assessment invites ONLY from the same clinician
-      const assessmentInvites = await storage.getAssessmentInvitesByPatientEmail(session.clinicianId, session.email);
+      // Get assessment invites from the same clinician
+      const clinicianId = emailLog?.clinicianUserId;
+      const assessmentInvites = clinicianId 
+        ? await storage.getAssessmentInvitesByPatientEmail(clinicianId, session.patientEmail)
+        : [];
+      
+      // Audit log: patient viewing content (PHI access)
+      await logPatientAction(req, session.patientEmail, 'content_view', {
+        resourceType: 'content',
+        phiAccessed: true,
+        phiScope: 'patient educational content',
+        sessionId: sessionToken,
+      });
       
       res.json({
         content: Object.values(contentMap),
@@ -551,6 +587,19 @@ export function registerRoutes(app: Express): Server {
       if (!emailResult.success) {
         console.error('[Email] Failed to send patient portal email:', emailResult.error);
       }
+      
+      // Audit log: email sent to patient (PHI action)
+      await logClinicianAction(req, req.user!, 'email_sent', {
+        resourceType: 'email_log',
+        resourceId: log.id,
+        phiAccessed: true,
+        phiScope: 'patient email address, content delivery',
+        details: { 
+          patientEmail: validated.patientEmail, 
+          contentCount: validated.contentIds?.length || 0,
+          emailSent: emailResult.success,
+        },
+      });
       
       res.status(201).json({ ...log, emailSent: emailResult.success });
     } catch (error) {
@@ -1340,6 +1389,61 @@ export function registerRoutes(app: Express): Server {
         limit: limit ? parseInt(limit as string) : undefined,
       });
       res.json(logs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Data Inventory Routes (HIPAA Compliance) ======
+  app.get("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+    try {
+      const inventory = await storage.getDataInventory();
+      res.json(inventory);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+    try {
+      const item = await storage.createDataInventoryItem(req.body);
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'user',
+        details: { action: 'created_data_inventory_item', itemName: item.dataAssetName },
+      });
+      
+      res.status(201).json(item);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.updateDataInventoryItem(req.params.id, req.body);
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'user',
+        details: { action: 'updated_data_inventory_item', itemId: req.params.id },
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteDataInventoryItem(req.params.id);
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'user',
+        details: { action: 'deleted_data_inventory_item', itemId: req.params.id },
+      });
+      
+      res.sendStatus(204);
     } catch (error) {
       next(error);
     }

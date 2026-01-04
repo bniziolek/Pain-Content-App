@@ -115,3 +115,43 @@ Preferred communication style: Simple, everyday language.
 - Recharts for dashboard analytics visualization
 - Lucide React for iconography
 - Embla Carousel for content carousels
+
+## HIPAA Compliance Features
+
+### Audit Logging
+- **Table**: `audit_logs` - Immutable log of all PHI access and system actions
+- **Tracked Actions**: login, logout, login_failed, content_access, phi_view, phi_export, email_sent, settings_change, user_create, user_update, password_change, session_timeout
+- **Fields**: userId, actorType (clinician/admin/patient/system), actorEmail, action, resourceType, resourceId, phiAccessed, phiScope, ipAddress, userAgent, sessionId, outcome
+- **Service**: `server/audit.ts` - Logging helpers (logClinicianAction, logPatientAction, logSystemAction)
+
+### Access Code Security
+- **Hashing**: PBKDF2 with 100,000 iterations, SHA-512, per-code salt
+- **Fields**: `access_code_hash`, `access_code_salt`, `access_code_generated_at` in email_logs table
+- **Transition**: Supports both hashed and legacy plaintext codes during migration
+- **Lockout**: Tiered lockout system (5min, 1hr, permanent) after failed attempts
+
+### Patient Session Management
+- **Table**: `patient_sessions` - Persistent, database-backed sessions
+- **Fields**: token, patientEmail, emailLogId, ipAddress, userAgent, lastActivity, expiresAt, isActive
+- **Features**: 24-hour expiration, sliding window (activity updates), automatic cleanup of expired sessions
+- **Security**: Sessions scoped to specific email log ID, UUID tokens
+
+### Role-Based Access Control (RBAC)
+- **Tables**: `permissions`, `role_permissions`
+- **Roles**: clinician, admin, readonly, support
+- **Permissions**: content:read/write/delete, patient:read/write/delete, assessment:read/write, email:send, user:manage, audit:view, settings:manage, admin:access
+- **Middleware**: `server/rbac.ts` - requirePermission(), requireRole()
+- **Admin has all permissions by default**
+
+### Data Classification & Inventory
+- **Table**: `data_inventory` - PHI/PII classification registry
+- **Classifications**: PHI, PII, Sensitive, Internal, Public
+- **Tracked Assets**: Patient Email Addresses, Patient Names, Assessment Responses, Internal Screening Data, Access Codes, Clinician Credentials, Audit Logs, Educational Content
+- **Metadata**: Retention periods (7 years for PHI), disposal methods, encryption status, access roles
+- **API**: GET/POST/PATCH/DELETE `/api/admin/data-inventory`
+
+### Security Architecture
+- **Encryption in Transit**: All data over HTTPS/TLS
+- **Encryption at Rest**: PostgreSQL with managed encryption
+- **Password Hashing**: scrypt with salt for clinician passwords
+- **Session Security**: HttpOnly cookies, secure flag in production, 30-day max age for clinicians
