@@ -30,8 +30,17 @@ import {
   type AuditLog,
   type InsertAuditLog,
   type UserTemplatePreference,
-  type InsertUserTemplatePreference
+  type InsertUserTemplatePreference,
+  type PatientSession,
+  type InsertPatientSession,
+  type Permission,
+  type InsertPermission,
+  type RolePermission,
+  type InsertRolePermission,
+  type DataInventory,
+  type InsertDataInventory
 } from "@shared/schema";
+import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { eq, desc, and, gte, lte, count, sql } from "drizzle-orm";
@@ -149,7 +158,34 @@ export interface IStorage {
 
   // Audit logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
-  getAuditLogs(filters?: { userId?: string; action?: string; limit?: number }): Promise<AuditLog[]>;
+  getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]>;
+
+  // Patient sessions (persistent)
+  createPatientSession(session: InsertPatientSession): Promise<PatientSession>;
+  getPatientSessionByToken(token: string): Promise<PatientSession | undefined>;
+  updatePatientSessionActivity(token: string): Promise<void>;
+  invalidatePatientSession(token: string): Promise<void>;
+  invalidateExpiredSessions(): Promise<number>;
+
+  // Access code hashing
+  hashAccessCode(code: string): Promise<{ hash: string; salt: string }>;
+  verifyAccessCode(code: string, hash: string, salt: string): Promise<boolean>;
+  createEmailLogWithHashedCode(log: InsertEmailLog, plainCode: string): Promise<EmailLog>;
+  getEmailLogByHashedCode(patientEmail: string, plainCode: string): Promise<EmailLog | undefined>;
+
+  // Permissions (RBAC)
+  getPermissions(): Promise<Permission[]>;
+  getPermissionsByRole(role: string): Promise<Permission[]>;
+  createPermission(permission: InsertPermission): Promise<Permission>;
+  assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission>;
+  removePermissionFromRole(role: string, permissionId: string): Promise<void>;
+  hasPermission(role: string, permissionName: string): Promise<boolean>;
+
+  // Data inventory
+  getDataInventory(): Promise<DataInventory[]>;
+  createDataInventoryItem(item: InsertDataInventory): Promise<DataInventory>;
+  updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void>;
+  deleteDataInventoryItem(id: string): Promise<void>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -647,18 +683,183 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async getAuditLogs(filters?: { userId?: string; action?: string; limit?: number }): Promise<AuditLog[]> {
+  async getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]> {
     let query = db.select().from(schema.auditLogs);
     
+    const conditions = [];
     if (filters?.userId) {
-      query = query.where(eq(schema.auditLogs.userId, filters.userId)) as typeof query;
+      conditions.push(eq(schema.auditLogs.userId, filters.userId));
     }
     if (filters?.action) {
-      query = query.where(eq(schema.auditLogs.action, filters.action)) as typeof query;
+      conditions.push(eq(schema.auditLogs.action, filters.action));
+    }
+    if (filters?.actorType) {
+      conditions.push(eq(schema.auditLogs.actorType, filters.actorType));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(schema.auditLogs.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(schema.auditLogs.createdAt, filters.endDate));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
     }
     
     const results = await query.orderBy(desc(schema.auditLogs.createdAt)).limit(filters?.limit ?? 100);
     return results;
+  }
+
+  // Patient session methods
+  async createPatientSession(sessionData: InsertPatientSession): Promise<PatientSession> {
+    const [created] = await db.insert(schema.patientSessions).values(sessionData).returning();
+    return created!;
+  }
+
+  async getPatientSessionByToken(token: string): Promise<PatientSession | undefined> {
+    const [session] = await db.select()
+      .from(schema.patientSessions)
+      .where(and(
+        eq(schema.patientSessions.token, token),
+        eq(schema.patientSessions.isActive, true)
+      ));
+    return session;
+  }
+
+  async updatePatientSessionActivity(token: string): Promise<void> {
+    await db.update(schema.patientSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(schema.patientSessions.token, token));
+  }
+
+  async invalidatePatientSession(token: string): Promise<void> {
+    await db.update(schema.patientSessions)
+      .set({ isActive: false })
+      .where(eq(schema.patientSessions.token, token));
+  }
+
+  async invalidateExpiredSessions(): Promise<number> {
+    const result = await db.update(schema.patientSessions)
+      .set({ isActive: false })
+      .where(and(
+        eq(schema.patientSessions.isActive, true),
+        lte(schema.patientSessions.expiresAt, new Date())
+      ))
+      .returning();
+    return result.length;
+  }
+
+  // Access code hashing methods
+  async hashAccessCode(code: string): Promise<{ hash: string; salt: string }> {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(code, salt, 100000, 64, 'sha512').toString('hex');
+    return { hash, salt };
+  }
+
+  async verifyAccessCode(code: string, hash: string, salt: string): Promise<boolean> {
+    const testHash = crypto.pbkdf2Sync(code, salt, 100000, 64, 'sha512').toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(testHash));
+  }
+
+  async createEmailLogWithHashedCode(log: InsertEmailLog, plainCode: string): Promise<EmailLog> {
+    const { hash, salt } = await this.hashAccessCode(plainCode);
+    const [created] = await db.insert(schema.emailLogs).values({
+      ...log,
+      accessCode: plainCode, // Keep plaintext for now during transition
+      accessCodeHash: hash,
+      accessCodeSalt: salt,
+      accessCodeGeneratedAt: new Date(),
+    }).returning();
+    return created!;
+  }
+
+  async getEmailLogByHashedCode(patientEmail: string, plainCode: string): Promise<EmailLog | undefined> {
+    // First, try to find by email and verify hash
+    const logs = await db.select()
+      .from(schema.emailLogs)
+      .where(and(
+        eq(schema.emailLogs.patientEmail, patientEmail),
+        sql`${schema.emailLogs.accessCodeHash} IS NOT NULL`
+      ));
+    
+    for (const log of logs) {
+      if (log.accessCodeHash && log.accessCodeSalt) {
+        const isValid = await this.verifyAccessCode(plainCode, log.accessCodeHash, log.accessCodeSalt);
+        if (isValid) return log;
+      }
+    }
+    
+    // Fallback to plaintext check during transition
+    const [legacyLog] = await db.select()
+      .from(schema.emailLogs)
+      .where(and(
+        eq(schema.emailLogs.patientEmail, patientEmail),
+        eq(schema.emailLogs.accessCode, plainCode)
+      ));
+    
+    return legacyLog;
+  }
+
+  // Permission methods (RBAC)
+  async getPermissions(): Promise<Permission[]> {
+    return await db.select().from(schema.permissions);
+  }
+
+  async getPermissionsByRole(role: string): Promise<Permission[]> {
+    const results = await db.select({
+      permission: schema.permissions
+    })
+      .from(schema.rolePermissions)
+      .innerJoin(schema.permissions, eq(schema.rolePermissions.permissionId, schema.permissions.id))
+      .where(eq(schema.rolePermissions.role, role));
+    
+    return results.map(r => r.permission);
+  }
+
+  async createPermission(permission: InsertPermission): Promise<Permission> {
+    const [created] = await db.insert(schema.permissions).values(permission).returning();
+    return created!;
+  }
+
+  async assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission> {
+    const [created] = await db.insert(schema.rolePermissions).values({ role, permissionId }).returning();
+    return created!;
+  }
+
+  async removePermissionFromRole(role: string, permissionId: string): Promise<void> {
+    await db.delete(schema.rolePermissions).where(and(
+      eq(schema.rolePermissions.role, role),
+      eq(schema.rolePermissions.permissionId, permissionId)
+    ));
+  }
+
+  async hasPermission(role: string, permissionName: string): Promise<boolean> {
+    // Admin has all permissions
+    if (role === 'admin') return true;
+    
+    const permissions = await this.getPermissionsByRole(role);
+    return permissions.some(p => p.name === permissionName);
+  }
+
+  // Data inventory methods
+  async getDataInventory(): Promise<DataInventory[]> {
+    return await db.select().from(schema.dataInventory).orderBy(schema.dataInventory.dataAssetName);
+  }
+
+  async createDataInventoryItem(item: InsertDataInventory): Promise<DataInventory> {
+    const [created] = await db.insert(schema.dataInventory).values(item).returning();
+    return created!;
+  }
+
+  async updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void> {
+    await db.update(schema.dataInventory)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.dataInventory.id, id));
+  }
+
+  async deleteDataInventoryItem(id: string): Promise<void> {
+    await db.delete(schema.dataInventory).where(eq(schema.dataInventory.id, id));
   }
 
   // Admin analytics methods
