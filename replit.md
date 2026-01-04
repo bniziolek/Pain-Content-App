@@ -155,3 +155,38 @@ Preferred communication style: Simple, everyday language.
 - **Encryption at Rest**: PostgreSQL with managed encryption
 - **Password Hashing**: scrypt with salt for clinician passwords
 - **Session Security**: HttpOnly cookies, secure flag in production, 30-day max age for clinicians
+
+## Assessment Builder & Recommendation Engine
+
+### SurveyJS Integration
+- **Library**: SurveyJS (survey-react-ui, survey-creator-react, survey-core)
+- **Creator Component**: Clinician-facing visual assessment builder at `/assessments/builder`
+- **Form Library**: Patient-facing assessment renderer at `/patient-portal/assessment/:token`
+- **Data Storage**: SurveyJS definitions stored as JSON in PostgreSQL `assessments.surveyJson` field
+- **Features**: Draft/published states, preview mode, rich question types, decision tree logic
+
+### Scoring Service (server/scoring.ts)
+- **Purpose**: Processes assessment responses and calculates tag-based scores
+- **Scoring Methods**:
+  - Custom `scoringConfig` in assessment definition (explicit weights and mappings)
+  - Intelligent inference from question names (fallback when no config)
+- **Output**: Array of `TagScore` objects with tag name, raw score, max possible, and percentage
+- **Outcome Determination**: Uses `outcomeRules` to determine primary outcome from scores
+- **Integration**: Automatically runs on assessment completion
+
+### Recommendation Service (server/recommendation.ts)
+- **Purpose**: Generates content suggestions based on assessment scores
+- **Rules-Based Matching**: Uses `content_recommendations` table to map tag score ranges to content
+- **Fields**: tag, minScore, maxScore, priority, contentId, rationale
+- **Fallback Logic**: Tag-based content matching when rules don't provide enough recommendations
+- **Deduplication**: Ensures each content piece appears only once in recommendations
+
+### API Endpoints
+- **Assessment CRUD**:
+  - GET/POST `/api/assessments` - List and create assessments
+  - GET/PUT/DELETE `/api/assessments/:id` - Individual assessment operations
+- **Assessment Completion**:
+  - POST `/api/patient-portal/assessments/:token` - Submit responses (triggers scoring + recommendations)
+- **Recommendation Rules**:
+  - GET/POST/DELETE `/api/recommendation-rules` - Manage content recommendation rules
+  - POST `/api/recommendations` - Generate recommendations from tag scores

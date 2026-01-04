@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Eye, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
-import "survey-core/defaultV2.min.css";
+import "survey-core/survey-core.min.css";
 import "survey-creator-core/survey-creator-core.min.css";
 
 interface Assessment {
