@@ -90,7 +90,10 @@ export const emailLogs = pgTable("email_logs", {
   type: text("type").notNull(), // 'content_bundle' | 'assessment_invite' | 'assessment_results' | 'follow_up_reminder'
   contentIds: text("content_ids").array(),
   providerNote: text("provider_note"),
-  accessCode: text("access_code"), // Random 6-digit code for patient portal authentication
+  accessCode: text("access_code"), // Deprecated: will be removed after migration to hashed codes
+  accessCodeHash: text("access_code_hash"), // Secure hash of the access code
+  accessCodeSalt: text("access_code_salt"), // Per-code salt for hashing
+  accessCodeGeneratedAt: timestamp("access_code_generated_at"), // When code was generated (for expiration)
   status: text("status").default("sent"), // 'sent' | 'opened' | 'clicked'
   sentAt: timestamp("sent_at").defaultNow().notNull(),
   // Lockout tracking
@@ -205,17 +208,75 @@ export const contentRecommendations = pgTable("content_recommendations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Audit log for compliance tracking
+// Audit log for compliance tracking (HIPAA-compliant immutable log)
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
-  action: text("action").notNull(), // 'login' | 'content_access' | 'patient_data_view' | 'email_sent' | 'export'
-  resourceType: text("resource_type"), // 'patient' | 'content' | 'assessment'
+  userId: varchar("user_id").references(() => users.id), // null for patient portal or system actions
+  actorType: text("actor_type").notNull().default("clinician"), // 'clinician' | 'admin' | 'patient' | 'system'
+  actorEmail: text("actor_email"), // email of actor (useful for patient portal where no userId)
+  action: text("action").notNull(), // 'login' | 'logout' | 'login_failed' | 'content_access' | 'phi_view' | 'phi_export' | 'email_sent' | 'settings_change' | 'user_create' | 'user_update' | 'password_change' | 'session_timeout'
+  resourceType: text("resource_type"), // 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session'
   resourceId: text("resource_id"),
-  details: jsonb("details"), // additional context
+  phiAccessed: boolean("phi_accessed").default(false), // true if PHI was accessed in this action
+  phiScope: text("phi_scope"), // description of what PHI was accessed (e.g., 'patient email, content history')
+  details: jsonb("details"), // additional context (must not contain PHI)
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
+  sessionId: text("session_id"), // track which session performed the action
+  outcome: text("outcome").default("success"), // 'success' | 'failure' | 'denied'
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Patient portal sessions (persistent, trackable)
+export const patientSessions = pgTable("patient_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: text("token").notNull().unique(), // UUID session token
+  patientEmail: text("patient_email").notNull(),
+  emailLogId: varchar("email_log_id").references(() => emailLogs.id).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  lastActivity: timestamp("last_activity").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Role permissions for RBAC
+export const permissions = pgTable("permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // 'content:read' | 'content:write' | 'patient:read' | 'patient:write' | 'user:manage' | 'audit:view' | 'settings:manage'
+  description: text("description"),
+  category: text("category").notNull(), // 'content' | 'patient' | 'user' | 'audit' | 'settings'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Role-permission mappings
+export const rolePermissions = pgTable("role_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: text("role").notNull(), // 'clinician' | 'admin' | 'readonly' | 'support'
+  permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Data inventory for classification and compliance
+export const dataInventory = pgTable("data_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dataAssetName: text("data_asset_name").notNull(), // e.g., 'Patient Email Addresses', 'Assessment Responses'
+  tableName: text("table_name"), // database table if applicable
+  fieldName: text("field_name"), // specific field if applicable
+  dataClassification: text("data_classification").notNull(), // 'PHI' | 'PII' | 'Sensitive' | 'Internal' | 'Public'
+  description: text("description"),
+  containsPhi: boolean("contains_phi").default(false),
+  phiTypes: text("phi_types").array(), // 'email' | 'name' | 'health_data' | 'assessment_scores'
+  encryptedAtRest: boolean("encrypted_at_rest").default(true),
+  encryptedInTransit: boolean("encrypted_in_transit").default(true),
+  retentionDays: integer("retention_days"), // how long to keep before disposal
+  disposalMethod: text("disposal_method"), // 'secure_delete' | 'anonymize' | 'archive'
+  accessRoles: text("access_roles").array(), // which roles can access this data
+  lastReviewedAt: timestamp("last_reviewed_at"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Zod schemas for validation
@@ -308,6 +369,30 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   createdAt: true,
 });
 
+export const insertPatientSessionSchema = createInsertSchema(patientSessions).omit({
+  id: true,
+  lastActivity: true,
+  isActive: true,
+  createdAt: true,
+});
+
+export const insertPermissionSchema = createInsertSchema(permissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDataInventorySchema = createInsertSchema(dataInventory).omit({
+  id: true,
+  lastReviewedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -353,3 +438,15 @@ export type ContentRecommendation = typeof contentRecommendations.$inferSelect;
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
+
+export type InsertPatientSession = z.infer<typeof insertPatientSessionSchema>;
+export type PatientSession = typeof patientSessions.$inferSelect;
+
+export type InsertPermission = z.infer<typeof insertPermissionSchema>;
+export type Permission = typeof permissions.$inferSelect;
+
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+export type RolePermission = typeof rolePermissions.$inferSelect;
+
+export type InsertDataInventory = z.infer<typeof insertDataInventorySchema>;
+export type DataInventory = typeof dataInventory.$inferSelect;
