@@ -446,6 +446,15 @@ export function registerRoutes(app: Express): Server {
 
       const invite = await storage.createAssessmentInvite(validated);
       
+      // Audit log: assessment invite created (PHI action)
+      await logClinicianAction(req, req.user!, 'assessment_create', {
+        resourceType: 'assessment',
+        resourceId: invite.id,
+        phiAccessed: true,
+        phiScope: 'patient email, assessment invite',
+        details: { patientEmail: invite.patientEmail },
+      });
+      
       // Send assessment invite email via Resend
       const baseUrl = process.env.REPLIT_DEV_DOMAIN 
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
@@ -471,6 +480,15 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/assessment-invites", requireSubscription, async (req, res, next) => {
     try {
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
+      
+      // Audit log: viewing assessment invites (PHI list access)
+      await logClinicianAction(req, req.user!, 'assessment_access', {
+        resourceType: 'assessment',
+        phiAccessed: true,
+        phiScope: 'patient emails in assessment list',
+        details: { count: invites.length },
+      });
+      
       res.json(invites);
     } catch (error) {
       next(error);
@@ -513,6 +531,16 @@ export function registerRoutes(app: Express): Server {
       }
 
       const screening = await storage.createInternalScreening(validated);
+      
+      // Audit log: internal screening created (PHI action)
+      await logClinicianAction(req, req.user!, 'screening_create', {
+        resourceType: 'screening',
+        resourceId: screening.id,
+        phiAccessed: true,
+        phiScope: 'patient name/identifier, screening responses',
+        details: { patientIdentifier: validated.patientIdentifier },
+      });
+      
       res.status(201).json(screening);
     } catch (error) {
       next(error);
@@ -522,6 +550,15 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/internal-screenings", requireSubscription, async (req, res, next) => {
     try {
       const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
+      
+      // Audit log: viewing screenings list (PHI access)
+      await logClinicianAction(req, req.user!, 'screening_access', {
+        resourceType: 'screening',
+        phiAccessed: true,
+        phiScope: 'patient identifiers in screening list',
+        details: { count: screenings.length },
+      });
+      
       res.json(screenings);
     } catch (error) {
       next(error);

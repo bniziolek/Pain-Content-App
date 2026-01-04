@@ -7,6 +7,9 @@ export type AuditAction =
   | 'logout' 
   | 'login_failed' 
   | 'content_access' 
+  | 'content_create'
+  | 'content_update'
+  | 'content_delete'
   | 'phi_view' 
   | 'phi_export' 
   | 'email_sent' 
@@ -19,12 +22,17 @@ export type AuditAction =
   | 'patient_portal_access'
   | 'patient_portal_auth'
   | 'patient_portal_auth_failed'
+  | 'assessment_create'
+  | 'assessment_access'
   | 'assessment_submit'
+  | 'screening_create'
+  | 'screening_access'
+  | 'patient_summary_view'
   | 'content_view'
   | 'permission_denied';
 
 export type ActorType = 'clinician' | 'admin' | 'patient' | 'system';
-export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session';
+export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session' | 'screening' | 'settings';
 export type Outcome = 'success' | 'failure' | 'denied';
 
 export interface AuditContext {
