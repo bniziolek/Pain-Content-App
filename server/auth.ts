@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { logClinicianAction, logAuditEvent } from "./audit";
 
 declare global {
   namespace Express {
@@ -97,6 +98,13 @@ export function setupAuth(app: Express) {
         name: name || null,
       });
 
+      // Audit log: user registration
+      await logClinicianAction(req, user, 'user_create', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { method: 'self_registration' },
+      });
+
       req.login(user, (err) => {
         if (err) return next(err);
         res.status(201).json(user);
@@ -107,21 +115,38 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
+    passport.authenticate("local", async (err: any, user: SelectUser | false, info: any) => {
       if (err) return next(err);
       if (!user) {
+        // Audit log: failed login attempt
+        await logAuditEvent(req, {
+          actorType: 'clinician',
+          actorEmail: req.body?.email,
+          action: 'login_failed',
+          details: { reason: info?.message || 'invalid_credentials' },
+          outcome: 'failure',
+        });
         return res.status(401).send(info?.message || "Authentication failed");
       }
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) return next(err);
+        // Audit log: successful login
+        await logClinicianAction(req, user, 'login', {
+          details: { method: 'password' },
+        });
         res.status(200).json(user);
       });
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
+  app.post("/api/logout", async (req, res, next) => {
+    const user = req.user;
+    req.logout(async (err) => {
       if (err) return next(err);
+      // Audit log: logout
+      if (user) {
+        await logClinicianAction(req, user as SelectUser, 'logout', {});
+      }
       res.sendStatus(200);
     });
   });
