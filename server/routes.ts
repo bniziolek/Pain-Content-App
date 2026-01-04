@@ -336,23 +336,29 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
     try {
+      let content = null;
       if (isContentfulConfigured()) {
         try {
-          const content = await getContentByIdFromContentful(req.params.id);
-          if (content) {
-            res.json(content);
-            return;
-          }
+          content = await getContentByIdFromContentful(req.params.id);
         } catch (error) {
           if (error instanceof ContentfulError) {
             console.warn("Contentful fetch failed, falling back to database:", error.message);
           }
         }
       }
-      const content = await storage.getContentById(req.params.id);
+      if (!content) {
+        content = await storage.getContentById(req.params.id);
+      }
       if (!content) {
         return res.status(404).send("Content not found");
       }
+      
+      await logClinicianAction(req, req.user!, 'content_access', {
+        resourceType: 'content',
+        resourceId: req.params.id,
+        details: { title: content.title },
+      });
+      
       res.json(content);
     } catch (error) {
       next(error);
@@ -375,6 +381,13 @@ export function registerRoutes(app: Express): Server {
     try {
       const validated = insertContentItemSchema.parse(req.body);
       const content = await storage.createContent(validated);
+      
+      await logClinicianAction(req, req.user!, 'content_create', {
+        resourceType: 'content',
+        resourceId: content.id,
+        details: { title: content.title },
+      });
+      
       res.status(201).json(content);
     } catch (error) {
       next(error);
@@ -387,6 +400,13 @@ export function registerRoutes(app: Express): Server {
       if (!content) {
         return res.status(404).send("Content not found");
       }
+      
+      await logClinicianAction(req, req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: req.params.id,
+        details: { title: content.title },
+      });
+      
       res.json(content);
     } catch (error) {
       next(error);
@@ -395,6 +415,11 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/content/:id", requireAuth, async (req, res, next) => {
     try {
+      await logClinicianAction(req, req.user!, 'content_delete', {
+        resourceType: 'content',
+        resourceId: req.params.id,
+      });
+      
       await storage.deleteContent(req.params.id);
       res.sendStatus(204);
     } catch (error) {
