@@ -28,6 +28,7 @@ import RecommendationRulesPage from "@/pages/recommendation-rules";
 import PathwaysPage from "@/pages/pathways";
 import PatientPortal from "@/pages/patient-portal";
 import AssessmentBuilderPage from "@/pages/assessment-builder";
+import OnboardingPage from "@/pages/onboarding";
 
 function Router() {
   return (
@@ -38,6 +39,13 @@ function Router() {
         {() => (
           <RequireAuth>
             <SubscriptionPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/onboarding">
+        {() => (
+          <RequireAuth>
+            <OnboardingPage />
           </RequireAuth>
         )}
       </Route>

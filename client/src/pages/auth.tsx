@@ -33,12 +33,22 @@ export default function AuthPage() {
         });
         setLocation("/subscription");
       } else {
-        await login(email, password);
-        toast({
-          title: "Welcome back",
-          description: "Redirecting to dashboard...",
-        });
-        setLocation("/dashboard");
+        const user = await login(email, password);
+        
+        // Check if user needs onboarding (new users who haven't completed it)
+        if (user && !user.onboardingCompleted && user.role !== 'admin') {
+          toast({
+            title: "Welcome!",
+            description: "Let's get you set up...",
+          });
+          setLocation("/onboarding");
+        } else {
+          toast({
+            title: "Welcome back",
+            description: "Redirecting to dashboard...",
+          });
+          setLocation("/dashboard");
+        }
       }
     } catch (error: any) {
       toast({

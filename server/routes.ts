@@ -1203,6 +1203,36 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Onboarding Routes ======
+  app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
+    try {
+      const { onboardingStep, onboardingCompleted } = req.body;
+      
+      await storage.updateOnboardingStatus(req.user!.id, {
+        onboardingStep,
+        onboardingCompleted,
+      });
+      
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/onboarding/skip", requireAuth, async (req, res, next) => {
+    try {
+      await storage.updateOnboardingStatus(req.user!.id, {
+        onboardingCompleted: true,
+      });
+      
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Subscription Routes (Stripe integration will come later) ======
   app.post("/api/subscription/create", requireAuth, async (req, res, next) => {
     try {
