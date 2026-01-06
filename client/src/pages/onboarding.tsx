@@ -36,8 +36,17 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [currentStep, setCurrentStep] = useState(user?.onboardingStep || 0);
+  const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
+  useEffect(() => {
+    if (user && !hasInitialized) {
+      const savedStep = user.onboardingStep || 0;
+      setCurrentStep(Math.min(savedStep, STEPS.length - 1));
+      setHasInitialized(true);
+    }
+  }, [user, hasInitialized]);
 
   const { data: content } = useQuery({
     queryKey: ["/api/content"],
