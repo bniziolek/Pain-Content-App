@@ -1233,6 +1233,64 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Email Settings Routes ======
+  app.get("/api/email-settings", requireAuth, async (req, res, next) => {
+    try {
+      const emailConnection = await storage.getEmailConnectionByUserId(req.user!.id);
+      res.json({
+        emailDeliveryMode: req.user!.emailDeliveryMode || 'central',
+        connection: emailConnection ? {
+          email: emailConnection.email,
+          status: emailConnection.status,
+          lastError: emailConnection.lastError,
+          provider: emailConnection.provider,
+        } : null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/email-settings/mode", requireAuth, async (req, res, next) => {
+    try {
+      const { mode } = req.body;
+      if (mode !== 'central' && mode !== 'personal') {
+        return res.status(400).json({ error: "Invalid email delivery mode" });
+      }
+
+      // If switching to personal, check if connection exists
+      if (mode === 'personal') {
+        const connection = await storage.getEmailConnectionByUserId(req.user!.id);
+        if (!connection) {
+          return res.status(400).json({ error: "Please connect your Gmail account first" });
+        }
+        if (connection.status !== 'active') {
+          return res.status(400).json({ error: "Your Gmail connection has an issue. Please reconnect." });
+        }
+      }
+
+      await storage.updateEmailDeliveryMode(req.user!.id, mode);
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
+    try {
+      // If using personal email, switch back to central
+      if (req.user!.emailDeliveryMode === 'personal') {
+        await storage.updateEmailDeliveryMode(req.user!.id, 'central');
+      }
+      await storage.deleteEmailConnection(req.user!.id);
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Subscription Routes (Stripe integration will come later) ======
   app.post("/api/subscription/create", requireAuth, async (req, res, next) => {
     try {

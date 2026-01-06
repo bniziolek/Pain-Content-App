@@ -220,26 +220,74 @@ function WelcomeStep() {
 }
 
 function EmailStep() {
+  const [selectedMode, setSelectedMode] = useState<'central' | 'personal'>('central');
+  
   return (
     <div className="space-y-4 text-center">
       <CardDescription className="text-base">
-        RehabPilot handles all email delivery for you automatically. No setup required!
+        Choose how you'd like emails to be sent to your patients.
       </CardDescription>
-      <div className="p-4 rounded-lg border bg-muted/30 max-w-md mx-auto">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <Mail className="w-5 h-5 text-primary" />
-          <span className="font-medium">Automatic Email Delivery</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          When you send content or assessments to patients, RehabPilot delivers them securely on your behalf. Emails appear professional and are sent from our secure email service.
-        </p>
-        <div className="flex items-center justify-center gap-2 text-sm text-green-600">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Email delivery is ready</span>
-        </div>
+      
+      <div className="grid gap-3 max-w-md mx-auto">
+        <button
+          type="button"
+          onClick={() => setSelectedMode('central')}
+          className={`p-4 rounded-lg border text-left transition-all ${
+            selectedMode === 'central' 
+              ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+              : 'border-muted bg-muted/30 hover:border-muted-foreground/30'
+          }`}
+          data-testid="button-email-central"
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center ${
+              selectedMode === 'central' ? 'border-primary' : 'border-muted-foreground/40'
+            }`}>
+              {selectedMode === 'central' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+            </div>
+            <div>
+              <div className="font-medium">RehabPilot sends on your behalf</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Emails are sent from RehabPilot's secure email service. Your name is included so patients know who sent them. Recommended for most users.
+              </div>
+            </div>
+          </div>
+        </button>
+        
+        <button
+          type="button"
+          onClick={() => setSelectedMode('personal')}
+          className={`p-4 rounded-lg border text-left transition-all ${
+            selectedMode === 'personal' 
+              ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+              : 'border-muted bg-muted/30 hover:border-muted-foreground/30'
+          }`}
+          data-testid="button-email-personal"
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center ${
+              selectedMode === 'personal' ? 'border-primary' : 'border-muted-foreground/40'
+            }`}>
+              {selectedMode === 'personal' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+            </div>
+            <div>
+              <div className="font-medium">Send from my own Gmail</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Connect your Gmail account so emails come directly from you. Requires connecting your Google account.
+              </div>
+            </div>
+          </div>
+        </button>
       </div>
+      
+      {selectedMode === 'personal' && (
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm max-w-md mx-auto">
+          Gmail connection will be available soon. For now, emails will be sent from RehabPilot. You can change this later in Settings.
+        </div>
+      )}
+      
       <p className="text-xs text-muted-foreground">
-        All emails include your name so patients know who sent them.
+        You can change this anytime in your Settings.
       </p>
     </div>
   );
