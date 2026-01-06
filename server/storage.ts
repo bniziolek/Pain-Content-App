@@ -45,7 +45,9 @@ import {
   type RecommendationConfig,
   type InsertRecommendationConfig,
   type PatientRecommendation,
-  type InsertPatientRecommendation
+  type InsertPatientRecommendation,
+  type UserEmailConnection,
+  type InsertUserEmailConnection
 } from "@shared/schema";
 import crypto from "crypto";
 import session from "express-session";
@@ -79,6 +81,13 @@ export interface IStorage {
     }
   ): Promise<void>;
   updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
+  updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void>;
+
+  // Email connections
+  getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined>;
+  createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection>;
+  updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void>;
+  deleteEmailConnection(userId: string): Promise<void>;
 
   // Content
   getAllContent(): Promise<ContentItem[]>;
@@ -303,6 +312,38 @@ export class DatabaseStorage implements IStorage {
     await db.update(schema.users)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
+  }
+
+  async updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void> {
+    await db.update(schema.users)
+      .set({ emailDeliveryMode: mode, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  // Email connection methods
+  async getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined> {
+    const [connection] = await db.select()
+      .from(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
+    return connection;
+  }
+
+  async createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection> {
+    const [created] = await db.insert(schema.userEmailConnections)
+      .values(connection)
+      .returning();
+    return created!;
+  }
+
+  async updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void> {
+    await db.update(schema.userEmailConnections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userEmailConnections.userId, userId));
+  }
+
+  async deleteEmailConnection(userId: string): Promise<void> {
+    await db.delete(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
   }
 
   // Content methods

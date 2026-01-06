@@ -23,6 +23,26 @@ export const users = pgTable("users", {
   onboardingCompleted: boolean("onboarding_completed").default(false),
   onboardingStep: integer("onboarding_step").default(0), // Current step if abandoned mid-flow
   
+  // Email delivery preference
+  emailDeliveryMode: text("email_delivery_mode").default("central"), // 'central' | 'personal'
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User email connections - stores OAuth tokens for personal Gmail
+export const userEmailConnections = pgTable("user_email_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  provider: text("provider").notNull().default("gmail"), // 'gmail' for now
+  email: text("email").notNull(), // The connected email address
+  accessToken: text("access_token").notNull(), // Encrypted
+  refreshToken: text("refresh_token"), // Encrypted
+  expiresAt: timestamp("expires_at"),
+  scopes: text("scopes").array(),
+  status: text("status").notNull().default("active"), // 'active' | 'error' | 'expired' | 'revoked'
+  lastError: text("last_error"),
+  lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -532,3 +552,15 @@ export type RolePermission = typeof rolePermissions.$inferSelect;
 
 export type InsertDataInventory = z.infer<typeof insertDataInventorySchema>;
 export type DataInventory = typeof dataInventory.$inferSelect;
+
+export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConnections).omit({
+  id: true,
+  status: true,
+  lastError: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
+export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
