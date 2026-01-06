@@ -18,6 +18,11 @@ export const users = pgTable("users", {
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
   
   lastLogin: timestamp("last_login"),
+  
+  // Onboarding tracking
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  onboardingStep: integer("onboarding_step").default(0), // Current step if abandoned mid-flow
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

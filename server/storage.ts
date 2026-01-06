@@ -78,6 +78,7 @@ export interface IStorage {
       subscriptionPeriodEnd?: Date;
     }
   ): Promise<void>;
+  updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
 
   // Content
   getAllContent(): Promise<ContentItem[]>;
@@ -295,6 +296,12 @@ export class DatabaseStorage implements IStorage {
   ): Promise<void> {
     await db.update(schema.users)
       .set({ ...subscription, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
   }
 
