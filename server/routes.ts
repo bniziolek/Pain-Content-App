@@ -1279,8 +1279,14 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
     try {
+      // Fetch fresh user data to avoid stale session issues
+      const currentUser = await storage.getUser(req.user!.id);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
       // If using personal email, switch back to central
-      if (req.user!.emailDeliveryMode === 'personal') {
+      if (currentUser.emailDeliveryMode === 'personal') {
         await storage.updateEmailDeliveryMode(req.user!.id, 'central');
       }
       await storage.deleteEmailConnection(req.user!.id);
