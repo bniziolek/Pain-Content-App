@@ -23,7 +23,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 const STEPS = [
   { id: 0, title: "Welcome", icon: Sparkles },
-  { id: 1, title: "Connect Email", icon: Mail },
+  { id: 1, title: "Email Delivery", icon: Mail },
   { id: 2, title: "Explore Content", icon: BookOpen },
   { id: 3, title: "Your First Assessment", icon: ClipboardList },
   { id: 4, title: "Send Your First Content", icon: Send },
@@ -196,8 +196,8 @@ function WelcomeStep() {
         <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
           <Mail className="w-5 h-5 text-primary mt-0.5" />
           <div>
-            <div className="font-medium">Connect your email</div>
-            <div className="text-sm text-muted-foreground">Send content directly to patients</div>
+            <div className="font-medium">Email delivery included</div>
+            <div className="text-sm text-muted-foreground">We handle sending content to patients</div>
           </div>
         </div>
         <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
@@ -223,23 +223,23 @@ function EmailStep() {
   return (
     <div className="space-y-4 text-center">
       <CardDescription className="text-base">
-        Connect your Gmail account to send educational content directly to your patients.
+        RehabPilot handles all email delivery for you automatically. No setup required!
       </CardDescription>
       <div className="p-4 rounded-lg border bg-muted/30 max-w-md mx-auto">
         <div className="flex items-center justify-center gap-2 mb-3">
           <Mail className="w-5 h-5 text-primary" />
-          <span className="font-medium">Gmail Integration</span>
+          <span className="font-medium">Automatic Email Delivery</span>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Your Gmail is already connected through RehabPilot's secure integration. Emails will be sent from your connected account.
+          When you send content or assessments to patients, RehabPilot delivers them securely on your behalf. Emails appear professional and are sent from our secure email service.
         </p>
         <div className="flex items-center justify-center gap-2 text-sm text-green-600">
           <CheckCircle2 className="w-4 h-4" />
-          <span>Email ready to use</span>
+          <span>Email delivery is ready</span>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        You can manage email settings anytime from Settings.
+        All emails include your name so patients know who sent them.
       </p>
     </div>
   );
