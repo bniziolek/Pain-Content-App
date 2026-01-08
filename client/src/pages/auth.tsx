@@ -80,12 +80,10 @@ export default function AuthPage() {
       
       if (errorMessage.toLowerCase().includes("email") && errorMessage.toLowerCase().includes("exist")) {
         setErrors({ email: "An account with this email already exists" });
-      } else if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("user not found")) {
-        setErrors({ email: "Invalid email or password" });
-      } else if (errorMessage.toLowerCase().includes("password") || errorMessage.toLowerCase().includes("invalid")) {
-        setErrors({ general: "Invalid email or password" });
-      } else {
+      } else if (isSignup) {
         setErrors({ general: errorMessage });
+      } else {
+        setErrors({ general: "Invalid email or password. Need an account? Try signing up below." });
       }
     } finally {
       setIsLoading(false);
