@@ -32,16 +32,16 @@ Complete all sections below for initial release validation.
 ### 1.2 Login
 | # | Test Case | Steps | Expected Result | Pass/Fail |
 |---|-----------|-------|-----------------|-----------|
-| 1.2.1 | Valid login | Enter correct email/password | Logged in, redirected to dashboard | ☐ |
-| 1.2.2 | Invalid password | Enter wrong password | Error: "Invalid email or password" | ☐ |
-| 1.2.3 | Non-existent email | Enter unregistered email | Error: "Invalid email or password" | ☐ |
-| 1.2.4 | Session persistence | Log in, close browser, reopen | Still logged in | ☐ |
+| 1.2.1 | Valid login | Enter correct email/password | Logged in, redirected to dashboard | +☐ |
+| 1.2.2 | Invalid password | Enter wrong password | Error: "Invalid email or password" | +☐ |
+| 1.2.3 | Non-existent email | Enter unregistered email | Error: "Invalid email or password" | +☐ |
+| 1.2.4 | Session persistence | Log in, close browser, reopen | Still logged in | +☐ |
 
 ### 1.3 Logout
 | # | Test Case | Steps | Expected Result | Pass/Fail |
 |---|-----------|-------|-----------------|-----------|
-| 1.3.1 | Logout | Click logout in sidebar | Redirected to login page, session ended | ☐ |
-| 1.3.2 | Protected route after logout | Try to access /dashboard after logout | Redirected to login | ☐ |
+| 1.3.1 | Logout | Click logout in sidebar | Redirected to login page, session ended | +☐ |
+| 1.3.2 | Protected route after logout | Try to access /dashboard after logout | Redirected to login | +☐ |
 
 ---
 
