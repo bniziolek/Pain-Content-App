@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,7 @@ import { useAuth } from "@/lib/auth";
 
 export default function AuthPage() {
   const [location, setLocation] = useLocation();
-  const searchParams = new URLSearchParams(window.location.search);
-  const isSignup = searchParams.get("signup") === "true";
+  const isSignup = location.includes("signup=true");
   
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -20,6 +19,10 @@ export default function AuthPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const { toast } = useToast();
   const { login, register } = useAuth();
+
+  useEffect(() => {
+    setErrors({});
+  }, [isSignup]);
 
   const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
