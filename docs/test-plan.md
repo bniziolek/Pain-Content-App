@@ -24,10 +24,10 @@ Complete all sections below for initial release validation.
 ### 1.1 Registration
 | # | Test Case | Steps | Expected Result | Pass/Fail |
 |---|-----------|-------|-----------------|-----------|
-| 1.1.1 | New user registration | Go to /auth, click "Create account", enter name, email, password | Account created, redirected to onboarding | ☐ |
-| 1.1.2 | Duplicate email rejected | Try to register with existing email | Error message: "Email already registered" | ☐ |
-| 1.1.3 | Weak password rejected | Try password less than 6 characters | Error message about password requirements | ☐ |
-| 1.1.4 | Invalid email rejected | Enter malformed email (no @) | Error message about valid email | ☐ |
+| 1.1.1 | New user registration | Go to /auth, click "Create account", enter name, email, password | Account created, redirected to onboarding | +☐ |
+| 1.1.2 | Duplicate email rejected | Try to register with existing email | Error message: "Email already registered" | +☐ |
+| 1.1.3 | Weak password rejected | Try password less than 6 characters | Error message about password requirements | +☐ |
+| 1.1.4 | Invalid email rejected | Enter malformed email (no @) | Error message about valid email | +☐ |
 
 ### 1.2 Login
 | # | Test Case | Steps | Expected Result | Pass/Fail |

@@ -17,11 +17,37 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const { toast } = useToast();
   const { login, register } = useAuth();
 
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+    
+    if (!email) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    
+    if (!password) {
+      newErrors.password = "Password is required";
+    } else if (isSignup && password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -35,7 +61,6 @@ export default function AuthPage() {
       } else {
         const user = await login(email, password);
         
-        // Check if user needs onboarding (new users who haven't completed it)
         if (user && !user.onboardingCompleted && user.role !== 'admin') {
           toast({
             title: "Welcome!",
@@ -51,11 +76,17 @@ export default function AuthPage() {
         }
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Authentication failed",
-        variant: "destructive",
-      });
+      const errorMessage = error.message || "Authentication failed";
+      
+      if (errorMessage.toLowerCase().includes("email") && errorMessage.toLowerCase().includes("exist")) {
+        setErrors({ email: "An account with this email already exists" });
+      } else if (errorMessage.toLowerCase().includes("email") || errorMessage.toLowerCase().includes("user not found")) {
+        setErrors({ email: "Invalid email or password" });
+      } else if (errorMessage.toLowerCase().includes("password") || errorMessage.toLowerCase().includes("invalid")) {
+        setErrors({ general: "Invalid email or password" });
+      } else {
+        setErrors({ general: errorMessage });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +115,11 @@ export default function AuthPage() {
             </CardHeader>
             <CardContent className="px-0">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {errors.general && (
+                  <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm" data-testid="error-general">
+                    {errors.general}
+                  </div>
+                )}
                 {isSignup && (
                   <div className="space-y-2">
                     <Label htmlFor="name">Name (optional)</Label>
@@ -101,13 +137,19 @@ export default function AuthPage() {
                   <Label htmlFor="email">Email</Label>
                   <Input 
                     id="email" 
-                    type="email" 
+                    type="text"
                     placeholder="m@example.com" 
-                    required 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors({ ...errors, email: undefined });
+                    }}
+                    className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
                     data-testid="input-email"
                   />
+                  {errors.email && (
+                    <p className="text-sm text-destructive" data-testid="error-email">{errors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -121,11 +163,17 @@ export default function AuthPage() {
                   <Input 
                     id="password" 
                     type="password" 
-                    required 
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors({ ...errors, password: undefined });
+                    }}
+                    className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
                     data-testid="input-password"
                   />
+                  {errors.password && (
+                    <p className="text-sm text-destructive" data-testid="error-password">{errors.password}</p>
+                  )}
                 </div>
                 <Button type="submit" className="w-full h-11" disabled={isLoading} data-testid="button-submit">
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
