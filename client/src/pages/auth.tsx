@@ -1,12 +1,84 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Loader2, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+
+const PASSWORD_REQUIREMENTS = [
+  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { id: 'uppercase', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lowercase', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p: string) => /\d/.test(p) },
+];
+
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const metRequirements = PASSWORD_REQUIREMENTS.filter(req => req.test(password));
+  const strength = metRequirements.length;
+  
+  const getStrengthLabel = () => {
+    if (password.length === 0) return '';
+    if (strength <= 1) return 'Weak';
+    if (strength === 2) return 'Fair';
+    if (strength === 3) return 'Good';
+    return 'Strong';
+  };
+  
+  const getStrengthColor = () => {
+    if (strength <= 1) return 'bg-red-500';
+    if (strength === 2) return 'bg-orange-500';
+    if (strength === 3) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  return (
+    <div className="space-y-3 mt-3">
+      <div className="space-y-2">
+        {PASSWORD_REQUIREMENTS.map((req) => {
+          const met = req.test(password);
+          return (
+            <div key={req.id} className="flex items-center gap-2 text-sm">
+              {met ? (
+                <Check className="w-4 h-4 text-green-500" />
+              ) : (
+                <X className="w-4 h-4 text-muted-foreground/50" />
+              )}
+              <span className={met ? 'text-green-600' : 'text-muted-foreground'}>
+                {req.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      
+      {password.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex gap-1">
+            {[1, 2, 3, 4].map((level) => (
+              <div
+                key={level}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  level <= strength ? getStrengthColor() : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+          <p className={`text-xs font-medium ${
+            strength <= 1 ? 'text-red-500' : 
+            strength === 2 ? 'text-orange-500' : 
+            strength === 3 ? 'text-yellow-600' : 
+            'text-green-600'
+          }`}>
+            Password strength: {getStrengthLabel()}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -25,6 +97,10 @@ export default function AuthPage() {
     setErrors({});
   }, [isSignup]);
 
+  const isPasswordValid = useMemo(() => {
+    return PASSWORD_REQUIREMENTS.every(req => req.test(password));
+  }, [password]);
+
   const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
     
@@ -36,8 +112,8 @@ export default function AuthPage() {
     
     if (!password) {
       newErrors.password = "Password is required";
-    } else if (isSignup && password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else if (isSignup && !isPasswordValid) {
+      newErrors.password = "Password does not meet all requirements";
     }
     
     setErrors(newErrors);
@@ -140,7 +216,7 @@ export default function AuthPage() {
                   <Input 
                     id="email" 
                     type="text"
-                    placeholder="m@example.com" 
+                    placeholder="email@example.com" 
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -157,9 +233,9 @@ export default function AuthPage() {
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
                     {!isSignup && (
-                      <a href="#" className="text-sm text-primary hover:underline">
+                      <Link href="/forgot-password" className="text-sm text-primary hover:underline">
                         Forgot password?
-                      </a>
+                      </Link>
                     )}
                   </div>
                   <Input 
@@ -176,8 +252,14 @@ export default function AuthPage() {
                   {errors.password && (
                     <p className="text-sm text-destructive" data-testid="error-password">{errors.password}</p>
                   )}
+                  {isSignup && <PasswordStrengthIndicator password={password} />}
                 </div>
-                <Button type="submit" className="w-full h-11" disabled={isLoading} data-testid="button-submit">
+                <Button 
+                  type="submit" 
+                  className="w-full h-11" 
+                  disabled={isLoading || (isSignup && !isPasswordValid && password.length > 0)} 
+                  data-testid="button-submit"
+                >
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSignup ? "Create Account" : "Sign In"}
                 </Button>
