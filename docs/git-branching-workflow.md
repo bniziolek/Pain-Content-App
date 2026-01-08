@@ -173,6 +173,28 @@ Technical notes:
 - No database changes required
 ```
 
+### Where Merge Messages Are Stored
+
+Your merge commit messages are stored in several places:
+
+**In Git (local and remote):**
+- The message is part of the merge commit itself
+- Visible with `git log` or `git show <commit-hash>`
+- Pushed to GitHub when you push the branch
+
+**In GitHub:**
+- **Commits tab**: Click on any repository → "Commits" to see all commits including merges
+- **Commit detail page**: Click any commit hash to see the full message
+- **Branch history**: When viewing a branch, you see all commits that led to it
+- **Network graph**: Repository → Insights → Network shows visual branch/merge history
+- **Blame view**: On any file, click "Blame" to see which commit changed each line
+
+**Finding merge messages on GitHub:**
+1. Go to your repository on GitHub
+2. Click "Commits" (or the commit count like "245 commits")
+3. Look for commits that start with "Merge:" - these are your merge commits
+4. Click on the commit hash to see the full message
+
 ### Viewing Merge History
 
 To see past merges and what they contained:
@@ -187,6 +209,91 @@ git show <merge-commit-hash>
 # See what was merged in a specific commit
 git log <merge-commit-hash>^..<merge-commit-hash> --oneline
 ```
+
+## Cleaning Up Old Branches
+
+After merging, delete old branches to keep your repository clean and organized.
+
+### Deleting Local Branches
+
+```bash
+# Delete a single branch (safe - won't delete if not merged)
+git branch -d feature/your-feature-name
+
+# Force delete (use carefully - deletes even if not merged)
+git branch -D feature/your-feature-name
+
+# List all local branches
+git branch
+
+# Delete multiple branches at once
+git branch -d feature/feature-1 feature/feature-2 bugfix/old-fix
+```
+
+### Deleting Remote Branches (on GitHub)
+
+```bash
+# Delete a remote branch
+git push origin --delete feature/your-feature-name
+
+# Alternative syntax
+git push origin :feature/your-feature-name
+```
+
+### Cleaning Up After Merge
+
+Best practice workflow after merging:
+
+```bash
+# 1. Merge your feature branch into dev
+git checkout dev
+git merge --no-ff feature/my-feature -m "Merge: Description..."
+
+# 2. Push the merge to remote
+git push origin dev
+
+# 3. Delete the local branch
+git branch -d feature/my-feature
+
+# 4. Delete the remote branch
+git push origin --delete feature/my-feature
+```
+
+### Bulk Cleanup Commands
+
+```bash
+# See which branches are already merged into current branch
+git branch --merged
+
+# Delete all local branches that have been merged (except main/dev)
+git branch --merged | grep -v "main\|dev\|master" | xargs git branch -d
+
+# Prune remote-tracking branches that no longer exist on remote
+git fetch --prune
+
+# See stale remote-tracking branches
+git remote prune origin --dry-run
+```
+
+### Deleting Branches on GitHub (Web Interface)
+
+1. Go to your repository on GitHub
+2. Click **"Branches"** (next to the branch dropdown, or under Code tab)
+3. Find the branch you want to delete
+4. Click the **trash icon** next to the branch name
+5. Confirm deletion
+
+**After a Pull Request merge**, GitHub shows a "Delete branch" button - use it!
+
+### Weekly Cleanup Routine
+
+At the end of each week (after merging dev to main):
+
+1. **Review branches**: `git branch -a` (shows local and remote)
+2. **Delete merged feature branches**: `git branch -d feature/...`
+3. **Clean remote branches**: `git push origin --delete feature/...`
+4. **Prune stale references**: `git fetch --prune`
+5. **Verify cleanup**: `git branch -a` (should only show main, dev, and active branches)
 
 ## Tips
 
