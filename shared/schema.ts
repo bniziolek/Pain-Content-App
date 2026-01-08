@@ -30,6 +30,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Password reset tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // User email connections - stores OAuth tokens for personal Gmail
 export const userEmailConnections = pgTable("user_email_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -475,8 +485,16 @@ export const insertDataInventorySchema = createInsertSchema(dataInventory).omit(
   updatedAt: true,
 });
 
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  usedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type User = typeof users.$inferSelect;
 
 export type InsertContentItem = z.infer<typeof insertContentItemSchema>;

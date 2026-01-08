@@ -231,6 +231,12 @@ export interface IStorage {
   updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void>;
   deleteDataInventoryItem(id: string): Promise<void>;
 
+  // Password reset tokens
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
+
   // Admin analytics
   getAdminStats(): Promise<{
     totalUsers: number;
@@ -1084,6 +1090,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDataInventoryItem(id: string): Promise<void> {
     await db.delete(schema.dataInventory).where(eq(schema.dataInventory.id, id));
+  }
+
+  // Password reset token methods
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(schema.passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined> {
+    const [result] = await db.select().from(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.token, token));
+    return result;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(schema.passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(schema.passwordResetTokens.token, token));
+  }
+
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    await db.delete(schema.passwordResetTokens).where(lte(schema.passwordResetTokens.expiresAt, new Date()));
   }
 
   // Admin analytics methods

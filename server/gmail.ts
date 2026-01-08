@@ -243,6 +243,72 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
   }
 }
 
+interface PasswordResetEmailData {
+  toEmail: string;
+  resetLink: string;
+}
+
+export async function sendPasswordResetEmail(data: PasswordResetEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const isConfigured = await isGmailConfigured();
+  if (!isConfigured) {
+    console.log('\n========== DEV MODE: PASSWORD RESET EMAIL ==========');
+    console.log('To:', data.toEmail);
+    console.log('Reset Link:', data.resetLink);
+    console.log('=====================================================\n');
+    return { success: true, messageId: 'dev-mode-' + Date.now() };
+  }
+
+  try {
+    const gmail = await getUncachableGmailClient();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <p style="color: #666; margin: 4px 0 0 0;">Password Reset</p>
+        </div>
+        
+        <p>We received a request to reset your password. Click the button below to create a new password:</p>
+        
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${data.resetLink}" style="background: #1a5653; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">Reset Password</a>
+        </div>
+        
+        <p style="color: #666; font-size: 14px;">This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+        
+        <p style="color: #666; font-size: 14px;">If the button above doesn't work, copy and paste this link into your browser:</p>
+        <p style="color: #1a5653; font-size: 14px; word-break: break-all;">${data.resetLink}</p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+        <p style="color: #888; font-size: 12px; text-align: center;">
+          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+        </p>
+      </body>
+      </html>
+    `;
+
+    const encodedEmail = createEmail(data.toEmail, 'Reset your RehabPilot password', html);
+    
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedEmail
+      }
+    });
+
+    return { success: true, messageId: response.data.id || undefined };
+  } catch (error) {
+    console.error('[Gmail] Error sending password reset email:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export async function sendPatientPortalEmail(data: PatientPortalEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const isConfigured = await isGmailConfigured();
   if (!isConfigured) {

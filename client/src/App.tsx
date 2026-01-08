@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing";
 import AuthPage from "@/pages/auth";
+import ForgotPasswordPage from "@/pages/forgot-password";
 import Dashboard from "@/pages/dashboard";
 import LibraryPage from "@/pages/library";
 import AssessmentsPage from "@/pages/assessments";
@@ -35,6 +36,7 @@ function Router() {
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
