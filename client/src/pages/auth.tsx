@@ -141,16 +141,18 @@ export default function AuthPage() {
       } else {
         const user = await login(email, password);
         
-        if (user && !user.onboardingCompleted && user.role !== 'admin') {
-          toast({
-            title: "Welcome!",
-            description: "Let's get you set up...",
-          });
-          setLocation("/onboarding");
-        } else {
+        if (user?.role === 'admin') {
           toast({
             title: "Welcome back",
-            description: "Redirecting to dashboard...",
+            description: "Redirecting to admin dashboard...",
+          });
+          setLocation("/admin/dashboard");
+        } else {
+          toast({
+            title: user?.onboardingCompleted ? "Welcome back" : "Welcome!",
+            description: user?.onboardingCompleted 
+              ? "Redirecting to dashboard..." 
+              : "Let's show you around...",
           });
           setLocation("/dashboard");
         }

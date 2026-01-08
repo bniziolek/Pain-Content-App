@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./lib/auth";
 import { RequireAuth, RequireSubscription } from "@/components/protected-route";
+import { TourProvider } from "@/components/product-tour";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing";
@@ -171,10 +172,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <TourProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </TourProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

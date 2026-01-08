@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Send, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen } from "lucide-react";
@@ -8,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useQuery } from "@tanstack/react-query";
 import { getStats } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useTour, shouldShowTour } from "@/components/product-tour";
 
 function getStatusBadge(status: string) {
   switch(status?.toLowerCase()) {
@@ -26,10 +28,20 @@ function getStatusBadge(status: string) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { startTour } = useTour();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: getStats,
   });
+
+  useEffect(() => {
+    if (!isLoading && shouldShowTour()) {
+      const timer = setTimeout(() => {
+        startTour();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, startTour]);
 
   if (isLoading) {
     return (
@@ -45,14 +57,14 @@ export default function Dashboard() {
     <DashboardLayout>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-tour="dashboard">
           <div>
             <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
             <p className="text-muted-foreground">Welcome back{user?.name ? `, ${user.name}` : ""}.</p>
           </div>
           <div className="flex gap-3">
             <Link href="/library">
-              <Button>
+              <Button data-tour="send-content">
                 <Send className="w-4 h-4 mr-2" />
                 Send Content
               </Button>

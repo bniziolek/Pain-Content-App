@@ -42,14 +42,14 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   ];
 
   const clinicianLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/library", label: "Content Library", icon: Library },
-    { href: "/assessments", label: "Assessments", icon: ClipboardList },
-    { href: "/pathways", label: "Care Pathways", icon: Route },
-    { href: "/recommendation-rules", label: "Recommendations", icon: Sparkles },
-    { href: "/follow-ups", label: "Follow-ups", icon: Bell },
-    { href: "/history", label: "Send History", icon: History },
-    { href: "/settings", label: "Settings", icon: Settings },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tourId: "nav-dashboard" },
+    { href: "/library", label: "Content Library", icon: Library, tourId: "nav-library" },
+    { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments" },
+    { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways" },
+    { href: "/recommendation-rules", label: "Recommendations", icon: Sparkles, tourId: "nav-recommendations" },
+    { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups" },
+    { href: "/history", label: "Send History", icon: History, tourId: "nav-history" },
+    { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings" },
   ];
 
   const links = isAdmin ? adminLinks : clinicianLinks;
@@ -67,10 +67,12 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location === link.href;
+          const tourId = 'tourId' in link ? link.tourId : undefined;
           return (
             <Link key={link.href} href={link.href}>
               <div 
                 onClick={onNavigate}
+                data-tour={tourId}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   isActive 

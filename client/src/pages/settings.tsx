@@ -6,17 +6,29 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2 } from "lucide-react";
+import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2, HelpCircle, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import { useTour, resetTour } from "@/components/product-tour";
+import { useLocation } from "wouter";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { startTour } = useTour();
+  const [, navigate] = useLocation();
   const isSubscriptionActive = user?.subscriptionStatus === 'active';
+
+  const handleReplayTour = () => {
+    resetTour();
+    navigate("/dashboard");
+    setTimeout(() => {
+      startTour();
+    }, 300);
+  };
 
   const { data: emailSettings, isLoading: emailLoading } = useQuery({
     queryKey: ["/api/email-settings"],
@@ -69,6 +81,7 @@ export default function SettingsPage() {
             <TabsTrigger value="email" data-testid="tab-email">Email Delivery</TabsTrigger>
             <TabsTrigger value="billing" data-testid="tab-billing">Subscription & Billing</TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="help" data-testid="tab-help">Help & Tips</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
@@ -336,6 +349,74 @@ export default function SettingsPage() {
                 <p className="text-muted-foreground">Notification settings coming soon.</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="help">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-primary" />
+                    <CardTitle>Quick Start Guide</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Take an interactive tour of RehabPilot to learn how to use the platform effectively.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-6 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 text-center">
+                    <Play className="w-12 h-12 text-primary mx-auto mb-4" />
+                    <h3 className="font-medium text-lg mb-2">Interactive Walkthrough</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Get a guided tour of the dashboard, content library, assessments, and more. 
+                      Perfect for getting started or as a refresher.
+                    </p>
+                    <Button onClick={handleReplayTour} data-testid="button-replay-tour">
+                      <Play className="w-4 h-4 mr-2" />
+                      Show me how this works
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Key Features</CardTitle>
+                  <CardDescription>Quick overview of what you can do with RehabPilot</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <Mail className="w-5 h-5 text-primary mt-0.5" />
+                      <div>
+                        <div className="font-medium">Send Educational Content</div>
+                        <div className="text-sm text-muted-foreground">
+                          Browse the content library and send evidence-based materials to patients via email.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <CheckCircle className="w-5 h-5 text-primary mt-0.5" />
+                      <div>
+                        <div className="font-medium">Create Assessments</div>
+                        <div className="text-sm text-muted-foreground">
+                          Build custom questionnaires to understand patient needs and track progress.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <ExternalLink className="w-5 h-5 text-primary mt-0.5" />
+                      <div>
+                        <div className="font-medium">Track Engagement</div>
+                        <div className="text-sm text-muted-foreground">
+                          See who opened content, completed assessments, and who needs follow-up.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
