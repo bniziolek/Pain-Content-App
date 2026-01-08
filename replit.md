@@ -156,6 +156,17 @@ Preferred communication style: Simple, everyday language.
 - **Password Hashing**: scrypt with salt for clinician passwords
 - **Session Security**: HttpOnly cookies, secure flag in production, 30-day max age for clinicians
 
+### Feature Flags System
+- **Table**: `feature_flags` - System-wide feature toggles controlled by super admins
+- **Fields**: key (unique identifier), name, description, isEnabled, value, payload (JSON), category, timestamps
+- **Default Flag**: `content_delivery_mode` - Controls email (with tracking) vs packet (PHI-free download) delivery
+- **API Endpoints**:
+  - GET `/api/admin/feature-flags` - Admin-only, returns all flags
+  - PATCH `/api/admin/feature-flags/:key` - Admin-only, update flag (logged via audit system)
+  - GET `/api/feature-flags` - Authenticated users, returns simplified flag map for frontend
+- **Frontend Hook**: `useContentDeliveryMode()` returns `{ isEmailMode, isPacketMode, isLoading }`
+- **Packet Mode**: Disables email delivery, generates downloadable/printable content bundles without patient identifiers
+
 ## Assessment Builder & Recommendation Engine
 
 ### SurveyJS Integration
