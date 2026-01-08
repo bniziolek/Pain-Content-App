@@ -3,11 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, DollarSign, FileText, TrendingUp, Trash2, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, DollarSign, FileText, TrendingUp, Trash2, CheckCircle2, XCircle, Loader2, Settings2, Mail, Download } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { User, FeatureFlag } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 
@@ -103,7 +106,43 @@ export default function AdminDashboard() {
     },
   });
 
-  if (statsLoading || usersLoading) {
+  const { data: featureFlags = [], isLoading: flagsLoading } = useQuery({
+    queryKey: ["admin-feature-flags"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/feature-flags", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch feature flags");
+      return res.json() as Promise<FeatureFlag[]>;
+    },
+  });
+
+  const updateFeatureFlagMutation = useMutation({
+    mutationFn: async ({ key, updates }: { key: string; updates: { isEnabled?: boolean; value?: string } }) => {
+      const res = await fetch(`/api/admin/feature-flags/${key}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update feature flag");
+      return res.json();
+    },
+    onSuccess: (_, { key }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-feature-flags"] });
+      toast({
+        title: "Feature Flag Updated",
+        description: `Feature flag "${key}" has been updated.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update feature flag.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (statsLoading || usersLoading || flagsLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -240,6 +279,107 @@ export default function AdminDashboard() {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        {/* Feature Flags */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Settings2 className="w-5 h-5 text-primary" />
+              <CardTitle>Feature Flags</CardTitle>
+            </div>
+            <CardDescription>Control system-wide features and settings</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {featureFlags.map((flag) => (
+              <div key={flag.key} className="border rounded-lg p-4" data-testid={`feature-flag-${flag.key}`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{flag.name}</h4>
+                      <Badge variant={flag.isEnabled ? "default" : "secondary"} className={flag.isEnabled ? "bg-green-600" : ""}>
+                        {flag.isEnabled ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                    {flag.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{flag.description}</p>
+                    )}
+                  </div>
+                  <Switch
+                    checked={flag.isEnabled}
+                    onCheckedChange={(checked) => {
+                      updateFeatureFlagMutation.mutate({
+                        key: flag.key,
+                        updates: { isEnabled: checked },
+                      });
+                    }}
+                    data-testid={`toggle-flag-${flag.key}`}
+                  />
+                </div>
+                
+                {flag.key === 'content_delivery_mode' && flag.isEnabled && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Label className="text-sm font-medium mb-2 block">Content Delivery Method</Label>
+                    <div className="grid grid-cols-2 gap-3 max-w-md">
+                      <button
+                        type="button"
+                        onClick={() => updateFeatureFlagMutation.mutate({
+                          key: flag.key,
+                          updates: { value: 'email' },
+                        })}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          flag.value === 'email' 
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                            : 'border-muted hover:border-muted-foreground/30'
+                        }`}
+                        data-testid="select-email-mode"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Mail className="w-4 h-4 text-primary" />
+                          <span className="font-medium text-sm">Email Delivery</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Send content via email with tracking
+                        </p>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => updateFeatureFlagMutation.mutate({
+                          key: flag.key,
+                          updates: { value: 'packet' },
+                        })}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          flag.value === 'packet' 
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                            : 'border-muted hover:border-muted-foreground/30'
+                        }`}
+                        data-testid="select-packet-mode"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Download className="w-4 h-4 text-primary" />
+                          <span className="font-medium text-sm">Download Packet</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Printable content, no PHI tracking
+                        </p>
+                      </button>
+                    </div>
+                    
+                    {flag.value === 'packet' && (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                        <strong>Packet Mode Active:</strong> Email delivery is disabled. Clinicians will download/print content bundles without patient identifiers or tracking.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {featureFlags.length === 0 && (
+              <p className="text-muted-foreground text-center py-4">No feature flags configured</p>
+            )}
           </CardContent>
         </Card>
       </div>

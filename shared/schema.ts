@@ -582,3 +582,25 @@ export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConne
 
 export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
 export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
+
+// Feature flags - global system settings managed by super admins
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  value: text("value"), // For enum-style flags (e.g., 'email' | 'packet')
+  payload: jsonb("payload"), // Additional configuration data
+  category: text("category").default("general"), // 'general' | 'content_delivery' | 'compliance' | 'features'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+export type FeatureFlag = typeof featureFlags.$inferSelect;

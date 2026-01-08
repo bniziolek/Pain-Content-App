@@ -237,6 +237,12 @@ export interface IStorage {
   markPasswordResetTokenUsed(token: string): Promise<void>;
   deleteExpiredPasswordResetTokens(): Promise<void>;
 
+  // Feature flags
+  getFeatureFlags(): Promise<schema.FeatureFlag[]>;
+  getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined>;
+  createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag>;
+  updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any }): Promise<schema.FeatureFlag | undefined>;
+
   // Admin analytics
   getAdminStats(): Promise<{
     totalUsers: number;
@@ -1145,6 +1151,29 @@ export class DatabaseStorage implements IStorage {
       recentSignups: recentSignupsResult?.count ?? 0,
       mrr,
     };
+  }
+
+  // Feature flag methods
+  async getFeatureFlags(): Promise<schema.FeatureFlag[]> {
+    return await db.select().from(schema.featureFlags).orderBy(schema.featureFlags.category, schema.featureFlags.name);
+  }
+
+  async getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined> {
+    const [flag] = await db.select().from(schema.featureFlags).where(eq(schema.featureFlags.key, key));
+    return flag;
+  }
+
+  async createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag> {
+    const [created] = await db.insert(schema.featureFlags).values(flag).returning();
+    return created!;
+  }
+
+  async updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any }): Promise<schema.FeatureFlag | undefined> {
+    const [updated] = await db.update(schema.featureFlags)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.featureFlags.key, key))
+      .returning();
+    return updated;
   }
 }
 

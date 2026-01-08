@@ -2158,6 +2158,61 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Feature Flags Routes (Admin Only) ======
+  app.get("/api/admin/feature-flags", requireAdmin, async (req, res, next) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      res.json(flags);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
+    try {
+      const { key } = req.params;
+      const { isEnabled, value, payload } = req.body;
+      
+      const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Feature flag not found" });
+      }
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { 
+          action: 'updated_feature_flag', 
+          flagKey: key,
+          newValue: value,
+          isEnabled,
+        },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Public endpoint for clients to get feature flags (doesn't require admin)
+  app.get("/api/feature-flags", requireAuth, async (req, res, next) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      // Return a simplified object for the frontend
+      const flagsMap = flags.reduce((acc, flag) => {
+        acc[flag.key] = {
+          isEnabled: flag.isEnabled,
+          value: flag.value,
+        };
+        return acc;
+      }, {} as Record<string, { isEnabled: boolean; value: string | null }>);
+      res.json(flagsMap);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
