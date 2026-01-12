@@ -8,6 +8,16 @@ RehabPilot is a SaaS platform for physical therapists and clinicians to deliver 
 
 Preferred communication style: Simple, everyday language.
 
+## Design System
+
+The application follows the **DriverPath Style Guide** (see `docs/STYLE_GUIDE.md`):
+- **Brand**: Health Drivers Institute (HDI) / DriverPath
+- **Primary Color**: Teal (#0F766E light, #14B8A6 dark)
+- **Accent Color**: Amber (#F59E0B) - used sparingly for highlights
+- **Typography**: Inter font family, no decorative serifs
+- **Radius**: 12px for cards and components
+- **Voice**: Clinical-grade, efficient, calm, decisive
+
 ## System Architecture
 
 ### Frontend Architecture
