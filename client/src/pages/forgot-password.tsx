@@ -173,7 +173,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           
           <Card className="border-none shadow-none">
@@ -205,7 +205,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           
           <Card className="border-none shadow-none">
@@ -287,7 +287,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           
           <Card className="border-none shadow-none">
@@ -321,7 +321,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
         
         <Card className="border-none shadow-none">

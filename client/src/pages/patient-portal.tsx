@@ -155,7 +155,7 @@ export default function PatientPortal() {
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center py-12 px-4">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
 
         <Card className="w-full max-w-md shadow-lg border-none">
@@ -262,7 +262,7 @@ export default function PatientPortal() {
         <div className="max-w-4xl mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-2 font-serif text-lg font-bold text-primary">
             <Activity className="w-5 h-5" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} data-testid="button-logout">
             Sign Out
@@ -383,7 +383,7 @@ export default function PatientPortal() {
       <footer className="border-t mt-16 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>Your health information is protected and secure.</p>
-          <p className="mt-1">RehabPilot - Evidence-Based Patient Education</p>
+          <p className="mt-1">DriverPath - Evidence-Based Patient Education</p>
         </div>
       </footer>
     </div>

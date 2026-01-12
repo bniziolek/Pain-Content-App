@@ -11,7 +11,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/auth">
@@ -151,7 +151,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-gray-50 py-12 border-t border-gray-200">
         <div className="container mx-auto px-6 text-center text-muted-foreground text-sm space-y-4">
-          <p>&copy; 2025 RehabPilot. All rights reserved.</p>
+          <p>&copy; 2025 DriverPath. All rights reserved.</p>
           <div className="pt-4 border-t border-gray-200 max-w-xs mx-auto">
             <Link href="/admin/login">
               <span className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Admin Access</span>

@@ -138,7 +138,7 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <h1 style="color: #1a5653; margin: 0;">DriverPath</h1>
           <p style="color: #666; margin: 4px 0 0 0;">Patient Education Resources</p>
         </div>
         
@@ -155,7 +155,7 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
         
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
         <p style="color: #888; font-size: 12px; text-align: center;">
-          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+          This email was sent via DriverPath, a patient education platform for healthcare providers.
         </p>
       </body>
       </html>
@@ -200,7 +200,7 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <h1 style="color: #1a5653; margin: 0;">DriverPath</h1>
           <p style="color: #666; margin: 4px 0 0 0;">Patient Assessment</p>
         </div>
         
@@ -217,7 +217,7 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
         
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
         <p style="color: #888; font-size: 12px; text-align: center;">
-          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+          This email was sent via DriverPath, a patient education platform for healthcare providers.
         </p>
       </body>
       </html>
@@ -270,7 +270,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <h1 style="color: #1a5653; margin: 0;">DriverPath</h1>
           <p style="color: #666; margin: 4px 0 0 0;">Password Reset</p>
         </div>
         
@@ -287,13 +287,13 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
         
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
         <p style="color: #888; font-size: 12px; text-align: center;">
-          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+          This email was sent via DriverPath, a patient education platform for healthcare providers.
         </p>
       </body>
       </html>
     `;
 
-    const encodedEmail = createEmail(data.toEmail, 'Reset your RehabPilot password', html);
+    const encodedEmail = createEmail(data.toEmail, 'Reset your DriverPath password', html);
     
     const response = await gmail.users.messages.send({
       userId: 'me',
@@ -335,7 +335,7 @@ export async function sendPatientPortalEmail(data: PatientPortalEmailData): Prom
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a5653; margin: 0;">RehabPilot</h1>
+          <h1 style="color: #1a5653; margin: 0;">DriverPath</h1>
           <p style="color: #666; margin: 4px 0 0 0;">Patient Education Portal</p>
         </div>
         
@@ -364,7 +364,7 @@ export async function sendPatientPortalEmail(data: PatientPortalEmailData): Prom
         
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
         <p style="color: #888; font-size: 12px; text-align: center;">
-          This email was sent via RehabPilot, a patient education platform for healthcare providers.
+          This email was sent via DriverPath, a patient education platform for healthcare providers.
         </p>
       </body>
       </html>

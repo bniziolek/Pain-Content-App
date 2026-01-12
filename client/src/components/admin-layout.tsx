@@ -34,7 +34,7 @@ export function AdminLayout({ children, persona, onPersonaChange }: AdminLayoutP
             <div className="bg-red-600 p-1.5 rounded">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <span className="font-serif text-lg font-bold tracking-tight">RehabPilot Admin</span>
+            <span className="font-serif text-lg font-bold tracking-tight">DriverPath Admin</span>
             <span className="text-gray-600 mx-2">|</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">Current View:</span>

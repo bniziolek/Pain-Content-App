@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
   const { toast } = useToast();
   const { login } = useAuth();
 
-  const isAdminEmail = email === "admin@rehabpilot.com";
+  const isAdminEmail = email === "admin@driverpath.com";
   const isCreatingTrialUser = email && !isAdminEmail;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
         setLocation("/admin/dashboard");
       } else {
         // Create trial user - first login as admin
-        await login("admin@rehabpilot.com", "admin123");
+        await login("admin@driverpath.com", "admin123");
         
         // Then create the trial user
         const res = await fetch("/api/admin/create-trial-user", {
@@ -94,7 +94,7 @@ export default function AdminLoginPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder={isCreatingTrialUser ? "user@example.com" : "admin@rehabpilot.com"}
+                placeholder={isCreatingTrialUser ? "user@example.com" : "admin@driverpath.com"}
                 className="bg-gray-900 border-gray-800 text-white placeholder:text-gray-600 focus-visible:ring-red-500"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -145,7 +145,7 @@ export default function AdminLoginPage() {
 
             {!email && (
               <p className="text-xs text-gray-500 italic">
-                Admin login: admin@rehabpilot.com / admin123
+                Admin login: admin@driverpath.com / admin123
               </p>
             )}
 

@@ -140,9 +140,9 @@ export default function SettingsPage() {
                             {currentMode === 'central' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                           </div>
                           <div>
-                            <div className="font-medium">RehabPilot sends on your behalf</div>
+                            <div className="font-medium">DriverPath sends on your behalf</div>
                             <div className="text-sm text-muted-foreground mt-1">
-                              Emails are sent from RehabPilot's secure email service. Your name is included so patients know who sent them.
+                              Emails are sent from DriverPath's secure email service. Your name is included so patients know who sent them.
                             </div>
                             {currentMode === 'central' && (
                               <div className="flex items-center gap-2 mt-2 text-sm text-green-600">
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                       <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">No Gmail account connected</p>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Gmail connection will be available soon. For now, emails are sent from RehabPilot on your behalf.
+                        Gmail connection will be available soon. For now, emails are sent from DriverPath on your behalf.
                       </p>
                       <Button disabled variant="outline" data-testid="button-connect-gmail">
                         <Mail className="w-4 h-4 mr-2" />
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                     <CardTitle>Quick Start Guide</CardTitle>
                   </div>
                   <CardDescription>
-                    Take an interactive tour of RehabPilot to learn how to use the platform effectively.
+                    Take an interactive tour of DriverPath to learn how to use the platform effectively.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -382,7 +382,7 @@ export default function SettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Key Features</CardTitle>
-                  <CardDescription>Quick overview of what you can do with RehabPilot</CardDescription>
+                  <CardDescription>Quick overview of what you can do with DriverPath</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4">

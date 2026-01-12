@@ -96,7 +96,7 @@ export default function OnboardingPage() {
 
   const handleComplete = async () => {
     await updateOnboarding.mutateAsync({ onboardingCompleted: true, onboardingStep: STEPS.length });
-    toast({ title: "Welcome to RehabPilot!", description: "Your setup is complete. Let's get started!" });
+    toast({ title: "Welcome to DriverPath!", description: "Your setup is complete. Let's get started!" });
     setLocation("/dashboard");
   };
 
@@ -111,7 +111,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-2xl">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8 justify-center">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
 
         <div className="mb-6">
@@ -190,7 +190,7 @@ function WelcomeStep() {
   return (
     <div className="space-y-4 text-center">
       <CardDescription className="text-base">
-        Welcome to RehabPilot! We'll help you get set up in just a few minutes.
+        Welcome to DriverPath! We'll help you get set up in just a few minutes.
       </CardDescription>
       <div className="grid gap-3 text-left max-w-md mx-auto">
         <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
@@ -246,9 +246,9 @@ function EmailStep() {
               {selectedMode === 'central' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
             </div>
             <div>
-              <div className="font-medium">RehabPilot sends on your behalf</div>
+              <div className="font-medium">DriverPath sends on your behalf</div>
               <div className="text-sm text-muted-foreground mt-1">
-                Emails are sent from RehabPilot's secure email service. Your name is included so patients know who sent them. Recommended for most users.
+                Emails are sent from DriverPath's secure email service. Your name is included so patients know who sent them. Recommended for most users.
               </div>
             </div>
           </div>
@@ -282,7 +282,7 @@ function EmailStep() {
       
       {selectedMode === 'personal' && (
         <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm max-w-md mx-auto">
-          Gmail connection will be available soon. For now, emails will be sent from RehabPilot. You can change this later in Settings.
+          Gmail connection will be available soon. For now, emails will be sent from DriverPath. You can change this later in Settings.
         </div>
       )}
       
@@ -397,7 +397,7 @@ function CompleteStep() {
   return (
     <div className="space-y-4 text-center">
       <CardDescription className="text-base">
-        You're all set! Your RehabPilot account is ready to use.
+        You're all set! Your DriverPath account is ready to use.
       </CardDescription>
       <div className="p-6 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 max-w-md mx-auto">
         <CheckCircle2 className="w-12 h-12 text-primary mx-auto mb-3" />

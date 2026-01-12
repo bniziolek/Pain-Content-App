@@ -32,7 +32,7 @@ export default function SubscriptionPage() {
       
       toast({
         title: "Subscription Activated",
-        description: "Welcome to RehabPilot Pro! You now have full access.",
+        description: "Welcome to DriverPath Pro! You now have full access.",
       });
       
       setLocation("/dashboard");
@@ -53,7 +53,7 @@ export default function SubscriptionPage() {
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-2 font-serif text-2xl font-bold text-primary">
             <Activity className="w-8 h-8" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           <h1 className="text-3xl font-serif font-bold">Complete Your Registration</h1>
           <p className="text-muted-foreground">Select a plan to activate your account.</p>

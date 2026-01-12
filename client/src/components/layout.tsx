@@ -59,7 +59,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
       <div className="p-6">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-sidebar-primary">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
       </div>
       

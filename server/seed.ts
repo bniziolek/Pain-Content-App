@@ -16,17 +16,17 @@ export async function seedDatabase() {
 
   // Create admin user for testing
   try {
-    const existingAdmin = await storage.getUserByEmail("admin@rehabpilot.com");
+    const existingAdmin = await storage.getUserByEmail("admin@driverpath.com");
     if (!existingAdmin) {
       await storage.createUser({
-        email: "admin@rehabpilot.com",
+        email: "admin@driverpath.com",
         password: await hashPassword("admin123"),
         name: "Admin User",
         role: "admin",
         subscriptionStatus: "active",
         subscriptionPeriodEnd: new Date("9999-12-31"),
       });
-      console.log("Created admin user: admin@rehabpilot.com / admin123 (perpetual subscription)");
+      console.log("Created admin user: admin@driverpath.com / admin123 (perpetual subscription)");
     } else if (existingAdmin.role !== "admin" || existingAdmin.subscriptionStatus !== "active") {
       // Update existing admin to have correct role and perpetual subscription
       await storage.updateUserRole(existingAdmin.id, "admin");

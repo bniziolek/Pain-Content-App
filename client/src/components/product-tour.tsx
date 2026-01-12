@@ -95,13 +95,13 @@ export function TourProvider({ children }: TourProviderProps) {
   const endTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    localStorage.setItem("rehabpilot_tour_completed", "true");
+    localStorage.setItem("driverpath_tour_completed", "true");
   }, []);
 
   const skipTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    localStorage.setItem("rehabpilot_tour_completed", "true");
+    localStorage.setItem("driverpath_tour_completed", "true");
   }, []);
 
   const nextStep = useCallback(() => {
@@ -277,9 +277,9 @@ function TourOverlay() {
 }
 
 export function shouldShowTour(): boolean {
-  return localStorage.getItem("rehabpilot_tour_completed") !== "true";
+  return localStorage.getItem("driverpath_tour_completed") !== "true";
 }
 
 export function resetTour(): void {
-  localStorage.removeItem("rehabpilot_tour_completed");
+  localStorage.removeItem("driverpath_tour_completed");
 }

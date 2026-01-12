@@ -1,8 +1,8 @@
-# RehabPilot
+# DriverPath
 
 ## Overview
 
-RehabPilot is a SaaS platform for physical therapists and clinicians to deliver evidence-based patient education. The application enables clinicians to curate and send educational content to patients, conduct assessments, and track engagement. The core philosophy centers on explaining "why you hurt, not where you hurt" using biopsychosocial and pain-neuroscience education principles.
+DriverPath is a SaaS platform for physical therapists and clinicians to deliver evidence-based patient education. The application enables clinicians to curate and send educational content to patients, conduct assessments, and track engagement. The core philosophy centers on explaining "why you hurt, not where you hurt" using biopsychosocial and pain-neuroscience education principles.
 
 ## User Preferences
 
@@ -80,7 +80,7 @@ The application follows the **DriverPath Style Guide** (see `docs/STYLE_GUIDE.md
 - **Gmail**: Transactional email service for sending patient content and assessment invites via Gmail API
 - **Integration**: `server/gmail.ts` - Gmail client service using Replit's connector with OAuth
 - **Email Types**: Content bundles (educational materials), Assessment invites
-- **Features**: Professional HTML email templates with RehabPilot branding
+- **Features**: Professional HTML email templates with DriverPath branding
 
 ### Content Management (Contentful CMS)
 - **Contentful**: Headless CMS for managing content library and care pathways

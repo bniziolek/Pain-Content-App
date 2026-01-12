@@ -179,7 +179,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
 
           <Card className="border-none shadow-none">
@@ -286,7 +286,7 @@ export default function AuthPage() {
         <div className="absolute inset-0 bg-primary/90" />
         <div className="relative z-10 max-w-lg text-white p-12">
           <blockquote className="text-2xl font-serif italic mb-6">
-            "RehabPilot has completely transformed how I educate my patients. The automated assessments save me hours every week."
+            "DriverPath has completely transformed how I educate my patients. The automated assessments save me hours every week."
           </blockquote>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg">

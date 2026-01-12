@@ -16,7 +16,7 @@ export default function PatientResults() {
         <div className="container max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary">
             <Activity className="w-6 h-6" />
-            <span>RehabPilot</span>
+            <span>DriverPath</span>
           </div>
           <Button variant="outline" size="sm">
             <Mail className="w-4 h-4 mr-2" />

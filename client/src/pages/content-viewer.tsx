@@ -100,7 +100,7 @@ export default function ContentViewerPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center gap-2 text-primary mb-2">
-            <span className="text-sm font-medium">RehabPilot</span>
+            <span className="text-sm font-medium">DriverPath</span>
           </div>
           <p className="text-sm text-muted-foreground">Patient Education Resources</p>
         </div>
@@ -153,7 +153,7 @@ export default function ContentViewerPage() {
         </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>This educational content was shared with you by your healthcare provider through RehabPilot.</p>
+          <p>This educational content was shared with you by your healthcare provider through DriverPath.</p>
         </div>
       </div>
     </div>
