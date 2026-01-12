@@ -9,20 +9,16 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   
-  /* Medical Modern Palette */
-  /* Primary: Deep Teal/Blue - Professional, Trustworthy */
+  /* DriverPath Design System */
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   
-  /* Secondary: Soft Sage/Mint - Calming, Healing */
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   
-  /* Accent: Terracotta - Warmth, Action (sparingly) */
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
   
-  /* Neutrals */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -36,6 +32,11 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  
+  /* Semantic Colors */
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
   
   /* Charts */
   --color-chart-1: hsl(var(--chart-1));
@@ -53,111 +54,141 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Libre Baskerville', serif;
+  /* Typography: Inter (primary), system fallbacks */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   
-  --radius: 0.5rem;
+  /* DriverPath: 12px radius */
+  --radius: 0.75rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(2,6,23,.06);
+  --shadow-md: 0 8px 24px rgba(2,6,23,.10);
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE - DriverPath Palette */
 :root {
-  /* H S% L% format */
+  /* Background: #F8FAFC */
+  --background: 210 40% 98%;
+  /* Text: #0F172A */
+  --foreground: 222 47% 11%;
   
-  /* Background: Very slightly warm white */
-  --background: 210 20% 98%;
-  --foreground: 215 25% 20%;
-  
-  /* Card: Pure white */
+  /* Card/Surface: #FFFFFF */
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 20%;
+  --card-foreground: 222 47% 11%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 20%;
+  --popover-foreground: 222 47% 11%;
   
-  /* Primary: Deep Teal/Slate (Trust) */
-  --primary: 200 40% 30%; 
+  /* Primary: #0F766E (Deep Teal) */
+  --primary: 174 77% 26%;
   --primary-foreground: 0 0% 100%;
   
-  /* Secondary: Soft Sage (Calm) */
-  --secondary: 150 20% 90%;
-  --secondary-foreground: 160 40% 30%;
+  /* Secondary: Subtle teal tint */
+  --secondary: 174 30% 95%;
+  --secondary-foreground: 174 77% 22%;
   
-  /* Muted: Cool Grays */
-  --muted: 210 10% 90%;
-  --muted-foreground: 215 15% 45%;
+  /* Muted: #475569 */
+  --muted: 215 20% 95%;
+  --muted-foreground: 215 16% 34%;
   
-  /* Accent: Terracotta (Warmth) */
-  --accent: 15 50% 94%;
-  --accent-foreground: 15 60% 35%;
+  /* Accent: #F59E0B (Amber highlight) */
+  --accent: 38 92% 50%;
+  --accent-foreground: 0 0% 100%;
   
-  /* Destructive */
-  --destructive: 0 70% 50%;
+  /* Destructive/Error: #DC2626 */
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 210 15% 88%;
-  --input: 210 15% 88%;
-  --ring: 200 40% 30%;
+  /* Border: #E2E8F0 */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  /* Focus ring: teal */
+  --ring: 174 72% 40%;
+  
+  /* Semantic */
+  --success: 142 72% 37%;
+  --warning: 33 91% 44%;
+  --info: 217 91% 53%;
   
   /* Chart Colors */
-  --chart-1: 200 40% 30%; /* Match Primary */
-  --chart-2: 160 40% 40%; /* Match Secondary-ish */
-  --chart-3: 15 60% 55%;  /* Match Accent-ish */
-  --chart-4: 45 60% 50%;
+  --chart-1: 174 77% 26%;
+  --chart-2: 142 72% 37%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 217 91% 53%;
   --chart-5: 260 40% 50%;
   
+  /* Sidebar */
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 25% 20%;
-  --sidebar-primary: 200 40% 30%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 174 77% 26%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 10% 96%;
-  --sidebar-accent-foreground: 215 25% 20%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-accent: 174 30% 97%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-ring: 174 72% 40%;
 }
 
+/* DARK MODE - DriverPath Palette */
 .dark {
-  --background: 215 25% 10%;
-  --foreground: 210 20% 90%;
+  /* Background: #0B1220 */
+  --background: 215 48% 9%;
+  /* Text: #E5E7EB */
+  --foreground: 220 14% 91%;
   
-  --card: 215 25% 12%;
-  --card-foreground: 210 20% 90%;
+  /* Card/Surface: #0F1B2D */
+  --card: 213 50% 12%;
+  --card-foreground: 220 14% 91%;
   
-  --popover: 215 25% 12%;
-  --popover-foreground: 210 20% 90%;
+  --popover: 213 50% 12%;
+  --popover-foreground: 220 14% 91%;
   
-  --primary: 200 40% 40%;
+  /* Primary: #14B8A6 (Lighter teal for dark mode) */
+  --primary: 174 72% 40%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 150 20% 20%;
-  --secondary-foreground: 150 20% 80%;
+  /* Secondary */
+  --secondary: 174 30% 15%;
+  --secondary-foreground: 174 50% 80%;
   
-  --muted: 215 20% 20%;
-  --muted-foreground: 215 15% 60%;
+  /* Muted: #94A3B8 */
+  --muted: 215 30% 18%;
+  --muted-foreground: 215 16% 65%;
   
-  --accent: 15 30% 20%;
-  --accent-foreground: 15 50% 90%;
+  /* Accent: amber adjusted for dark mode */
+  --accent: 38 80% 45%;
+  --accent-foreground: 0 0% 100%;
   
-  --destructive: 0 60% 30%;
+  /* Destructive */
+  --destructive: 0 60% 35%;
   --destructive-foreground: 0 0% 100%;
   
-  --border: 215 20% 20%;
-  --input: 215 20% 20%;
-  --ring: 200 40% 40%;
+  /* Border: #1F2A44 */
+  --border: 220 38% 19%;
+  --input: 220 38% 19%;
+  --ring: 174 72% 40%;
   
-  --chart-1: 200 40% 50%;
-  --chart-2: 160 40% 50%;
-  --chart-3: 15 60% 60%;
-  --chart-4: 45 60% 60%;
-  --chart-5: 260 40% 60%;
+  /* Semantic (slightly adjusted for dark) */
+  --success: 142 60% 45%;
+  --warning: 33 80% 50%;
+  --info: 217 80% 60%;
   
-  --sidebar: 215 25% 10%;
-  --sidebar-foreground: 210 20% 90%;
-  --sidebar-primary: 200 40% 40%;
+  /* Chart Colors */
+  --chart-1: 174 72% 45%;
+  --chart-2: 142 60% 45%;
+  --chart-3: 38 80% 55%;
+  --chart-4: 217 80% 60%;
+  --chart-5: 260 50% 60%;
+  
+  /* Sidebar */
+  --sidebar: 215 48% 9%;
+  --sidebar-foreground: 220 14% 91%;
+  --sidebar-primary: 174 72% 40%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 20% 15%;
-  --sidebar-accent-foreground: 210 20% 90%;
-  --sidebar-border: 215 20% 20%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-accent: 215 30% 15%;
+  --sidebar-accent-foreground: 220 14% 91%;
+  --sidebar-border: 220 38% 19%;
+  --sidebar-ring: 174 72% 40%;
 }
 
 @layer base {
@@ -168,6 +199,6 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif;
+    @apply font-sans font-semibold;
   }
 }
