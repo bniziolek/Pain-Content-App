@@ -32,6 +32,7 @@ import PatientPortal from "@/pages/patient-portal";
 import AssessmentBuilderPage from "@/pages/assessment-builder";
 import AssessmentResultsPage from "@/pages/assessment-results";
 import OnboardingPage from "@/pages/onboarding";
+import ContentPacketGuidePage from "@/pages/content-packet-guide";
 
 function Router() {
   return (
@@ -97,6 +98,13 @@ function Router() {
         {() => (
           <RequireSubscription>
             <LibraryPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/content-packet-guide">
+        {() => (
+          <RequireSubscription>
+            <ContentPacketGuidePage />
           </RequireSubscription>
         )}
       </Route>

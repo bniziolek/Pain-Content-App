@@ -647,6 +647,29 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Score an assessment (for clinician-conducted assessments)
+  app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
+    try {
+      const { assessmentId, answers } = req.body;
+      
+      if (!assessmentId || !answers) {
+        return res.status(400).json({ error: "assessmentId and answers are required" });
+      }
+      
+      const result = await scoreAssessmentResponse(assessmentId, answers);
+      
+      await logClinicianAction(req, req.user!, 'assessment_score', {
+        resourceType: 'assessment',
+        resourceId: assessmentId,
+        details: { tagCount: result.tagScores.length },
+      });
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Assessment Invite Routes (Patient-facing) ======
   app.post("/api/assessment-invites", requireSubscription, async (req, res, next) => {
     try {
