@@ -42,6 +42,11 @@ interface CarePathway {
   name: string;
 }
 
+interface PathwaysResponse {
+  custom: CarePathway[];
+  templates: CarePathway[];
+}
+
 interface ContentItem {
   id: string;
   title: string;
@@ -112,7 +117,7 @@ export default function RecommendationRulesPage() {
     },
   });
 
-  const { data: pathways } = useQuery<CarePathway[]>({
+  const { data: pathwaysData } = useQuery<PathwaysResponse>({
     queryKey: ["pathways"],
     queryFn: async () => {
       const res = await fetch("/api/pathways", { credentials: "include" });
@@ -120,6 +125,8 @@ export default function RecommendationRulesPage() {
       return res.json();
     },
   });
+  
+  const pathways = [...(pathwaysData?.custom || []), ...(pathwaysData?.templates || [])];
 
   const { data: content } = useQuery<ContentItem[]>({
     queryKey: ["content"],
