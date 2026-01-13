@@ -42,7 +42,7 @@ export function registerRoutes(app: Express): Server {
       }
       
       // Always return success to prevent email enumeration attacks
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByEmail(email.toLowerCase());
       if (user) {
         // Generate a secure token
         const token = crypto.randomBytes(32).toString('hex');
@@ -1557,9 +1557,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
     try {
       const { email, name, password, subscriptionMonths } = req.body;
+      const normalizedEmail = email.toLowerCase();
       
       // Check if user already exists
-      const existing = await storage.getUserByEmail(email);
+      const existing = await storage.getUserByEmail(normalizedEmail);
       if (existing) {
         return res.status(400).json({ error: "User with this email already exists" });
       }
@@ -1571,8 +1572,8 @@ export function registerRoutes(app: Express): Server {
         : null;
       
       const user = await storage.createUser({
-        email,
-        name: name || email.split("@")[0],
+        email: normalizedEmail,
+        name: name || normalizedEmail.split("@")[0],
         password: hashedPassword,
         role: "clinician",
         subscriptionStatus: subscriptionMonths ? "active" : "inactive",
@@ -1595,9 +1596,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
     try {
       const { email, name } = req.body;
+      const normalizedEmail = email.toLowerCase();
       
       // Check if user already exists
-      let user = await storage.getUserByEmail(email);
+      let user = await storage.getUserByEmail(normalizedEmail);
       
       if (user) {
         // Update existing user to have trial access
@@ -1610,8 +1612,8 @@ export function registerRoutes(app: Express): Server {
         // Create new user with trial access
         const hashedPassword = await hashPassword("changeme123"); // Default password
         user = await storage.createUser({
-          email,
-          name: name || email.split("@")[0],
+          email: normalizedEmail,
+          name: name || normalizedEmail.split("@")[0],
           password: hashedPassword,
           role: "clinician",
           subscriptionStatus: "active",
