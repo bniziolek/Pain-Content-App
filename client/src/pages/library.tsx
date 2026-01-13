@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText } from "lucide-react";
+import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles } from "lucide-react";
 import { useState, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
+import { Link } from "wouter";
 
 interface ContentItem {
   id: string;
@@ -141,6 +142,18 @@ export default function LibraryPage() {
             <p className="text-muted-foreground">Curated education modules for your patients.</p>
           </div>
           
+          <div className="flex items-center gap-3">
+            <Link href="/content-packet-guide">
+              <Button variant="outline" data-testid="button-guide-me">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Guide Me to Create Packet
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div></div>
           {selectedItems.length > 0 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-6 right-6 sm:static z-50">
               {isPacketMode ? (
