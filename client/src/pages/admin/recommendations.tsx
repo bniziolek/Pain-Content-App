@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Sparkles, Trash2, Edit, Loader2, Play, FileText, Route, Target, Shield } from "lucide-react";
+import { Plus, Sparkles, Trash2, Edit, Loader2, Play, FileText, Target, Shield, CheckCircle, HelpCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
@@ -24,6 +24,10 @@ interface RecommendationConfig {
   assessmentId: string | null;
   pathwayId: string | null;
   pathwayWeek: number | null;
+  questionName: string | null;
+  questionType: string | null;
+  matchOperator: string | null;
+  matchValues: unknown;
   tag: string;
   minScore: number | null;
   maxScore: number | null;
@@ -37,69 +41,56 @@ interface RecommendationConfig {
 interface Assessment {
   id: string;
   name: string;
-}
-
-interface CarePathway {
-  id: string;
-  name: string;
-}
-
-interface PathwaysResponse {
-  custom: CarePathway[];
-  templates: CarePathway[];
+  surveyJson?: unknown;
 }
 
 interface ContentItem {
   id: string;
   title: string;
+  tags?: string[];
 }
 
-interface PreviewResult {
-  recommendations: Array<{
-    contentId: string;
-    contentTitle: string;
-    tag: string;
-    priority: number;
-    rationale: string | null;
-    source: string;
-  }>;
-  matchedRuleIds: string[];
+interface AssessmentQuestion {
+  name: string;
+  title: string;
+  type: string;
+  choices?: Array<{ value: string | number; text: string } | string | number>;
+  rateMax?: number;
+  rateMin?: number;
 }
 
-const commonTags = [
-  "fear_avoidance",
-  "kinesiophobia",
-  "catastrophizing",
-  "pain_intensity",
-  "functional_limitation",
-  "sleep_disturbance",
-  "anxiety",
-  "depression",
-  "self_efficacy",
-  "movement_confidence",
-];
+interface RuleFormData {
+  id?: string;
+  name: string;
+  assessmentId: string;
+  questionName: string;
+  questionType: string;
+  matchOperator: string;
+  matchValues: unknown;
+  priority: number;
+  contentIds: string[];
+  rationale: string;
+}
+
+const defaultFormData: RuleFormData = {
+  name: "",
+  assessmentId: "",
+  questionName: "",
+  questionType: "",
+  matchOperator: "equals",
+  matchValues: [],
+  priority: 1,
+  contentIds: [],
+  rationale: "",
+};
 
 export default function AdminRecommendationsPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<RecommendationConfig | null>(null);
-  const [newConfig, setNewConfig] = useState({
-    name: "",
-    assessmentId: "",
-    pathwayId: "",
-    pathwayWeek: "",
-    tag: "",
-    minScore: 50,
-    maxScore: 100,
-    priority: 1,
-    contentIds: [] as string[],
-    rationale: "",
-  });
-  const [previewScores, setPreviewScores] = useState<Array<{ tag: string; percentage: number }>>([
-    { tag: "fear_avoidance", percentage: 75 },
-  ]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState<RuleFormData>(defaultFormData);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<AssessmentQuestion | null>(null);
   
   const queryClient = useQueryClient();
 
@@ -110,7 +101,7 @@ export default function AdminRecommendationsPage() {
   }, [user, setLocation]);
   
   const { data: configs, isLoading: configsLoading } = useQuery<RecommendationConfig[]>({
-    queryKey: ["recommendation-configs"],
+    queryKey: ["admin-recommendation-configs"],
     queryFn: async () => {
       const res = await fetch("/api/admin/recommendation-configs", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch configs");
@@ -127,17 +118,6 @@ export default function AdminRecommendationsPage() {
     },
   });
 
-  const { data: pathwaysData } = useQuery<PathwaysResponse>({
-    queryKey: ["pathways"],
-    queryFn: async () => {
-      const res = await fetch("/api/pathways", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch pathways");
-      return res.json();
-    },
-  });
-  
-  const pathways = [...(pathwaysData?.custom || []), ...(pathwaysData?.templates || [])];
-
   const { data: content } = useQuery<ContentItem[]>({
     queryKey: ["content"],
     queryFn: async () => {
@@ -147,58 +127,82 @@ export default function AdminRecommendationsPage() {
     },
   });
 
-  const { data: previewResult, refetch: refetchPreview, isFetching: previewLoading } = useQuery<PreviewResult>({
-    queryKey: ["recommendation-preview", previewScores],
+  const { data: questions } = useQuery<AssessmentQuestion[]>({
+    queryKey: ["assessment-questions", formData.assessmentId],
     queryFn: async () => {
-      const res = await fetch("/api/recommendations/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tagScores: previewScores }),
-      });
-      if (!res.ok) throw new Error("Failed to preview");
+      if (!formData.assessmentId) return [];
+      const res = await fetch(`/api/assessments/${formData.assessmentId}/questions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch questions");
       return res.json();
     },
-    enabled: false,
+    enabled: !!formData.assessmentId,
   });
 
+  useEffect(() => {
+    if (formData.questionName && questions) {
+      const q = questions.find(q => q.name === formData.questionName);
+      setSelectedQuestion(q || null);
+      if (q) {
+        setFormData(prev => ({ ...prev, questionType: q.type }));
+      }
+    } else {
+      setSelectedQuestion(null);
+    }
+  }, [formData.questionName, questions]);
+
   const createMutation = useMutation({
-    mutationFn: async (config: typeof newConfig) => {
+    mutationFn: async (data: RuleFormData) => {
       const res = await fetch("/api/admin/recommendation-configs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          ...config,
-          assessmentId: config.assessmentId || undefined,
-          pathwayId: config.pathwayId || undefined,
-          pathwayWeek: config.pathwayWeek ? parseInt(config.pathwayWeek) : undefined,
+          name: data.name,
+          assessmentId: data.assessmentId || undefined,
+          questionName: data.questionName,
+          questionType: data.questionType,
+          matchOperator: data.matchOperator,
+          matchValues: data.matchValues,
+          tag: data.questionName,
+          priority: data.priority,
+          contentIds: data.contentIds,
+          rationale: data.rationale,
         }),
       });
       if (!res.ok) throw new Error("Failed to create");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recommendation-configs"] });
-      setIsCreateOpen(false);
-      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["admin-recommendation-configs"] });
+      closeDialog();
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<RecommendationConfig> }) => {
-      const res = await fetch(`/api/admin/recommendation-configs/${id}`, {
+    mutationFn: async (data: RuleFormData) => {
+      const res = await fetch(`/api/admin/recommendation-configs/${data.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          name: data.name,
+          assessmentId: data.assessmentId || undefined,
+          questionName: data.questionName,
+          questionType: data.questionType,
+          matchOperator: data.matchOperator,
+          matchValues: data.matchValues,
+          tag: data.questionName,
+          priority: data.priority,
+          contentIds: data.contentIds,
+          rationale: data.rationale,
+        }),
       });
       if (!res.ok) throw new Error("Failed to update");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recommendation-configs"] });
-      setEditingConfig(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-recommendation-configs"] });
+      closeDialog();
     },
   });
 
@@ -211,36 +215,70 @@ export default function AdminRecommendationsPage() {
       if (!res.ok) throw new Error("Failed to delete");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recommendation-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-recommendation-configs"] });
     },
   });
 
-  const resetForm = () => {
-    setNewConfig({
-      name: "",
-      assessmentId: "",
-      pathwayId: "",
-      pathwayWeek: "",
-      tag: "",
-      minScore: 50,
-      maxScore: 100,
-      priority: 1,
-      contentIds: [],
-      rationale: "",
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await fetch(`/api/admin/recommendation-configs/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isActive }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-recommendation-configs"] });
+    },
+  });
+
+  const openCreateDialog = () => {
+    setFormData(defaultFormData);
+    setIsEditing(false);
+    setSelectedQuestion(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (config: RecommendationConfig) => {
+    setFormData({
+      id: config.id,
+      name: config.name,
+      assessmentId: config.assessmentId || "",
+      questionName: config.questionName || "",
+      questionType: config.questionType || "",
+      matchOperator: config.matchOperator || "equals",
+      matchValues: config.matchValues || [],
+      priority: config.priority || 1,
+      contentIds: config.contentIds || [],
+      rationale: config.rationale || "",
     });
+    setIsEditing(true);
+    setIsDialogOpen(true);
   };
 
-  const handleCreate = () => {
-    if (!newConfig.name || !newConfig.tag || newConfig.contentIds.length === 0) return;
-    createMutation.mutate(newConfig);
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setFormData(defaultFormData);
+    setIsEditing(false);
+    setSelectedQuestion(null);
   };
 
-  const handleToggleActive = (config: RecommendationConfig) => {
-    updateMutation.mutate({ id: config.id, updates: { isActive: !config.isActive } });
+  const handleSubmit = () => {
+    if (!formData.name || !formData.assessmentId || !formData.questionName || formData.contentIds.length === 0) {
+      return;
+    }
+    if (isEditing) {
+      updateMutation.mutate(formData);
+    } else {
+      createMutation.mutate(formData);
+    }
   };
 
   const toggleContentSelection = (contentId: string) => {
-    setNewConfig(prev => ({
+    setFormData(prev => ({
       ...prev,
       contentIds: prev.contentIds.includes(contentId)
         ? prev.contentIds.filter(id => id !== contentId)
@@ -248,17 +286,196 @@ export default function AdminRecommendationsPage() {
     }));
   };
 
-  const addPreviewTag = () => {
-    setPreviewScores(prev => [...prev, { tag: "", percentage: 50 }]);
+  const renderAnswerPicker = () => {
+    if (!selectedQuestion) {
+      return <p className="text-sm text-muted-foreground">Select a question first to configure the trigger.</p>;
+    }
+
+    const { type, choices, rateMax, rateMin } = selectedQuestion;
+
+    if (type === "boolean") {
+      return (
+        <div className="space-y-3">
+          <Label>When the answer is:</Label>
+          <div className="flex gap-4">
+            <Button
+              type="button"
+              variant={Array.isArray(formData.matchValues) && formData.matchValues.includes(true) ? "default" : "outline"}
+              onClick={() => setFormData(prev => ({ ...prev, matchOperator: "equals", matchValues: [true] }))}
+              data-testid="btn-match-yes"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Yes
+            </Button>
+            <Button
+              type="button"
+              variant={Array.isArray(formData.matchValues) && formData.matchValues.includes(false) ? "default" : "outline"}
+              onClick={() => setFormData(prev => ({ ...prev, matchOperator: "equals", matchValues: [false] }))}
+              data-testid="btn-match-no"
+            >
+              No
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === "radiogroup" || type === "dropdown") {
+      const choiceOptions = choices?.map(c => {
+        if (typeof c === "object" && c !== null) {
+          return { value: c.value, text: c.text };
+        }
+        return { value: c, text: String(c) };
+      }) || [];
+
+      return (
+        <div className="space-y-3">
+          <Label>When the answer is:</Label>
+          <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+            {choiceOptions.map((choice, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Checkbox
+                  checked={Array.isArray(formData.matchValues) && formData.matchValues.includes(choice.value)}
+                  onCheckedChange={(checked) => {
+                    const current = Array.isArray(formData.matchValues) ? formData.matchValues : [];
+                    const newValues = checked
+                      ? [...current, choice.value]
+                      : current.filter(v => v !== choice.value);
+                    setFormData(prev => ({ ...prev, matchOperator: newValues.length > 1 ? "in" : "equals", matchValues: newValues }));
+                  }}
+                  data-testid={`checkbox-choice-${idx}`}
+                />
+                <span>{choice.text}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">Select one or more answers that should trigger this recommendation.</p>
+        </div>
+      );
+    }
+
+    if (type === "rating") {
+      const max = rateMax || 5;
+      const min = rateMin || 1;
+      const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+
+      return (
+        <div className="space-y-3">
+          <Label>When the rating is:</Label>
+          <Select
+            value={formData.matchOperator}
+            onValueChange={(v) => setFormData(prev => ({ ...prev, matchOperator: v }))}
+          >
+            <SelectTrigger data-testid="select-match-operator">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="equals">Exactly</SelectItem>
+              <SelectItem value="greater_than">Greater than</SelectItem>
+              <SelectItem value="less_than">Less than</SelectItem>
+              <SelectItem value="between">Between</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {formData.matchOperator === "between" ? (
+            <div className="flex items-center gap-2">
+              <Select
+                value={String((formData.matchValues as { min?: number })?.min || min)}
+                onValueChange={(v) => setFormData(prev => ({
+                  ...prev,
+                  matchValues: { ...(prev.matchValues as object || {}), min: parseInt(v) }
+                }))}
+              >
+                <SelectTrigger className="w-20" data-testid="select-min-value">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {values.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span>and</span>
+              <Select
+                value={String((formData.matchValues as { max?: number })?.max || max)}
+                onValueChange={(v) => setFormData(prev => ({
+                  ...prev,
+                  matchValues: { ...(prev.matchValues as object || {}), max: parseInt(v) }
+                }))}
+              >
+                <SelectTrigger className="w-20" data-testid="select-max-value">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {values.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <Select
+              value={String(Array.isArray(formData.matchValues) ? formData.matchValues[0] : (formData.matchValues as { value?: number })?.value || min)}
+              onValueChange={(v) => setFormData(prev => ({
+                ...prev,
+                matchValues: formData.matchOperator === "equals" ? [parseInt(v)] : { value: parseInt(v) }
+              }))}
+            >
+              <SelectTrigger data-testid="select-match-value">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {values.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <Label>When the answer contains:</Label>
+        <Input
+          placeholder="Enter value to match"
+          value={Array.isArray(formData.matchValues) ? formData.matchValues[0] || "" : ""}
+          onChange={(e) => setFormData(prev => ({ ...prev, matchOperator: "equals", matchValues: [e.target.value] }))}
+          data-testid="input-match-value"
+        />
+      </div>
+    );
   };
 
-  const updatePreviewTag = (index: number, field: "tag" | "percentage", value: string | number) => {
-    setPreviewScores(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  const getAssessmentName = (id: string | null) => {
+    if (!id) return "Any";
+    return assessments?.find(a => a.id === id)?.name || id;
   };
 
-  const removePreviewTag = (index: number) => {
-    setPreviewScores(prev => prev.filter((_, i) => i !== index));
+  const formatMatchCondition = (config: RecommendationConfig) => {
+    if (!config.questionName) {
+      return `${config.tag}: ${config.minScore}%-${config.maxScore}%`;
+    }
+    
+    const operator = config.matchOperator || "equals";
+    const values = config.matchValues;
+    
+    if (operator === "equals" && Array.isArray(values)) {
+      const val = values[0];
+      if (typeof val === "boolean") return val ? "Yes" : "No";
+      return String(val);
+    }
+    if (operator === "in" && Array.isArray(values)) {
+      return values.map(v => typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)).join(" or ");
+    }
+    if (operator === "between" && typeof values === "object" && values !== null) {
+      const { min, max } = values as { min?: number; max?: number };
+      return `${min} - ${max}`;
+    }
+    if ((operator === "greater_than" || operator === "less_than") && typeof values === "object" && values !== null) {
+      const threshold = (values as { value?: number }).value;
+      return `${operator === "greater_than" ? ">" : "<"} ${threshold}`;
+    }
+    
+    return JSON.stringify(values);
   };
+
+  const isLegacyRule = (config: RecommendationConfig) => !config.questionName;
 
   if (user?.role !== "admin") {
     return null;
@@ -274,246 +491,12 @@ export default function AdminRecommendationsPage() {
               <span className="text-sm font-medium text-red-600">Admin Only</span>
             </div>
             <h1 className="text-3xl font-serif font-bold">Recommendation Rules</h1>
-            <p className="text-muted-foreground">Configure how assessment scores map to content recommendations.</p>
+            <p className="text-muted-foreground">Connect assessment answers to content recommendations.</p>
           </div>
-          <div className="flex gap-2">
-            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-preview-rules">
-                  <Play className="w-4 h-4 mr-2" />
-                  Preview Rules
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Preview Recommendations</DialogTitle>
-                  <DialogDescription>Test how your rules respond to different assessment scores.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-3">
-                    <Label>Simulated Tag Scores</Label>
-                    {previewScores.map((score, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <Select value={score.tag} onValueChange={(v) => updatePreviewTag(index, "tag", v)}>
-                          <SelectTrigger className="w-48" data-testid={`select-preview-tag-${index}`}>
-                            <SelectValue placeholder="Select tag" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {commonTags.map(tag => (
-                              <SelectItem key={tag} value={tag}>{tag.replace(/_/g, " ")}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={score.percentage}
-                          onChange={(e) => updatePreviewTag(index, "percentage", parseInt(e.target.value) || 0)}
-                          className="w-20"
-                          data-testid={`input-preview-score-${index}`}
-                        />
-                        <span className="text-muted-foreground">%</span>
-                        <Button variant="ghost" size="sm" onClick={() => removePreviewTag(index)} data-testid={`button-remove-preview-tag-${index}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={addPreviewTag} data-testid="button-add-preview-tag">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Tag
-                    </Button>
-                  </div>
-                  <Button onClick={() => refetchPreview()} disabled={previewLoading} data-testid="button-run-preview">
-                    {previewLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                    Run Preview
-                  </Button>
-                  {previewResult && (
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <h4 className="font-medium">Recommended Content ({previewResult.recommendations.length})</h4>
-                      {previewResult.recommendations.length === 0 ? (
-                        <p className="text-muted-foreground text-sm">No recommendations matched these scores.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {previewResult.recommendations.map((rec, i) => (
-                            <div key={i} className="flex items-center justify-between p-2 bg-muted rounded">
-                              <div>
-                                <p className="font-medium">{rec.contentTitle}</p>
-                                <p className="text-sm text-muted-foreground">{rec.rationale}</p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Badge variant="outline">{rec.source}</Badge>
-                                <Badge>{rec.tag}</Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {previewResult.matchedRuleIds.length > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          Matched {previewResult.matchedRuleIds.length} rule(s)
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-create-rule">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Rule
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Recommendation Rule</DialogTitle>
-                  <DialogDescription>Define when to recommend specific content based on assessment scores.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Rule Name</Label>
-                    <Input
-                      placeholder="e.g., High Fear Avoidance - Graded Exposure"
-                      value={newConfig.name}
-                      onChange={(e) => setNewConfig({ ...newConfig, name: e.target.value })}
-                      data-testid="input-rule-name"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Trigger Tag</Label>
-                      <Select value={newConfig.tag} onValueChange={(v) => setNewConfig({ ...newConfig, tag: v })}>
-                        <SelectTrigger data-testid="select-trigger-tag">
-                          <SelectValue placeholder="Select tag" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {commonTags.map(tag => (
-                            <SelectItem key={tag} value={tag}>{tag.replace(/_/g, " ")}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Priority (1 = highest)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={99}
-                        value={newConfig.priority}
-                        onChange={(e) => setNewConfig({ ...newConfig, priority: parseInt(e.target.value) || 1 })}
-                        data-testid="input-priority"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Score Range: {newConfig.minScore}% - {newConfig.maxScore}%</Label>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm w-8">{newConfig.minScore}%</span>
-                      <Slider
-                        value={[newConfig.minScore, newConfig.maxScore]}
-                        onValueChange={([min, max]) => setNewConfig({ ...newConfig, minScore: min, maxScore: max })}
-                        min={0}
-                        max={100}
-                        step={5}
-                        className="flex-1"
-                        data-testid="slider-score-range"
-                      />
-                      <span className="text-sm w-8">{newConfig.maxScore}%</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Scope to Assessment (optional)</Label>
-                      <Select value={newConfig.assessmentId} onValueChange={(v) => setNewConfig({ ...newConfig, assessmentId: v === "none" ? "" : v })}>
-                        <SelectTrigger data-testid="select-assessment">
-                          <SelectValue placeholder="Any assessment" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Any assessment</SelectItem>
-                          {assessments?.map(a => (
-                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Scope to Pathway (optional)</Label>
-                      <Select value={newConfig.pathwayId} onValueChange={(v) => setNewConfig({ ...newConfig, pathwayId: v === "none" ? "" : v })}>
-                        <SelectTrigger data-testid="select-pathway">
-                          <SelectValue placeholder="Any pathway" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Any pathway</SelectItem>
-                          {pathways?.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {newConfig.pathwayId && (
-                    <div className="space-y-2">
-                      <Label>Pathway Week (optional)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder="Any week"
-                        value={newConfig.pathwayWeek}
-                        onChange={(e) => setNewConfig({ ...newConfig, pathwayWeek: e.target.value })}
-                        data-testid="input-pathway-week"
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label>Content to Recommend</Label>
-                    <div className="border rounded-lg max-h-48 overflow-y-auto p-2 space-y-1">
-                      {content?.map(c => (
-                        <div
-                          key={c.id}
-                          className={`p-2 rounded cursor-pointer flex items-center gap-2 ${
-                            newConfig.contentIds.includes(c.id) ? "bg-primary/10 border border-primary" : "hover:bg-muted"
-                          }`}
-                          onClick={() => toggleContentSelection(c.id)}
-                          data-testid={`content-item-${c.id}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={newConfig.contentIds.includes(c.id)}
-                            onChange={() => {}}
-                            className="pointer-events-none"
-                          />
-                          <span>{c.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{newConfig.contentIds.length} selected</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Rationale (for your reference)</Label>
-                    <Textarea
-                      placeholder="Why should this content be recommended for this score range?"
-                      value={newConfig.rationale}
-                      onChange={(e) => setNewConfig({ ...newConfig, rationale: e.target.value })}
-                      data-testid="textarea-rationale"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)} data-testid="button-cancel-create">Cancel</Button>
-                  <Button
-                    onClick={handleCreate}
-                    disabled={createMutation.isPending || !newConfig.name || !newConfig.tag || newConfig.contentIds.length === 0}
-                    data-testid="button-save-rule"
-                  >
-                    {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Create Rule
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <Button onClick={openCreateDialog} data-testid="button-create-rule">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Rule
+          </Button>
         </div>
 
         <Tabs defaultValue="rules">
@@ -533,10 +516,10 @@ export default function AdminRecommendationsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5" />
-                  Recommendation Rules
+                  All Recommendation Rules
                 </CardTitle>
                 <CardDescription>
-                  Rules are evaluated in priority order. Lower priority numbers are evaluated first.
+                  When a clinician completes an assessment with matching answers, these rules determine what content to recommend.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -548,17 +531,22 @@ export default function AdminRecommendationsPage() {
                   <div className="text-center py-8 text-muted-foreground">
                     <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No recommendation rules yet.</p>
-                    <p className="text-sm">Create your first rule to start personalizing content recommendations.</p>
+                    <p className="text-sm">Create your first rule to connect assessment answers to content.</p>
+                    <Button onClick={openCreateDialog} className="mt-4" data-testid="button-create-first-rule">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Your First Rule
+                    </Button>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Rule Name</TableHead>
-                        <TableHead>Tag</TableHead>
-                        <TableHead>Score Range</TableHead>
+                        <TableHead>Assessment</TableHead>
+                        <TableHead>Question / Tag</TableHead>
+                        <TableHead>Trigger</TableHead>
                         <TableHead>Content</TableHead>
-                        <TableHead>Scope</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Active</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -568,34 +556,25 @@ export default function AdminRecommendationsPage() {
                         <TableRow key={config.id} data-testid={`rule-row-${config.id}`}>
                           <TableCell className="font-medium">{config.name}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{config.tag.replace(/_/g, " ")}</Badge>
-                          </TableCell>
-                          <TableCell>{config.minScore ?? 0}% - {config.maxScore ?? 100}%</TableCell>
-                          <TableCell>
-                            <span className="text-muted-foreground">{config.contentIds?.length || 0} items</span>
+                            <Badge variant="outline">{getAssessmentName(config.assessmentId)}</Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col gap-1">
-                              {config.assessmentId && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Assessment
-                                </Badge>
-                              )}
-                              {config.pathwayId && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Pathway{config.pathwayWeek ? ` Week ${config.pathwayWeek}` : ""}
-                                </Badge>
-                              )}
-                              {!config.assessmentId && !config.pathwayId && (
-                                <span className="text-muted-foreground text-sm">Global</span>
-                              )}
-                            </div>
+                            <span className="text-sm">{config.questionName || config.tag}</span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge>{formatMatchCondition(config)}</Badge>
+                          </TableCell>
+                          <TableCell>{config.contentIds.length} item(s)</TableCell>
+                          <TableCell>
+                            <Badge variant={isLegacyRule(config) ? "secondary" : "default"}>
+                              {isLegacyRule(config) ? "Legacy %" : "Answer"}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Switch
                               checked={config.isActive ?? true}
-                              onCheckedChange={() => handleToggleActive(config)}
-                              data-testid={`toggle-active-${config.id}`}
+                              onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: config.id, isActive: checked })}
+                              data-testid={`switch-active-${config.id}`}
                             />
                           </TableCell>
                           <TableCell>
@@ -603,7 +582,7 @@ export default function AdminRecommendationsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setEditingConfig(config)}
+                                onClick={() => openEditDialog(config)}
                                 data-testid={`button-edit-${config.id}`}
                               >
                                 <Edit className="w-4 h-4" />
@@ -611,11 +590,7 @@ export default function AdminRecommendationsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  if (confirm("Delete this rule?")) {
-                                    deleteMutation.mutate(config.id);
-                                  }
-                                }}
+                                onClick={() => deleteMutation.mutate(config.id)}
                                 data-testid={`button-delete-${config.id}`}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -634,47 +609,180 @@ export default function AdminRecommendationsPage() {
           <TabsContent value="guide" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Three-Tier Recommendation System</CardTitle>
-                <CardDescription>
-                  Understand how recommendations are generated for patients.
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5" />
+                  How Recommendation Rules Work
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex gap-4 items-start p-4 border rounded-lg">
-                    <div className="bg-primary/10 text-primary font-bold rounded-full w-8 h-8 flex items-center justify-center shrink-0">1</div>
-                    <div>
-                      <h4 className="font-medium">Admin Rules (Highest Priority)</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Rules you create here are evaluated first. When a patient's assessment scores match a rule's tag and score range, the associated content is recommended.
-                      </p>
-                    </div>
+              <CardContent className="prose prose-sm max-w-none">
+                <div className="space-y-6">
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold flex items-center gap-2 mb-2">
+                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm">1</span>
+                      Select an Assessment
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Choose which assessment this rule applies to. The questions from that assessment will be available to configure.
+                    </p>
                   </div>
-                  
-                  <div className="flex gap-4 items-start p-4 border rounded-lg">
-                    <div className="bg-primary/10 text-primary font-bold rounded-full w-8 h-8 flex items-center justify-center shrink-0">2</div>
-                    <div>
-                      <h4 className="font-medium">Pathway Context</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        If no admin rules match, the system checks if the patient is enrolled in a care pathway and recommends content from the current week's milestone.
-                      </p>
-                    </div>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold flex items-center gap-2 mb-2">
+                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm">2</span>
+                      Pick a Question & Answer
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Select the specific question that should trigger content. Then choose which answer(s) should activate the rule:
+                    </p>
+                    <ul className="list-disc list-inside mt-2 text-muted-foreground">
+                      <li><strong>Yes/No questions:</strong> Pick "Yes" or "No"</li>
+                      <li><strong>Multiple choice:</strong> Select one or more answers</li>
+                      <li><strong>Rating scales:</strong> Set a threshold (e.g., "greater than 3")</li>
+                    </ul>
                   </div>
-                  
-                  <div className="flex gap-4 items-start p-4 border rounded-lg">
-                    <div className="bg-primary/10 text-primary font-bold rounded-full w-8 h-8 flex items-center justify-center shrink-0">3</div>
-                    <div>
-                      <h4 className="font-medium">Tag-Based Fallback</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        As a last resort, the system matches elevated assessment tags to content with similar tags, ensuring patients always receive relevant recommendations.
-                      </p>
-                    </div>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold flex items-center gap-2 mb-2">
+                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm">3</span>
+                      Attach Content
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Select the educational content that should be recommended when this rule triggers. You can attach multiple pieces of content to a single rule.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <h4 className="font-semibold flex items-center gap-2 mb-2 text-amber-800">
+                      Legacy Percentage-Based Rules
+                    </h4>
+                    <p className="text-amber-700">
+                      Older rules that use tag/percentage matching are marked as "Legacy %" and still work. New rules use the improved answer-based matching for more precise targeting.
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{isEditing ? "Edit Recommendation Rule" : "Create Recommendation Rule"}</DialogTitle>
+              <DialogDescription>
+                Define when to recommend specific content based on assessment answers.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="space-y-2">
+                <Label>Rule Name *</Label>
+                <Input
+                  placeholder="e.g., High Fear - Graded Exposure Content"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  data-testid="input-rule-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assessment *</Label>
+                <Select
+                  value={formData.assessmentId}
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, assessmentId: v, questionName: "", questionType: "", matchValues: [] }))}
+                >
+                  <SelectTrigger data-testid="select-assessment">
+                    <SelectValue placeholder="Select an assessment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assessments?.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.assessmentId && (
+                <div className="space-y-2">
+                  <Label>Question *</Label>
+                  <Select
+                    value={formData.questionName}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, questionName: v, matchValues: [] }))}
+                  >
+                    <SelectTrigger data-testid="select-question">
+                      <SelectValue placeholder="Select a question" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {questions?.map(q => (
+                        <SelectItem key={q.name} value={q.name}>
+                          {q.title || q.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {formData.questionName && (
+                <div className="p-4 border rounded-lg bg-muted/30">
+                  {renderAnswerPicker()}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Content to Recommend *</Label>
+                <div className="border rounded-lg max-h-48 overflow-y-auto p-2 space-y-1">
+                  {content?.map(c => (
+                    <div
+                      key={c.id}
+                      className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted ${
+                        formData.contentIds.includes(c.id) ? "bg-primary/10 border border-primary/30" : ""
+                      }`}
+                      onClick={() => toggleContentSelection(c.id)}
+                      data-testid={`content-item-${c.id}`}
+                    >
+                      <Checkbox
+                        checked={formData.contentIds.includes(c.id)}
+                        onCheckedChange={() => toggleContentSelection(c.id)}
+                      />
+                      <span className="text-sm">{c.title}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">{formData.contentIds.length} item(s) selected</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Priority (1 = highest)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={formData.priority}
+                  onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 1 }))}
+                  data-testid="input-priority"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Rationale (optional)</Label>
+                <Textarea
+                  placeholder="Why is this content recommended for this answer?"
+                  value={formData.rationale}
+                  onChange={(e) => setFormData(prev => ({ ...prev, rationale: e.target.value }))}
+                  data-testid="input-rationale"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={!formData.name || !formData.assessmentId || !formData.questionName || formData.contentIds.length === 0 || createMutation.isPending || updateMutation.isPending}
+                data-testid="button-submit-rule"
+              >
+                {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {isEditing ? "Save Changes" : "Create Rule"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

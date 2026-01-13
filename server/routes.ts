@@ -1972,10 +1972,17 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
     try {
-      const { name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, priority, contentIds, rationale } = req.body;
+      const { 
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      } = req.body;
       
-      if (!name || !tag || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
-        return res.status(400).send("name, tag, and contentIds are required");
+      if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name and contentIds are required");
+      }
+      
+      if (!tag && !questionName) {
+        return res.status(400).send("Either tag or questionName is required");
       }
       
       const config = await createRecommendationConfig({
@@ -1984,12 +1991,16 @@ export function registerRoutes(app: Express): Server {
         assessmentId,
         pathwayId,
         pathwayWeek,
-        tag,
-        minScore,
-        maxScore,
-        priority,
+        tag: tag || questionName || '',
+        minScore: minScore ?? 0,
+        maxScore: maxScore ?? 100,
+        priority: priority ?? 1,
         contentIds,
         rationale,
+        questionName,
+        questionType,
+        matchOperator: matchOperator || 'equals',
+        matchValues,
       });
       
       await logClinicianAction(req, req.user!, 'settings_change', {
@@ -2005,18 +2016,24 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
     try {
-      const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
+      const updates: Record<string, unknown> = {};
+      const fields = [
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
+        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'questionType', 'matchOperator', 'matchValues'
+      ];
       
-      const updated = await updateRecommendationConfig(req.params.id, {
-        name,
-        tag,
-        minScore,
-        maxScore,
-        priority,
-        contentIds,
-        rationale,
-        isActive,
-      });
+      for (const field of fields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updated = await updateRecommendationConfig(req.params.id, updates);
+      
+      if (!updated) {
+        return res.status(404).send("Recommendation config not found");
+      }
       
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
