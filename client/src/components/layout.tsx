@@ -37,6 +37,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
     { href: "/library", label: "Content Oversight", icon: Library },
     { href: "/settings", label: "Settings", icon: Settings },

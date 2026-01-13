@@ -81,7 +81,10 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
     return null;
   }
 
-  if (!isActive) {
+  // Admins bypass subscription requirement
+  const isAdmin = user.role === "admin";
+  
+  if (!isActive && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
         <Card className="max-w-md">
