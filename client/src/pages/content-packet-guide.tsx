@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SurveyModel } from "survey-core";
 import { Survey } from "survey-react-ui";
 import "survey-core/survey-core.min.css";
+
+const surveyTheme = {
+  cssVariables: {
+    "--sjs-general-backcolor": "transparent",
+    "--sjs-general-backcolor-dark": "rgb(248, 248, 248)",
+    "--sjs-general-forecolor": "rgba(0, 0, 0, 0.91)",
+    "--sjs-general-forecolor-light": "rgba(0, 0, 0, 0.6)",
+    "--sjs-general-dim-forecolor": "rgba(0, 0, 0, 0.91)",
+    "--sjs-general-dim-forecolor-light": "rgba(0, 0, 0, 0.6)",
+    "--sjs-primary-backcolor": "#0F766E",
+    "--sjs-primary-backcolor-light": "rgba(15, 118, 110, 0.1)",
+    "--sjs-primary-backcolor-dark": "#0D5C56",
+    "--sjs-primary-forecolor": "white",
+    "--sjs-primary-forecolor-light": "rgba(255, 255, 255, 0.8)",
+    "--sjs-base-unit": "8px",
+    "--sjs-corner-radius": "8px",
+    "--sjs-shadow-small": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    "--sjs-shadow-medium": "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+    "--sjs-border-default": "rgba(0, 0, 0, 0.16)",
+    "--sjs-border-light": "rgba(0, 0, 0, 0.09)",
+  }
+};
 
 interface Assessment {
   id: string;
@@ -63,6 +85,7 @@ export default function ContentPacketGuidePage() {
   const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
   const [selectedContent, setSelectedContent] = useState<ContentItem[]>([]);
   const [surveyModel, setSurveyModel] = useState<SurveyModel | null>(null);
+  const selectedAssessmentRef = useRef<Assessment | null>(null);
 
   const { data: assessments = [], isLoading: loadingAssessments } = useQuery<Assessment[]>({
     queryKey: ["assessments", "clinician"],
@@ -115,9 +138,12 @@ export default function ContentPacketGuidePage() {
 
   const handleSelectAssessment = (assessment: Assessment) => {
     setSelectedAssessment(assessment);
+    selectedAssessmentRef.current = assessment;
     const model = new SurveyModel(assessment.surveyJson as any);
+    model.applyTheme(surveyTheme as any);
+    const assessmentId = assessment.id;
     model.onComplete.add((sender) => {
-      handleAssessmentComplete(sender.data);
+      handleAssessmentComplete(assessmentId, sender.data);
     });
     setSurveyModel(model);
   };
@@ -127,14 +153,14 @@ export default function ContentPacketGuidePage() {
     setStep("execute");
   };
 
-  const handleAssessmentComplete = async (answers: Record<string, any>) => {
+  const handleAssessmentComplete = async (assessmentId: string, answers: Record<string, any>) => {
     try {
       const res = await fetch("/api/assessments/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          assessmentId: selectedAssessment?.id,
+          assessmentId,
           answers,
         }),
       });
@@ -562,6 +588,85 @@ export default function ContentPacketGuidePage() {
       </div>
       
       <style>{`
+        /* High contrast SurveyJS styles */
+        .survey-container .sd-root-modern {
+          --primary: #0F766E;
+          --primary-light: rgba(15, 118, 110, 0.1);
+          background: white;
+        }
+        .survey-container .sd-body {
+          background: white;
+        }
+        .survey-container .sd-question__title {
+          color: #1a1a1a;
+          font-weight: 600;
+        }
+        .survey-container .sd-item__control-label {
+          color: #333;
+        }
+        .survey-container .sd-selectbase__item {
+          background: white;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          margin-bottom: 4px;
+        }
+        .survey-container .sd-selectbase__item:hover {
+          background: #f0fdfa;
+          border-color: #0F766E;
+        }
+        .survey-container .sd-selectbase__item--checked {
+          background: #f0fdfa;
+          border-color: #0F766E;
+        }
+        .survey-container .sd-radio__decorator,
+        .survey-container .sd-checkbox__decorator {
+          border-color: #6b7280;
+        }
+        .survey-container .sd-radio--checked .sd-radio__decorator,
+        .survey-container .sd-checkbox--checked .sd-checkbox__decorator {
+          background: #0F766E;
+          border-color: #0F766E;
+        }
+        .survey-container .sd-boolean__thumb {
+          background: #0F766E;
+        }
+        .survey-container .sd-rating__item {
+          background: white;
+          border: 1px solid #d1d5db;
+          color: #333;
+        }
+        .survey-container .sd-rating__item:hover {
+          background: #f0fdfa;
+          border-color: #0F766E;
+        }
+        .survey-container .sd-rating__item--selected {
+          background: #0F766E;
+          border-color: #0F766E;
+          color: white;
+        }
+        .survey-container .sd-dropdown {
+          border-color: #d1d5db;
+        }
+        .survey-container .sd-btn {
+          background: #0F766E;
+          color: white;
+        }
+        .survey-container .sd-btn:hover {
+          background: #0D5C56;
+        }
+        .survey-container .sd-page__title {
+          color: #1a1a1a;
+        }
+        .survey-container .sd-panel__title {
+          color: #1a1a1a;
+          font-weight: 600;
+        }
+        .survey-container .sd-panel {
+          background: #fafafa;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+        }
+        
         @media print {
           body * {
             visibility: hidden;

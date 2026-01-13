@@ -8,9 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Eye, Loader2, Maximize2, Minimize2, X } from "lucide-react";
+import { ArrowLeft, Save, Eye, Loader2, Maximize2, Minimize2, X, HelpCircle, Settings2, Link as LinkIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Link } from "wouter";
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
 import "survey-core/survey-core.min.css";
 import "survey-creator-core/survey-creator-core.min.css";
@@ -363,6 +366,122 @@ export default function AssessmentBuilderPage() {
             )}
           </CardContent>
         </Card>
+        
+        {/* Scoring & Recommendations Section */}
+        {assessmentType === "clinician" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="w-5 h-5" />
+                Connecting to Content Recommendations
+              </CardTitle>
+              <CardDescription>
+                Learn how assessment results drive content recommendations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="how-it-works">
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4" />
+                      How does the recommendation engine work?
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 text-sm text-muted-foreground">
+                      <p>
+                        The recommendation engine connects assessment responses to content through 
+                        <strong> recommendation rules</strong> that you configure:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-2 ml-2">
+                        <li>
+                          <strong>Create recommendation rules:</strong> Go to the Recommendation Rules 
+                          page to define which content should appear based on assessment responses.
+                        </li>
+                        <li>
+                          <strong>Rules match tags to content:</strong> Each rule specifies a tag name 
+                          (matching your question names) and a score threshold. When the assessment 
+                          produces a high score for that tag, the linked content is recommended.
+                        </li>
+                        <li>
+                          <strong>Content must have tags:</strong> Ensure your content items in the 
+                          library have appropriate tags that match your assessment question names or 
+                          rule configurations.
+                        </li>
+                      </ol>
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-blue-700 dark:text-blue-300 font-medium">Quick Start</p>
+                        <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
+                          1. Name questions descriptively (e.g., "fear_avoidance", "sleep_quality")
+                          <br />
+                          2. Create recommendation rules linking those question names to content
+                          <br />
+                          3. Test with the "Guide Me to Create Packet" flow in the Content Library
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                
+                <AccordionItem value="question-naming">
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="w-4 h-4" />
+                      Best practices for question naming
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 text-sm">
+                      <p className="text-muted-foreground">
+                        Use descriptive, tag-like names for your questions to enable automatic scoring:
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                          <p className="font-medium text-green-700 dark:text-green-300 mb-2">Good Names</p>
+                          <ul className="text-sm space-y-1 text-green-600 dark:text-green-400">
+                            <li>• fear_avoidance</li>
+                            <li>• central_sensitivity</li>
+                            <li>• sleep_quality</li>
+                            <li>• stress_level</li>
+                            <li>• movement_confidence</li>
+                          </ul>
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                          <p className="font-medium text-red-700 dark:text-red-300 mb-2">Avoid</p>
+                          <ul className="text-sm space-y-1 text-red-600 dark:text-red-400">
+                            <li>• question1</li>
+                            <li>• q_pain</li>
+                            <li>• item_3</li>
+                            <li>• rating_scale</li>
+                            <li>• untitled</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Recommendation Rules</p>
+                    <p className="text-sm text-muted-foreground">
+                      Create rules to map specific score ranges to content items
+                    </p>
+                  </div>
+                  <Link href="/admin/recommendations">
+                    <a className="inline-flex items-center gap-2 text-primary hover:underline text-sm">
+                      <LinkIcon className="w-4 h-4" />
+                      Manage Recommendation Rules
+                    </a>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
       
       {/* Fullscreen Modal */}

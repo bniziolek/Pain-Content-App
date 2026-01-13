@@ -57,8 +57,12 @@ export async function scoreAssessmentResponse(
 
   const scoringConfig = assessment.scoringConfig as ScoringConfig | null;
   const outcomeRules = assessment.outcomeRules as OutcomeRules | null;
+  const surveyJson = assessment.surveyJson as SurveyJson | null;
 
-  const tagScores = calculateTagScores(answers, scoringConfig);
+  // Extract question metadata from surveyJson for accurate scale detection
+  const questionMetadata = extractQuestionMetadata(surveyJson);
+  
+  const tagScores = calculateTagScores(answers, scoringConfig, questionMetadata);
   const primaryOutcome = determinePrimaryOutcome(tagScores, outcomeRules);
   const recommendations = await generateRecommendations(tagScores);
 
@@ -69,12 +73,102 @@ export async function scoreAssessmentResponse(
   };
 }
 
+interface SurveyJson {
+  pages?: Array<{
+    elements?: SurveyElement[];
+  }>;
+}
+
+interface SurveyElement {
+  name?: string;
+  type?: string;
+  rateMax?: number;
+  rateCount?: number;
+  rateValues?: Array<{ value: number; text: string }>;
+  choices?: Array<{ value: number | string; text: string } | number | string>;
+  elements?: SurveyElement[];
+}
+
+interface QuestionMetadata {
+  [questionName: string]: {
+    type: string;
+    minValue: number;
+    maxValue: number;
+    choiceCount?: number;
+  };
+}
+
+function extractQuestionMetadata(surveyJson: SurveyJson | null): QuestionMetadata {
+  const metadata: QuestionMetadata = {};
+  
+  if (!surveyJson?.pages) return metadata;
+  
+  function processElements(elements: SurveyElement[]) {
+    for (const element of elements) {
+      if (element.name) {
+        const type = element.type || "unknown";
+        let minValue = 0;
+        let maxValue = 4; // Default assumption
+        let choiceCount: number | undefined;
+        
+        if (type === "rating") {
+          // Rating questions have rateMax or rateCount
+          maxValue = element.rateMax || element.rateCount || 5;
+          minValue = 1;
+          if (element.rateValues?.length) {
+            const values = element.rateValues.map(v => v.value);
+            minValue = Math.min(...values);
+            maxValue = Math.max(...values);
+          }
+        } else if (type === "radiogroup" || type === "dropdown") {
+          // Extract max from choices
+          if (element.choices?.length) {
+            choiceCount = element.choices.length;
+            const numericChoices = element.choices
+              .map(c => typeof c === "object" && c !== null ? (c as { value: number | string }).value : c)
+              .filter(v => typeof v === "number") as number[];
+            if (numericChoices.length > 0) {
+              minValue = Math.min(...numericChoices);
+              maxValue = Math.max(...numericChoices);
+            } else {
+              // Non-numeric choices: use index-based scoring (0 to n-1)
+              maxValue = element.choices.length - 1;
+            }
+          }
+        } else if (type === "boolean") {
+          minValue = 0;
+          maxValue = 1;
+        } else if (type === "checkbox") {
+          choiceCount = element.choices?.length || 10;
+          maxValue = choiceCount;
+        }
+        
+        metadata[element.name] = { type, minValue, maxValue, choiceCount };
+      }
+      
+      // Process nested elements (panels)
+      if (element.elements) {
+        processElements(element.elements);
+      }
+    }
+  }
+  
+  for (const page of surveyJson.pages) {
+    if (page.elements) {
+      processElements(page.elements);
+    }
+  }
+  
+  return metadata;
+}
+
 function calculateTagScores(
   answers: Record<string, unknown>,
-  scoringConfig: ScoringConfig | null
+  scoringConfig: ScoringConfig | null,
+  questionMetadata?: QuestionMetadata
 ): TagScore[] {
   if (!scoringConfig || !scoringConfig.tags) {
-    return inferTagScoresFromAnswers(answers);
+    return inferTagScoresFromAnswers(answers, questionMetadata || {});
   }
 
   const tagScores: TagScore[] = [];
@@ -127,8 +221,16 @@ function calculateTagScores(
   return tagScores;
 }
 
-function inferTagScoresFromAnswers(answers: Record<string, unknown>): TagScore[] {
-  const inferredScores: Record<string, { total: number; count: number; max: number }> = {};
+function inferTagScoresFromAnswers(
+  answers: Record<string, unknown>,
+  questionMetadata: QuestionMetadata
+): TagScore[] {
+  const inferredScores: Record<string, { 
+    values: Array<{ value: number; questionName: string }>; 
+    booleans: boolean[]; 
+    arrays: Array<{ count: number; maxChoices: number }>; 
+    count: number 
+  }> = {};
   
   const tagMapping: Record<string, string> = {
     pain_intensity: "pain_severity",
@@ -142,42 +244,97 @@ function inferTagScoresFromAnswers(answers: Record<string, unknown>): TagScore[]
   };
 
   for (const [questionName, answer] of Object.entries(answers)) {
-    const tag = tagMapping[questionName] || "general";
+    // Use the mapping if available, otherwise use the question name itself as the tag
+    // Skip generic question names like "question1", "q1", etc.
+    const genericPattern = /^(question|q|item|element)\d*$/i;
+    const tag = tagMapping[questionName] || 
+                (genericPattern.test(questionName) ? "general" : questionName);
     
     if (!inferredScores[tag]) {
-      inferredScores[tag] = { total: 0, count: 0, max: 0 };
+      inferredScores[tag] = { values: [], booleans: [], arrays: [], count: 0 };
     }
 
     if (typeof answer === "number") {
-      inferredScores[tag].total += answer;
+      inferredScores[tag].values.push({ value: answer, questionName });
       inferredScores[tag].count += 1;
-      inferredScores[tag].max += 10;
     } else if (typeof answer === "boolean") {
-      inferredScores[tag].total += answer ? 1 : 0;
+      inferredScores[tag].booleans.push(answer);
       inferredScores[tag].count += 1;
-      inferredScores[tag].max += 1;
     } else if (Array.isArray(answer)) {
-      inferredScores[tag].total += answer.length;
+      const meta = questionMetadata[questionName];
+      const maxChoices = meta?.choiceCount || 10;
+      inferredScores[tag].arrays.push({ count: answer.length, maxChoices });
       inferredScores[tag].count += 1;
-      inferredScores[tag].max += 10;
     } else if (typeof answer === "object" && answer !== null) {
       const values = Object.values(answer as Record<string, unknown>);
       for (const val of values) {
         if (typeof val === "number") {
-          inferredScores[tag].total += val;
-          inferredScores[tag].max += 3;
+          inferredScores[tag].values.push({ value: val, questionName });
         }
       }
       inferredScores[tag].count += values.length;
     }
   }
 
-  return Object.entries(inferredScores).map(([tag, data]) => ({
-    tag,
-    score: Math.round(data.total * 100) / 100,
-    maxScore: data.max,
-    percentage: data.max > 0 ? Math.round((data.total / data.max) * 100) : 0,
-  }));
+  return Object.entries(inferredScores).map(([tag, data]) => {
+    let score = 0;
+    let maxScore = 0;
+    
+    // For numeric values, use question metadata to get the actual scale
+    if (data.values.length > 0) {
+      const normalizedValues: number[] = [];
+      
+      for (const { value, questionName } of data.values) {
+        const meta = questionMetadata[questionName];
+        let minVal = 0;
+        let maxVal = 4; // Default assumption
+        
+        if (meta) {
+          minVal = meta.minValue;
+          maxVal = meta.maxValue;
+        }
+        
+        // Normalize to 0-100 percentage
+        const range = maxVal - minVal;
+        const normalized = range > 0 ? ((value - minVal) / range) * 100 : 0;
+        normalizedValues.push(Math.min(100, Math.max(0, normalized)));
+      }
+      
+      score = normalizedValues.reduce((a, b) => a + b, 0) / normalizedValues.length;
+      maxScore = 100;
+    }
+    
+    // For booleans, true = 100%, false = 0%
+    if (data.booleans.length > 0) {
+      const trueCount = data.booleans.filter(b => b).length;
+      const boolScore = (trueCount / data.booleans.length) * 100;
+      if (data.values.length > 0) {
+        score = (score + boolScore) / 2; // Average with numeric score
+      } else {
+        score = boolScore;
+        maxScore = 100;
+      }
+    }
+    
+    // For arrays (checkboxes), selections / max choices = percentage
+    if (data.arrays.length > 0) {
+      const arrayScores = data.arrays.map(arr => (arr.count / arr.maxChoices) * 100);
+      const avgArrayScore = arrayScores.reduce((a, b) => a + b, 0) / arrayScores.length;
+      if (data.values.length > 0 || data.booleans.length > 0) {
+        score = (score + avgArrayScore) / 2;
+      } else {
+        score = avgArrayScore;
+        maxScore = 100;
+      }
+    }
+    
+    return {
+      tag,
+      score: Math.round(score * 100) / 100,
+      maxScore: maxScore,
+      percentage: Math.round(score),
+    };
+  });
 }
 
 function determinePrimaryOutcome(
