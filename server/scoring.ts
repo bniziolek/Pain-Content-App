@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import type { Assessment, AssessmentResponse } from "@shared/schema";
+import { generateRecommendations as getRecommendationsFromEngine } from "./recommendation";
 
 export interface TagScore {
   tag: string;
@@ -64,12 +65,18 @@ export async function scoreAssessmentResponse(
   
   const tagScores = calculateTagScores(answers, scoringConfig, questionMetadata);
   const primaryOutcome = determinePrimaryOutcome(tagScores, outcomeRules);
-  const recommendations = await generateRecommendations(tagScores);
+  
+  // Use the proper 3-tier recommendation engine
+  const recommendationResult = await getRecommendationsFromEngine({
+    tagScores,
+    assessmentId,
+    clinicianUserId: assessment.clinicianUserId || undefined,
+  });
 
   return {
     tagScores,
     primaryOutcome,
-    recommendations,
+    recommendations: recommendationResult.recommendations.map(r => r.contentId),
   };
 }
 
@@ -413,23 +420,6 @@ function inferPrimaryOutcome(tagScores: TagScore[]): string | null {
   return `Elevated ${highestTag.tag.replace(/_/g, " ")}`;
 }
 
-async function generateRecommendations(tagScores: TagScore[]): Promise<string[]> {
-  const recommendations: string[] = [];
-
-  for (const tagScore of tagScores) {
-    if (tagScore.percentage > 60) {
-      const contents = await storage.getAllContent();
-      const relevantContent = contents.filter(
-        (c) => c.tags?.includes(tagScore.tag) || 
-               c.tags?.some((t) => t.toLowerCase().includes(tagScore.tag.split("_")[0]))
-      );
-      
-      recommendations.push(...relevantContent.slice(0, 2).map((c) => c.id));
-    }
-  }
-
-  return Array.from(new Set(recommendations));
-}
 
 export async function processAndStoreScores(
   responseId: string,
