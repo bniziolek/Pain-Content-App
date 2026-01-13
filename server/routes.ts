@@ -763,6 +763,73 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Assessment Results with Recommendations (Clinician View) ======
+  app.get("/api/assessment-invites/:inviteId/results", requireSubscription, async (req, res, next) => {
+    try {
+      const invite = await storage.getAssessmentInviteById(req.params.inviteId);
+      if (!invite) {
+        return res.status(404).send("Invite not found");
+      }
+      
+      // Verify clinician owns this invite
+      if (invite.clinicianUserId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).send("Access denied");
+      }
+      
+      const response = await storage.getAssessmentResponseByInviteId(invite.id);
+      if (!response) {
+        return res.status(404).json({ error: "No response yet", status: invite.status });
+      }
+      
+      // Get assessment details
+      const assessment = await storage.getAssessmentById(invite.assessmentId);
+      
+      // Generate recommendations based on tag scores
+      let recommendations: any[] = [];
+      if (response.tagScores && Array.isArray(response.tagScores) && response.tagScores.length > 0) {
+        const result = await generateRecommendations({
+          tagScores: response.tagScores,
+          assessmentId: invite.assessmentId,
+          patientEmail: invite.patientEmail,
+          clinicianUserId: req.user!.id,
+        });
+        recommendations = result.recommendations;
+      }
+      
+      // Log the access
+      await logClinicianAction(req, req.user!, 'assessment_access', {
+        resourceType: 'assessment',
+        resourceId: invite.id,
+        phiAccessed: true,
+        phiScope: 'assessment results',
+        details: { inviteId: invite.id },
+      });
+      
+      res.json({
+        invite: {
+          id: invite.id,
+          patientEmail: invite.patientEmail,
+          status: invite.status,
+          sentAt: invite.createdAt,
+          completedAt: invite.completedAt,
+        },
+        assessment: assessment ? {
+          id: assessment.id,
+          name: assessment.name,
+        } : null,
+        response: {
+          id: response.id,
+          tagScores: response.tagScores,
+          answers: response.answers,
+          createdAt: response.createdAt,
+        },
+        recommendations,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Recommendation Rules Routes ======
   app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
     try {
@@ -1757,6 +1824,93 @@ export function registerRoutes(app: Express): Server {
         totalContent: content.length,
         recentSignups: users.slice(0, 5),
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Admin Recommendation Config Routes ======
+  app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+    try {
+      const { assessmentId, pathwayId } = req.query;
+      const configs = await getRecommendationConfigs({
+        assessmentId: assessmentId as string | undefined,
+        pathwayId: pathwayId as string | undefined,
+      });
+      res.json(configs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+    try {
+      const { name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, priority, contentIds, rationale } = req.body;
+      
+      if (!name || !tag || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name, tag, and contentIds are required");
+      }
+      
+      const config = await createRecommendationConfig({
+        clinicianUserId: undefined,
+        name,
+        assessmentId,
+        pathwayId,
+        pathwayWeek,
+        tag,
+        minScore,
+        maxScore,
+        priority,
+        contentIds,
+        rationale,
+      });
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'create_recommendation_config', configId: config.id },
+      });
+      
+      res.status(201).json(config);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
+      
+      const updated = await updateRecommendationConfig(req.params.id, {
+        name,
+        tag,
+        minScore,
+        maxScore,
+        priority,
+        contentIds,
+        rationale,
+        isActive,
+      });
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'update_recommendation_config', configId: req.params.id },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'delete_recommendation_config', configId: req.params.id },
+      });
+      
+      await deleteRecommendationConfig(req.params.id);
+      res.sendStatus(204);
     } catch (error) {
       next(error);
     }

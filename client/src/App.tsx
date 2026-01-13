@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./lib/auth";
-import { RequireAuth, RequireSubscription } from "@/components/protected-route";
+import { RequireAuth, RequireSubscription, RequireAdmin } from "@/components/protected-route";
 import { TourProvider } from "@/components/product-tour";
 import NotFound from "@/pages/not-found";
 
@@ -23,13 +23,14 @@ import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
+import AdminRecommendationsPage from "@/pages/admin/recommendations";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
-import RecommendationRulesPage from "@/pages/recommendation-rules";
 import PathwaysPage from "@/pages/pathways";
 import PatientPortal from "@/pages/patient-portal";
 import AssessmentBuilderPage from "@/pages/assessment-builder";
+import AssessmentResultsPage from "@/pages/assessment-results";
 import OnboardingPage from "@/pages/onboarding";
 
 function Router() {
@@ -57,23 +58,30 @@ function Router() {
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/dashboard">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <AdminDashboard />
-          </RequireAuth>
+          </RequireAdmin>
         )}
       </Route>
       <Route path="/admin/users">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <AdminUsersPage />
-          </RequireAuth>
+          </RequireAdmin>
         )}
       </Route>
       <Route path="/admin/users/:id">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <UserDetailPage />
-          </RequireAuth>
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/recommendations">
+        {() => (
+          <RequireAdmin>
+            <AdminRecommendationsPage />
+          </RequireAdmin>
         )}
       </Route>
 
@@ -113,6 +121,13 @@ function Router() {
           </RequireSubscription>
         )}
       </Route>
+      <Route path="/assessments/results/:inviteId">
+        {() => (
+          <RequireSubscription>
+            <AssessmentResultsPage />
+          </RequireSubscription>
+        )}
+      </Route>
       <Route path="/history">
         {() => (
           <RequireSubscription>
@@ -132,13 +147,6 @@ function Router() {
           <RequireAuth>
             <SettingsPage />
           </RequireAuth>
-        )}
-      </Route>
-      <Route path="/recommendation-rules">
-        {() => (
-          <RequireSubscription>
-            <RecommendationRulesPage />
-          </RequireSubscription>
         )}
       </Route>
       <Route path="/follow-ups">

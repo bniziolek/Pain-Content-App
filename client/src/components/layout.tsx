@@ -37,6 +37,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
     { href: "/library", label: "Content Oversight", icon: Library },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
@@ -46,7 +47,6 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
     { href: "/library", label: "Content Library", icon: Library, tourId: "nav-library" },
     { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments" },
     { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways" },
-    { href: "/recommendation-rules", label: "Recommendations", icon: Sparkles, tourId: "nav-recommendations" },
     { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups" },
     { href: "/history", label: "Send History", icon: History, tourId: "nav-history" },
     { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings" },
