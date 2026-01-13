@@ -578,6 +578,46 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get question names/tags from an assessment's surveyJson
+  app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
+    try {
+      const assessment = await storage.getAssessmentById(req.params.id);
+      if (!assessment) {
+        return res.status(404).send("Assessment not found");
+      }
+      
+      const surveyJson = assessment.surveyJson as { pages?: Array<{ elements?: Array<{ name?: string; title?: string; type?: string }> }> } | null;
+      const questions: Array<{ name: string; title: string; type: string }> = [];
+      
+      if (surveyJson?.pages) {
+        for (const page of surveyJson.pages) {
+          if (page.elements) {
+            const extractQuestions = (elements: Array<{ name?: string; title?: string; type?: string; elements?: Array<{ name?: string; title?: string; type?: string }> }>) => {
+              for (const element of elements) {
+                if (element.name && element.type !== 'panel' && element.type !== 'html') {
+                  questions.push({
+                    name: element.name,
+                    title: typeof element.title === 'string' ? element.title : element.name,
+                    type: element.type || 'unknown',
+                  });
+                }
+                // Handle nested elements in panels
+                if (element.elements) {
+                  extractQuestions(element.elements);
+                }
+              }
+            };
+            extractQuestions(page.elements as any);
+          }
+        }
+      }
+      
+      res.json(questions);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post("/api/assessments", requireSubscription, async (req, res, next) => {
     try {
       const validated = insertAssessmentSchema.parse({

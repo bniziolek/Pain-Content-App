@@ -52,6 +52,12 @@ interface ContentItem {
   title: string;
 }
 
+interface AssessmentQuestion {
+  name: string;
+  title: string;
+  type: string;
+}
+
 interface PreviewResult {
   recommendations: Array<{
     contentId: string;
@@ -136,6 +142,23 @@ export default function RecommendationRulesPage() {
       return res.json();
     },
   });
+
+  // Fetch question names when an assessment is selected
+  const { data: assessmentQuestions } = useQuery<AssessmentQuestion[]>({
+    queryKey: ["assessment-questions", newConfig.assessmentId],
+    queryFn: async () => {
+      if (!newConfig.assessmentId) return [];
+      const res = await fetch(`/api/assessments/${newConfig.assessmentId}/questions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch questions");
+      return res.json();
+    },
+    enabled: !!newConfig.assessmentId,
+  });
+
+  // Combine assessment questions with common tags for the dropdown
+  const availableTags = newConfig.assessmentId && assessmentQuestions?.length
+    ? assessmentQuestions.map(q => ({ value: q.name, label: `${q.title} (${q.name})`, fromAssessment: true }))
+    : commonTags.map(t => ({ value: t, label: t.replace(/_/g, " "), fromAssessment: false }));
 
   const { data: previewResult, refetch: refetchPreview, isFetching: previewLoading } = useQuery<PreviewResult>({
     queryKey: ["recommendation-preview", previewScores],
@@ -363,19 +386,79 @@ export default function RecommendationRulesPage() {
                       data-testid="input-rule-name"
                     />
                   </div>
+                  
+                  {/* Step 1: Select Assessment first to load its questions */}
+                  <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-primary font-medium">Step 1: Select an Assessment</Label>
+                    <p className="text-sm text-muted-foreground mb-2">Choose an assessment to see its question names as available tags.</p>
+                    <Select 
+                      value={newConfig.assessmentId} 
+                      onValueChange={(v) => setNewConfig({ ...newConfig, assessmentId: v === "none" ? "" : v, tag: "" })}
+                    >
+                      <SelectTrigger data-testid="select-assessment">
+                        <SelectValue placeholder="Select an assessment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">-- No specific assessment --</SelectItem>
+                        {assessments?.map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Step 2: Select Tag from the assessment's questions */}
+                  <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-primary font-medium">Step 2: Select Question/Tag to Trigger On</Label>
+                    {newConfig.assessmentId ? (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        These are the question names from your selected assessment. Each becomes a "tag" that gets a score.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Select an assessment above to see its questions, or choose from common tags below.
+                      </p>
+                    )}
+                    <Select value={newConfig.tag} onValueChange={(v) => setNewConfig({ ...newConfig, tag: v })}>
+                      <SelectTrigger data-testid="select-trigger-tag">
+                        <SelectValue placeholder="Select a question/tag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTags.length === 0 ? (
+                          <SelectItem value="" disabled>Loading questions...</SelectItem>
+                        ) : (
+                          availableTags.map(tag => (
+                            <SelectItem key={tag.value} value={tag.value}>
+                              {tag.label}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {newConfig.assessmentId && assessmentQuestions?.length === 0 && (
+                      <p className="text-sm text-amber-600">No questions found in this assessment. Check that it has questions defined.</p>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Trigger Tag</Label>
-                      <Select value={newConfig.tag} onValueChange={(v) => setNewConfig({ ...newConfig, tag: v })}>
-                        <SelectTrigger data-testid="select-trigger-tag">
-                          <SelectValue placeholder="Select tag" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {commonTags.map(tag => (
-                            <SelectItem key={tag} value={tag}>{tag.replace(/_/g, " ")}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>Score Range</Label>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        Trigger when score is between {newConfig.minScore}% - {newConfig.maxScore}%
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm w-8">{newConfig.minScore}%</span>
+                        <Slider
+                          value={[newConfig.minScore, newConfig.maxScore]}
+                          onValueChange={([min, max]) => setNewConfig({ ...newConfig, minScore: min, maxScore: max })}
+                          min={0}
+                          max={100}
+                          step={5}
+                          className="flex-1"
+                          data-testid="slider-score-range"
+                        />
+                        <span className="text-sm w-8">{newConfig.maxScore}%</span>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Priority (1 = highest)</Label>
@@ -389,51 +472,20 @@ export default function RecommendationRulesPage() {
                       />
                     </div>
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label>Score Range: {newConfig.minScore}% - {newConfig.maxScore}%</Label>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm w-8">{newConfig.minScore}%</span>
-                      <Slider
-                        value={[newConfig.minScore, newConfig.maxScore]}
-                        onValueChange={([min, max]) => setNewConfig({ ...newConfig, minScore: min, maxScore: max })}
-                        min={0}
-                        max={100}
-                        step={5}
-                        className="flex-1"
-                        data-testid="slider-score-range"
-                      />
-                      <span className="text-sm w-8">{newConfig.maxScore}%</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Scope to Assessment (optional)</Label>
-                      <Select value={newConfig.assessmentId} onValueChange={(v) => setNewConfig({ ...newConfig, assessmentId: v === "none" ? "" : v })}>
-                        <SelectTrigger data-testid="select-assessment">
-                          <SelectValue placeholder="Any assessment" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Any assessment</SelectItem>
-                          {assessments?.map(a => (
-                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Scope to Pathway (optional)</Label>
-                      <Select value={newConfig.pathwayId} onValueChange={(v) => setNewConfig({ ...newConfig, pathwayId: v === "none" ? "" : v })}>
-                        <SelectTrigger data-testid="select-pathway">
-                          <SelectValue placeholder="Any pathway" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Any pathway</SelectItem>
-                          {pathways?.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Label>Scope to Pathway (optional)</Label>
+                    <Select value={newConfig.pathwayId} onValueChange={(v) => setNewConfig({ ...newConfig, pathwayId: v === "none" ? "" : v })}>
+                      <SelectTrigger data-testid="select-pathway">
+                        <SelectValue placeholder="Any pathway" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Any pathway</SelectItem>
+                        {pathways?.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   {newConfig.pathwayId && (
                     <div className="space-y-2">
