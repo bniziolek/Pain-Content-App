@@ -530,12 +530,27 @@ export function registerRoutes(app: Express): Server {
   // ====== Assessment CRUD Routes (Clinician-facing) ======
   app.get("/api/assessments", requireSubscription, async (req, res, next) => {
     try {
-      const assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
-      const templates = await storage.getTemplateAssessments();
+      const typeFilter = req.query.type as string | undefined;
+      const publishedOnly = req.query.published === "true";
+      
+      let assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
+      let templates = await storage.getTemplateAssessments();
+      
+      // Filter by type if specified
+      if (typeFilter) {
+        assessments = assessments.filter(a => a.assessmentType === typeFilter);
+        templates = templates.filter(t => t.assessmentType === typeFilter);
+      }
+      
+      // Filter to published only if specified
+      if (publishedOnly) {
+        assessments = assessments.filter(a => a.isPublished);
+        templates = templates.filter(t => t.isPublished);
+      }
       
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
-        details: { count: assessments.length + templates.length },
+        details: { count: assessments.length + templates.length, typeFilter },
       });
       
       res.json([...assessments, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);

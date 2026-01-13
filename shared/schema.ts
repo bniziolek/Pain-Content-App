@@ -77,6 +77,7 @@ export const assessments = pgTable("assessments", {
   name: text("name").notNull(),
   description: text("description"),
   version: text("version").default("1.0"),
+  assessmentType: text("assessment_type").notNull().default("patient"), // 'clinician' | 'patient'
   questions: jsonb("questions").notNull().default(sql`'[]'::jsonb`), // Legacy field - kept for compatibility
   surveyJson: jsonb("survey_json").notNull(), // Full SurveyJS definition (questions, pages, logic)
   scoringConfig: jsonb("scoring_config"), // Custom scoring rules: { tags: { tagName: { questionWeights: {...} } } }

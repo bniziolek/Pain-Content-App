@@ -10,6 +10,7 @@ import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Eye, Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
 import "survey-core/survey-core.min.css";
 import "survey-creator-core/survey-creator-core.min.css";
@@ -18,6 +19,7 @@ interface Assessment {
   id: string;
   name: string;
   description: string | null;
+  assessmentType: "clinician" | "patient";
   surveyJson: object;
   scoringConfig: object | null;
   outcomeRules: object | null;
@@ -36,6 +38,7 @@ export default function AssessmentBuilderPage() {
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [assessmentType, setAssessmentType] = useState<"clinician" | "patient">("patient");
   const [isTemplate, setIsTemplate] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [creator, setCreator] = useState<SurveyCreator | null>(null);
@@ -55,6 +58,7 @@ export default function AssessmentBuilderPage() {
     if (assessment) {
       setName(assessment.name);
       setDescription(assessment.description || "");
+      setAssessmentType(assessment.assessmentType || "patient");
       setIsTemplate(assessment.isTemplate);
       setIsPublished(assessment.isPublished);
       
@@ -102,7 +106,7 @@ export default function AssessmentBuilderPage() {
   }, []);
   
   const saveMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; surveyJson: object; isTemplate: boolean; isPublished: boolean }) => {
+    mutationFn: async (data: { name: string; description: string; assessmentType: string; surveyJson: object; isTemplate: boolean; isPublished: boolean }) => {
       const url = isEditing ? `/api/assessments/${assessmentId}` : "/api/assessments";
       const method = isEditing ? "PATCH" : "POST";
       
@@ -152,11 +156,12 @@ export default function AssessmentBuilderPage() {
     saveMutation.mutate({
       name,
       description,
+      assessmentType,
       surveyJson: creator.JSON,
       isTemplate,
       isPublished,
     });
-  }, [name, description, creator, isTemplate, isPublished, saveMutation, toast]);
+  }, [name, description, assessmentType, creator, isTemplate, isPublished, saveMutation, toast]);
   
   if (isEditing && isLoading) {
     return (
@@ -267,6 +272,35 @@ export default function AssessmentBuilderPage() {
                   data-testid="input-description"
                 />
               </div>
+            </div>
+            
+            <div className="space-y-3">
+              <Label>Assessment Type</Label>
+              <RadioGroup
+                value={assessmentType}
+                onValueChange={(value) => setAssessmentType(value as "clinician" | "patient")}
+                className="flex gap-6"
+                data-testid="radio-assessment-type"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="patient" id="type-patient" data-testid="radio-patient" />
+                  <Label htmlFor="type-patient" className="font-normal cursor-pointer">
+                    <span className="font-medium">Patient</span>
+                    <span className="text-muted-foreground text-sm ml-2">
+                      - Sent to patients for at-home completion
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="clinician" id="type-clinician" data-testid="radio-clinician" />
+                  <Label htmlFor="type-clinician" className="font-normal cursor-pointer">
+                    <span className="font-medium">Clinician</span>
+                    <span className="text-muted-foreground text-sm ml-2">
+                      - Conducted during patient visits to guide content recommendations
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
             
             <div className="flex items-center gap-6 pt-2">
