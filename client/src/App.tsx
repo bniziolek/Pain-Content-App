@@ -33,6 +33,7 @@ import AssessmentBuilderPage from "@/pages/assessment-builder";
 import AssessmentResultsPage from "@/pages/assessment-results";
 import OnboardingPage from "@/pages/onboarding";
 import ContentPacketGuidePage from "@/pages/content-packet-guide";
+import RecommendationRulesPage from "@/pages/recommendation-rules";
 
 function Router() {
   return (
@@ -168,6 +169,13 @@ function Router() {
         {() => (
           <RequireSubscription>
             <PathwaysPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/recommendation-rules">
+        {() => (
+          <RequireSubscription>
+            <RecommendationRulesPage />
           </RequireSubscription>
         )}
       </Route>

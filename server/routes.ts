@@ -578,7 +578,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get question names/tags from an assessment's surveyJson
+  // Get question names/tags from an assessment's surveyJson with full metadata for answer pickers
   app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
     try {
       const assessment = await storage.getAssessmentById(req.params.id);
@@ -586,19 +586,51 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Assessment not found");
       }
       
-      const surveyJson = assessment.surveyJson as { pages?: Array<{ elements?: Array<{ name?: string; title?: string; type?: string }> }> } | null;
-      const questions: Array<{ name: string; title: string; type: string }> = [];
+      interface SurveyElement {
+        name?: string;
+        title?: string;
+        type?: string;
+        choices?: Array<{ value: string | number; text: string } | string | number>;
+        rateMax?: number;
+        rateMin?: number;
+        rateCount?: number;
+        elements?: SurveyElement[];
+      }
+      
+      const surveyJson = assessment.surveyJson as { pages?: Array<{ elements?: SurveyElement[] }> } | null;
+      const questions: Array<{
+        name: string;
+        title: string;
+        type: string;
+        choices?: Array<{ value: string | number; text: string }>;
+        rateMax?: number;
+        rateMin?: number;
+      }> = [];
       
       if (surveyJson?.pages) {
         for (const page of surveyJson.pages) {
           if (page.elements) {
-            const extractQuestions = (elements: Array<{ name?: string; title?: string; type?: string; elements?: Array<{ name?: string; title?: string; type?: string }> }>) => {
+            const extractQuestions = (elements: SurveyElement[]) => {
               for (const element of elements) {
                 if (element.name && element.type !== 'panel' && element.type !== 'html') {
+                  // Normalize choices to { value, text } format
+                  let choices: Array<{ value: string | number; text: string }> | undefined;
+                  if (element.choices) {
+                    choices = element.choices.map(c => {
+                      if (typeof c === 'object' && c !== null) {
+                        return { value: c.value, text: c.text };
+                      }
+                      return { value: c, text: String(c) };
+                    });
+                  }
+                  
                   questions.push({
                     name: element.name,
                     title: typeof element.title === 'string' ? element.title : element.name,
                     type: element.type || 'unknown',
+                    choices,
+                    rateMax: element.rateMax || element.rateCount,
+                    rateMin: element.rateMin || 1,
                   });
                 }
                 // Handle nested elements in panels
@@ -607,7 +639,7 @@ export function registerRoutes(app: Express): Server {
                 }
               }
             };
-            extractQuestions(page.elements as any);
+            extractQuestions(page.elements);
           }
         }
       }
@@ -1009,10 +1041,19 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
     try {
-      const { name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, priority, contentIds, rationale } = req.body;
+      const { 
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      } = req.body;
       
-      if (!name || !tag || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
-        return res.status(400).send("name, tag, and contentIds are required");
+      // For answer-based rules, questionName is required instead of tag
+      if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name and contentIds are required");
+      }
+      
+      // Either tag (legacy) or questionName (new) must be provided
+      if (!tag && !questionName) {
+        return res.status(400).send("Either tag or questionName is required");
       }
       
       const config = await createRecommendationConfig({
@@ -1021,12 +1062,16 @@ export function registerRoutes(app: Express): Server {
         assessmentId,
         pathwayId,
         pathwayWeek,
-        tag,
+        tag: tag || questionName || '',
         minScore: minScore ?? 0,
         maxScore: maxScore ?? 100,
         priority: priority ?? 1,
         contentIds,
         rationale,
+        questionName,
+        questionType,
+        matchOperator: matchOperator || 'equals',
+        matchValues,
       });
       
       await logClinicianAction(req, req.user!, 'settings_change', {
@@ -1042,18 +1087,22 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
     try {
-      const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
+      // Only include fields that were explicitly provided (not undefined)
+      // This prevents partial updates from wiping existing data
+      const updates: Record<string, unknown> = {};
+      const fields = [
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
+        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'questionType', 'matchOperator', 'matchValues'
+      ];
       
-      const updated = await updateRecommendationConfig(req.params.id, {
-        name,
-        tag,
-        minScore,
-        maxScore,
-        priority,
-        contentIds,
-        rationale,
-        isActive,
-      });
+      for (const field of fields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updated = await updateRecommendationConfig(req.params.id, updates);
       
       if (!updated) {
         return res.status(404).send("Recommendation config not found");

@@ -66,9 +66,10 @@ export async function scoreAssessmentResponse(
   const tagScores = calculateTagScores(answers, scoringConfig, questionMetadata);
   const primaryOutcome = determinePrimaryOutcome(tagScores, outcomeRules);
   
-  // Use the proper 3-tier recommendation engine
+  // Use the proper 3-tier recommendation engine with both scores and raw answers
   const recommendationResult = await getRecommendationsFromEngine({
     tagScores,
+    rawAnswers: answers,
     assessmentId,
     clinicianUserId: assessment.clinicianUserId || undefined,
   });
