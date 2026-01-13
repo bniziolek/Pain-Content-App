@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
 import "survey-core/survey-core.min.css";
@@ -39,6 +39,7 @@ export default function AssessmentBuilderPage() {
   const [isTemplate, setIsTemplate] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [creator, setCreator] = useState<SurveyCreator | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const { data: assessment, isLoading } = useQuery<Assessment>({
     queryKey: ["assessment", assessmentId],
@@ -297,20 +298,87 @@ export default function AssessmentBuilderPage() {
         
         <Card className="overflow-hidden">
           <CardHeader className="border-b">
-            <CardTitle>Survey Editor</CardTitle>
-            <CardDescription>
-              Add questions, configure logic, and design your assessment
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Survey Editor</CardTitle>
+                <CardDescription>
+                  Add questions, configure logic, and design your assessment
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFullscreen(true)}
+                data-testid="button-expand-editor"
+              >
+                <Maximize2 className="w-4 h-4 mr-2" />
+                Expand
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            {creator && (
+            {creator && !isFullscreen && (
               <div className="h-[600px]" data-testid="survey-creator">
                 <SurveyCreatorComponent creator={creator} />
+              </div>
+            )}
+            {isFullscreen && (
+              <div className="h-[600px] flex items-center justify-center text-muted-foreground">
+                Editor is in fullscreen mode
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+      
+      {/* Fullscreen Modal */}
+      {isFullscreen && creator && (
+        <div 
+          className="fixed inset-0 z-50 bg-background" 
+          data-testid="fullscreen-editor"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Survey Editor Fullscreen"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setIsFullscreen(false);
+            }
+          }}
+        >
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
+              <div>
+                <h2 className="text-xl font-semibold">Survey Editor</h2>
+                <p className="text-sm text-muted-foreground">
+                  {name || "Untitled Assessment"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFullscreen(false)}
+                  data-testid="button-exit-fullscreen"
+                >
+                  <Minimize2 className="w-4 h-4 mr-2" />
+                  Exit Fullscreen
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsFullscreen(false)}
+                  data-testid="button-close-fullscreen"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SurveyCreatorComponent creator={creator} />
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
