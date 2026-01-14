@@ -169,13 +169,29 @@ The application follows the **DriverPath Style Guide** (see `docs/STYLE_GUIDE.md
 ### Feature Flags System
 - **Table**: `feature_flags` - System-wide feature toggles controlled by super admins
 - **Fields**: key (unique identifier), name, description, isEnabled, value, payload (JSON), category, timestamps
-- **Default Flag**: `content_delivery_mode` - Controls email (with tracking) vs packet (PHI-free download) delivery
 - **API Endpoints**:
   - GET `/api/admin/feature-flags` - Admin-only, returns all flags
   - PATCH `/api/admin/feature-flags/:key` - Admin-only, update flag (logged via audit system)
   - GET `/api/feature-flags` - Authenticated users, returns simplified flag map for frontend
-- **Frontend Hook**: `useContentDeliveryMode()` returns `{ isEmailMode, isPacketMode, isLoading }`
-- **Packet Mode**: Disables email delivery, generates downloadable/printable content bundles without patient identifiers
+- **Frontend Hooks**:
+  - `useFeatureFlags()` - Returns all flags as key-value map
+  - `usePatientFeatures()` - Convenience hook returning patient-related feature states
+  - `useContentDeliveryMode()` - Returns `{ isEmailMode, isPacketMode, isLoading }`
+
+#### MVP Provider-Only Mode Flags
+These flags default to **false** for MVP, enabling a provider-only mode without patient data handling:
+- `patient_portal_enabled` - Controls patient portal authentication and content access
+- `patient_messaging_enabled` - Controls sending content to patients via email
+- `patient_assessments_enabled` - Controls patient-facing assessment invites
+- `follow_ups_enabled` - Controls follow-up automation rules
+- `pathways_enabled` - Controls care pathways feature
+- `send_history_enabled` - Controls email/send history tracking
+- `content_delivery_mode` - When set to "packet", disables email delivery for PHI-free downloads
+
+#### Backend API Guards
+- **Middleware**: `requireFeatureFlag(flagKey)` - Returns 404 when flag is disabled
+- **Guarded Endpoints**: All patient-related APIs (email-logs, patient-portal, assessment-invites, patient-recommendations, follow-ups, pathways)
+- **Unguarded for Provider Mode**: Internal screenings and recommendation engine remain available for clinician self-assessment workflows
 
 ## Assessment Builder & Recommendation Engine
 

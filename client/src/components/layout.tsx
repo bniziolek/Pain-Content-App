@@ -19,9 +19,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 interface SidebarProps {
   className?: string;
@@ -31,8 +32,12 @@ interface SidebarProps {
 function Sidebar({ className, onNavigate }: SidebarProps) {
   const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
+  const { data: featureFlags = {} } = useFeatureFlags();
 
   const isAdmin = user?.role === "admin";
+
+  // Helper to check if a feature flag is enabled
+  const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
 
   // Admin gets different navigation
   const adminLinks = [
@@ -45,15 +50,26 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  const clinicianLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tourId: "nav-dashboard" },
-    { href: "/library", label: "Content Library", icon: Library, tourId: "nav-library" },
-    { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments" },
-    { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways" },
-    { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups" },
-    { href: "/history", label: "Send History", icon: History, tourId: "nav-history" },
-    { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings" },
+  // Clinician links - filtered based on feature flags
+  const allClinicianLinks = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tourId: "nav-dashboard", flagKey: null },
+    { href: "/library", label: "Content Library", icon: Library, tourId: "nav-library", flagKey: null },
+    { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments", flagKey: null },
+    { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways", flagKey: "pathways_enabled" },
+    { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups", flagKey: "follow_ups_enabled" },
+    { href: "/history", label: "Send History", icon: History, tourId: "nav-history", flagKey: "send_history_enabled" },
+    { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings", flagKey: null },
   ];
+
+  // Filter clinician links based on feature flags
+  const clinicianLinks = useMemo(() => {
+    return allClinicianLinks.filter(link => {
+      // Always show links without a flag requirement
+      if (!link.flagKey) return true;
+      // Only show links if their feature flag is enabled
+      return isEnabled(link.flagKey);
+    });
+  }, [featureFlags]);
 
   const links = isAdmin ? adminLinks : clinicianLinks;
 

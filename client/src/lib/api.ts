@@ -132,6 +132,8 @@ export async function getStats(): Promise<{
   chartData: { name: string; sends: number }[];
   recentActivity: { email: string; action: string; status: string; timeAgo: string }[];
   actionNeeded: { email: string; subject: string; daysSinceSent: number; id: string }[];
+  totalContent: number;
+  totalAssessments: number;
 }> {
   return fetchAPI("/stats");
 }

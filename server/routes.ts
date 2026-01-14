@@ -32,6 +32,21 @@ export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
 
+  // Feature flag middleware factory - returns 404 if flag is disabled
+  const requireFeatureFlag = (flagKey: string) => {
+    return async (req: any, res: any, next: any) => {
+      try {
+        const flag = await storage.getFeatureFlagByKey(flagKey);
+        if (!flag?.isEnabled) {
+          return res.status(404).json({ error: "Not found" });
+        }
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  };
+
   // ====== Password Reset Routes ======
   app.post("/api/forgot-password", async (req, res, next) => {
     try {
@@ -197,7 +212,7 @@ export function registerRoutes(app: Express): Server {
   };
 
   // ====== Patient Portal Authentication ======
-  app.post("/api/patient-portal/auth", async (req, res, next) => {
+  app.post("/api/patient-portal/auth", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
     try {
       const { email, accessCode } = req.body;
       
@@ -328,7 +343,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Get patient's assigned content and assessments
-  app.get("/api/patient-portal/content", async (req, res, next) => {
+  app.get("/api/patient-portal/content", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -743,7 +758,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Assessment Invite Routes (Patient-facing) ======
-  app.post("/api/assessment-invites", requireSubscription, async (req, res, next) => {
+  app.post("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const validated = insertAssessmentInviteSchema.parse({
         ...req.body,
@@ -792,7 +807,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/assessment-invites", requireSubscription, async (req, res, next) => {
+  app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
       
@@ -810,7 +825,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/assessment-invites/token/:token", async (req, res, next) => {
+  app.get("/api/assessment-invites/token/:token", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invite = await storage.getAssessmentInviteByToken(req.params.token);
       if (!invite) {
@@ -828,7 +843,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/assessment-invites/:inviteId/complete", async (req, res, next) => {
+  app.post("/api/assessment-invites/:inviteId/complete", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const { answers } = req.body;
       if (!answers) {
@@ -874,7 +889,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Assessment Results with Recommendations (Clinician View) ======
-  app.get("/api/assessment-invites/:inviteId/results", requireSubscription, async (req, res, next) => {
+  app.get("/api/assessment-invites/:inviteId/results", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invite = await storage.getAssessmentInviteById(req.params.inviteId);
       if (!invite) {
@@ -1134,7 +1149,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Patient Recommendations History ======
-  app.get("/api/patient-recommendations", requireSubscription, async (req, res, next) => {
+  app.get("/api/patient-recommendations", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const { patientEmail, source } = req.query;
       const recs = await storage.getPatientRecommendations({
@@ -1148,7 +1163,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/patient-recommendations/:id", requireSubscription, async (req, res, next) => {
+  app.get("/api/patient-recommendations/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const rec = await storage.getPatientRecommendationById(req.params.id);
       if (!rec) {
@@ -1213,7 +1228,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Email Log Routes ======
-  app.post("/api/email-logs", requireSubscription, async (req, res, next) => {
+  app.post("/api/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       // Generate a 6-digit access code for patient portal
       const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1316,7 +1331,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/email-logs", requireSubscription, async (req, res, next) => {
+  app.get("/api/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
       const logs = await storage.getEmailLogsByClinicianId(req.user!.id);
       res.json(logs);
@@ -1325,7 +1340,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/email-logs/:id/content-views", requireSubscription, async (req, res, next) => {
+  app.get("/api/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
       const views = await storage.getContentViewsByEmailLogId(req.params.id);
       res.json(views);
@@ -1335,7 +1350,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Resend content to patient with new access code
-  app.post("/api/email-logs/:id/resend", requireSubscription, async (req, res, next) => {
+  app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const clinicianId = req.user!.id;
       
@@ -1717,6 +1732,10 @@ export function registerRoutes(app: Express): Server {
           });
         });
       
+      // Get total content and assessments for provider-only mode
+      const allContent = await storage.getAllContent();
+      const assessments = await storage.getAssessments();
+      
       res.json({
         sendsThisWeek,
         sendsGrowth,
@@ -1726,6 +1745,8 @@ export function registerRoutes(app: Express): Server {
         chartData,
         recentActivity: topRecentActivity,
         actionNeeded,
+        totalContent: allContent.length,
+        totalAssessments: assessments.length,
       });
     } catch (error) {
       next(error);
@@ -2061,7 +2082,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Follow-up Rules Routes ======
-  app.get("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+  app.get("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const customRules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
       const templates = await storage.getTemplateFollowUpRules();
@@ -2078,7 +2099,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+  app.post("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const rule = await storage.createFollowUpRule({
         ...req.body,
@@ -2090,7 +2111,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+  app.patch("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       await storage.updateFollowUpRule(req.params.id, req.body);
       res.json({ success: true });
@@ -2099,7 +2120,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.delete("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+  app.delete("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       await storage.deleteFollowUpRule(req.params.id);
       res.sendStatus(204);
@@ -2108,7 +2129,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/follow-up-templates/:id/toggle", requireSubscription, async (req, res, next) => {
+  app.post("/api/follow-up-templates/:id/toggle", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const { isEnabled } = req.body;
       const pref = await storage.setUserTemplatePreference(req.user!.id, req.params.id, isEnabled);
@@ -2118,7 +2139,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/scheduled-follow-ups", requireSubscription, async (req, res, next) => {
+  app.get("/api/scheduled-follow-ups", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const followUps = await storage.getScheduledFollowUpsByClinicianId(req.user!.id);
       res.json(followUps);
@@ -2128,7 +2149,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Care Pathways Routes ======
-  app.get("/api/pathways", requireSubscription, async (req, res, next) => {
+  app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
@@ -2155,7 +2176,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Try Contentful first for pathway templates
       if (isContentfulConfigured()) {
@@ -2184,7 +2205,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/pathways", requireSubscription, async (req, res, next) => {
+  app.post("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       const pathway = await storage.createCarePathway({
         ...req.body,
@@ -2196,7 +2217,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.patch("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       await storage.updateCarePathway(req.params.id, req.body);
       const updated = await storage.getCarePathwayById(req.params.id);
@@ -2206,7 +2227,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.delete("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.delete("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       await storage.deleteCarePathway(req.params.id);
       res.sendStatus(204);
@@ -2216,7 +2237,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Pathway milestones
-  app.post("/api/pathways/:id/milestones", requireSubscription, async (req, res, next) => {
+  app.post("/api/pathways/:id/milestones", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       const milestone = await storage.createPathwayMilestone({
         ...req.body,

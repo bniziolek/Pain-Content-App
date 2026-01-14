@@ -153,6 +153,80 @@ export async function seedDatabase() {
     console.log("Permissions seeding error:", error);
   }
 
+  // Seed feature flags for MVP provider-only mode
+  const featureFlagData = [
+    {
+      key: "content_delivery_mode",
+      name: "Content Delivery Mode",
+      description: "Controls how content is delivered to patients (email vs downloadable packet)",
+      isEnabled: true,
+      value: "packet",
+      category: "content_delivery",
+    },
+    {
+      key: "patient_portal_enabled",
+      name: "Patient Portal",
+      description: "Enable patient portal access for viewing content and completing assessments",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "patient_messaging_enabled",
+      name: "Patient Messaging",
+      description: "Enable email sending to patients, Gmail integration, and patient communications",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "patient_assessments_enabled",
+      name: "Patient Assessments",
+      description: "Enable patient-facing assessments (sent to patients for at-home completion)",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "follow_ups_enabled",
+      name: "Follow-ups",
+      description: "Enable automated follow-up scheduling and reminders for patients",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "pathways_enabled",
+      name: "Care Pathways",
+      description: "Enable care pathway enrollment and milestone tracking for patients",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "send_history_enabled",
+      name: "Send History",
+      description: "Enable viewing of patient content delivery history and email logs",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+  ];
+
+  try {
+    const existingFlags = await storage.getFeatureFlags();
+    for (const flag of featureFlagData) {
+      const exists = existingFlags.some(f => f.key === flag.key);
+      if (!exists) {
+        await storage.createFeatureFlag(flag as any);
+        console.log(`Created feature flag: ${flag.name}`);
+      }
+    }
+    console.log("Feature flags seeded");
+  } catch (error) {
+    console.log("Feature flags seeding error:", error);
+  }
+
   // Seed data inventory for PHI classification
   const dataInventoryItems = [
     {
