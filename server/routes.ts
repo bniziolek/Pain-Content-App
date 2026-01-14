@@ -2471,25 +2471,72 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
     try {
       const { key } = req.params;
-      const { isEnabled, value, payload } = req.body;
+      const { isEnabled, value, payload, name, description, category } = req.body;
       
-      const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload });
+      // Fetch current state to record in audit log
+      const currentFlags = await storage.getFeatureFlags();
+      const currentFlag = currentFlags.find(f => f.key === key);
+      
+      const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload, name, description, category });
       
       if (!updated) {
         return res.status(404).json({ error: "Feature flag not found" });
       }
       
       await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
+        resourceType: 'feature_flag',
+        resourceId: key,
         details: { 
           action: 'updated_feature_flag', 
           flagKey: key,
-          newValue: value,
-          isEnabled,
+          previousValue: currentFlag?.value,
+          newValue: value !== undefined ? value : currentFlag?.value,
+          previousEnabled: currentFlag?.isEnabled,
+          isEnabled: isEnabled !== undefined ? isEnabled : currentFlag?.isEnabled,
+          changedFields: Object.keys(req.body),
         },
       });
       
       res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/feature-flags/:key/history", requireAdmin, async (req, res, next) => {
+    try {
+      const { key } = req.params;
+      const logs = await storage.getAuditLogs({
+        action: 'settings_change',
+        limit: 50,
+      });
+      
+      // Filter for feature flag changes for this specific key
+      const flagHistory = logs.filter(log => {
+        const details = log.details as Record<string, unknown> | null;
+        return details?.action === 'updated_feature_flag' && details?.flagKey === key;
+      });
+      
+      res.json(flagHistory);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/feature-flags/history/all", requireAdmin, async (req, res, next) => {
+    try {
+      const logs = await storage.getAuditLogs({
+        action: 'settings_change',
+        limit: 100,
+      });
+      
+      // Filter for all feature flag changes
+      const flagHistory = logs.filter(log => {
+        const details = log.details as Record<string, unknown> | null;
+        return details?.action === 'updated_feature_flag';
+      });
+      
+      res.json(flagHistory);
     } catch (error) {
       next(error);
     }
