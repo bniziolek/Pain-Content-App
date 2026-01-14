@@ -241,7 +241,7 @@ export interface IStorage {
   getFeatureFlags(): Promise<schema.FeatureFlag[]>;
   getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined>;
   createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag>;
-  updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any }): Promise<schema.FeatureFlag | undefined>;
+  updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -1168,7 +1168,7 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any }): Promise<schema.FeatureFlag | undefined> {
+  async updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined> {
     const [updated] = await db.update(schema.featureFlags)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.featureFlags.key, key))
