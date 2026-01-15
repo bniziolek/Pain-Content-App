@@ -157,10 +157,10 @@ export async function seedDatabase() {
   const featureFlagData = [
     {
       key: "content_delivery_mode",
-      name: "Content Delivery Mode",
-      description: "Controls how content is delivered to patients (email vs downloadable packet)",
-      isEnabled: true,
-      value: "packet",
+      name: "Email Delivery",
+      description: "When enabled, content can be sent via email to patients. When disabled, only downloadable PDF packets are available.",
+      isEnabled: false,
+      value: null,
       category: "content_delivery",
     },
     {

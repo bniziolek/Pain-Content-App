@@ -36,13 +36,11 @@ export function useContentDeliveryMode() {
   // If patient messaging is disabled, force packet mode regardless of content_delivery_mode setting
   const isPatientMessagingEnabled = patientMessaging?.isEnabled ?? false;
   
-  // Email mode only available if patient messaging is enabled AND content_delivery_mode is email
-  const isEmailMode = isPatientMessagingEnabled && 
-    (!contentDeliveryMode?.isEnabled || contentDeliveryMode?.value === "email");
+  // Email mode: content_delivery_mode is enabled AND patient messaging is enabled
+  const isEmailMode = isPatientMessagingEnabled && (contentDeliveryMode?.isEnabled ?? false);
   
-  // Packet mode if patient messaging is disabled OR content_delivery_mode is packet
-  const isPacketMode = !isPatientMessagingEnabled || 
-    (contentDeliveryMode?.isEnabled && contentDeliveryMode?.value === "packet");
+  // Packet mode: content_delivery_mode is disabled OR patient messaging is disabled
+  const isPacketMode = !isPatientMessagingEnabled || !(contentDeliveryMode?.isEnabled ?? false);
   
   return {
     isEmailMode,

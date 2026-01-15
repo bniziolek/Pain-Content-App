@@ -186,7 +186,7 @@ These flags default to **false** for MVP, enabling a provider-only mode without 
 - `follow_ups_enabled` - Controls follow-up automation rules
 - `pathways_enabled` - Controls care pathways feature
 - `send_history_enabled` - Controls email/send history tracking
-- `content_delivery_mode` - When set to "packet", disables email delivery for PHI-free downloads
+- `content_delivery_mode` (Email Delivery) - When enabled, content can be sent via email. When disabled, only downloadable PDF packets are available
 
 #### Backend API Guards
 - **Middleware**: `requireFeatureFlag(flagKey)` - Returns 404 when flag is disabled
