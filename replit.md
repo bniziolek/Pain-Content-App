@@ -187,6 +187,7 @@ These flags default to **false** for MVP, enabling a provider-only mode without 
 - `pathways_enabled` - Controls care pathways feature
 - `send_history_enabled` - Controls email/send history tracking
 - `content_delivery_mode` (Email Delivery) - When enabled, content can be sent via email. When disabled, only downloadable PDF packets are available
+- `assessments_enabled` - Controls the assessments feature for clinicians (defaults to enabled)
 
 #### Backend API Guards
 - **Middleware**: `requireFeatureFlag(flagKey)` - Returns 404 when flag is disabled

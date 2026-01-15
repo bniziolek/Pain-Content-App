@@ -60,6 +60,7 @@ export function usePatientFeatures() {
     followUpsEnabled: flags["follow_ups_enabled"]?.isEnabled ?? false,
     pathwaysEnabled: flags["pathways_enabled"]?.isEnabled ?? false,
     sendHistoryEnabled: flags["send_history_enabled"]?.isEnabled ?? false,
+    assessmentsEnabled: flags["assessments_enabled"]?.isEnabled ?? false,
     isLoading,
   };
 }

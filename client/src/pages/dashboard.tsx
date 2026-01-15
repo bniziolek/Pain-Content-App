@@ -30,7 +30,7 @@ function getStatusBadge(status: string) {
 export default function Dashboard() {
   const { user } = useAuth();
   const { startTour } = useTour();
-  const { patientMessagingEnabled, sendHistoryEnabled, isLoading: featuresLoading } = usePatientFeatures();
+  const { patientMessagingEnabled, sendHistoryEnabled, assessmentsEnabled, isLoading: featuresLoading } = usePatientFeatures();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: getStats,
@@ -80,12 +80,14 @@ export default function Dashboard() {
                 )}
               </Button>
             </Link>
-            <Link href="/assessments">
-              <Button variant="outline">
-                <ClipboardList className="w-4 h-4 mr-2" />
-                Assessments
-              </Button>
-            </Link>
+            {assessmentsEnabled && (
+              <Link href="/assessments">
+                <Button variant="outline">
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  Assessments
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -309,7 +311,7 @@ export default function Dashboard() {
               <CardDescription>Create personalized content packets for your patients</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className={`grid ${assessmentsEnabled ? 'sm:grid-cols-2' : 'sm:grid-cols-1'} gap-4`}>
                 <Link href="/library">
                   <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
                     <Download className="w-8 h-8 text-primary mb-2" />
@@ -317,13 +319,15 @@ export default function Dashboard() {
                     <p className="text-sm text-muted-foreground">Explore educational modules and create downloadable packets</p>
                   </div>
                 </Link>
-                <Link href="/assessments">
-                  <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
-                    <ClipboardList className="w-8 h-8 text-primary mb-2" />
-                    <h3 className="font-medium">Take an Assessment</h3>
-                    <p className="text-sm text-muted-foreground">Complete an assessment to get personalized content recommendations</p>
-                  </div>
-                </Link>
+                {assessmentsEnabled && (
+                  <Link href="/assessments">
+                    <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
+                      <ClipboardList className="w-8 h-8 text-primary mb-2" />
+                      <h3 className="font-medium">Take an Assessment</h3>
+                      <p className="text-sm text-muted-foreground">Complete an assessment to get personalized content recommendations</p>
+                    </div>
+                  </Link>
+                )}
               </div>
             </CardContent>
           </Card>

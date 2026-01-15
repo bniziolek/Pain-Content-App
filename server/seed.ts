@@ -211,6 +211,14 @@ export async function seedDatabase() {
       value: null,
       category: "features",
     },
+    {
+      key: "assessments_enabled",
+      name: "Assessments",
+      description: "Enable the assessments feature for clinicians to create and take assessments with content recommendations",
+      isEnabled: true,
+      value: null,
+      category: "features",
+    },
   ];
 
   try {
