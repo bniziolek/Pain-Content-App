@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, FileText, TrendingUp, Plus, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList } from "lucide-react";
+import { Send, FileText, TrendingUp, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList, Package, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -65,34 +65,52 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Welcome back{user?.name ? `, ${user.name}` : ""}.</p>
           </div>
           <div className="flex gap-3">
-            <Link href="/library">
-              <Button data-tour="send-content">
-                {patientMessagingEnabled ? (
-                  <>
+            {patientMessagingEnabled ? (
+              <>
+                <Link href="/library">
+                  <Button data-tour="send-content">
                     <Send className="w-4 h-4 mr-2" />
                     Send Content
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Create Packet
-                  </>
+                  </Button>
+                </Link>
+                {assessmentsEnabled && (
+                  <Link href="/assessments">
+                    <Button variant="outline">
+                      <ClipboardList className="w-4 h-4 mr-2" />
+                      Assessments
+                    </Button>
+                  </Link>
                 )}
-              </Button>
-            </Link>
-            {assessmentsEnabled && (
-              <Link href="/assessments">
-                <Button variant="outline">
-                  <ClipboardList className="w-4 h-4 mr-2" />
-                  Assessments
+              </>
+            ) : assessmentsEnabled ? (
+              <>
+                <Link href="/content-packet-guide">
+                  <Button data-tour="send-content">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create Packet
+                  </Button>
+                </Link>
+                <Link href="/library">
+                  <Button variant="outline">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Content Library
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Link href="/library">
+                <Button data-tour="send-content">
+                  <Download className="w-4 h-4 mr-2" />
+                  Browse Library
                 </Button>
               </Link>
             )}
           </div>
         </div>
 
-        {/* Stats Grid - Only show patient engagement stats when messaging is enabled */}
+        {/* Stats Grid - Adaptive based on feature flags */}
         {patientMessagingEnabled ? (
+          // Full mode: Patient engagement stats
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -137,7 +155,56 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+        ) : assessmentsEnabled ? (
+          // MVP mode with assessments: Packet-focused stats
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Packets Created</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.packetsThisWeek || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  <span className="text-green-600 font-medium">{stats?.packetsGrowth || "+0%"}</span> from last week
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Packets</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.packetsTotal || 0}</div>
+                <p className="text-xs text-muted-foreground">All time created</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Content Library</CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.totalContent || 0}</div>
+                <p className="text-xs text-muted-foreground">Educational modules</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Top Focus Area</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold truncate" title={stats?.topScreeningTags?.[0] || stats?.topTags?.[0] || "N/A"}>
+                  {stats?.topScreeningTags?.[0] || stats?.topTags?.[0] || "N/A"}
+                </div>
+                <p className="text-xs text-muted-foreground">Most common result</p>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
+          // Minimal mode: No assessments, just content browsing
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -151,22 +218,24 @@ export default function Dashboard() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Assessments</CardTitle>
-                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Packets</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalAssessments || 0}</div>
-                <p className="text-xs text-muted-foreground">Available for content curation</p>
+                <div className="text-2xl font-bold">{stats?.packetsTotal || 0}</div>
+                <p className="text-xs text-muted-foreground">Curated content packets</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Top Focus Area</CardTitle>
+                <CardTitle className="text-sm font-medium">Popular Topics</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-lg font-bold truncate" title={stats?.topTags?.[0] || "N/A"}>{stats?.topTags?.[0] || "N/A"}</div>
-                <p className="text-xs text-muted-foreground">Most frequent result</p>
+                <div className="text-lg font-bold truncate" title={stats?.topTags?.[0] || "Pain Science"}>
+                  {stats?.topTags?.[0] || "Pain Science"}
+                </div>
+                <p className="text-xs text-muted-foreground">Most used content</p>
               </CardContent>
             </Card>
           </div>
@@ -303,34 +372,106 @@ export default function Dashboard() {
           </>
         )}
 
-        {/* Provider-only mode: Quick actions */}
+        {/* Provider-only mode: Recent Packets and Quick Actions */}
         {!patientMessagingEnabled && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Getting Started</CardTitle>
-              <CardDescription>Create personalized content packets for your patients</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className={`grid ${assessmentsEnabled ? 'sm:grid-cols-2' : 'sm:grid-cols-1'} gap-4`}>
-                <Link href="/library">
-                  <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
-                    <Download className="w-8 h-8 text-primary mb-2" />
-                    <h3 className="font-medium">Browse Content</h3>
-                    <p className="text-sm text-muted-foreground">Explore educational modules and create downloadable packets</p>
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Recent Packets */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Recent Packets
+                </CardTitle>
+                <CardDescription>Your recently created content packets</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats?.recentPackets && stats.recentPackets.length > 0 ? (
+                  <div className="space-y-4">
+                    {stats.recentPackets.map((packet) => (
+                      <div key={packet.id} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 border-border/50">
+                        <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{packet.patientName}</div>
+                          <div className="text-sm text-muted-foreground">{packet.assessmentName}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {packet.outcome && (
+                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
+                                {packet.outcome}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {packet.contentCount} items
+                            </span>
+                            <span className="text-xs text-muted-foreground/60">{packet.timeAgo}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <Package className="w-10 h-10 mb-2 opacity-50" />
+                    <p className="text-sm">No packets created yet</p>
+                    <p className="text-xs mt-1">Use the guide to create your first packet</p>
+                  </div>
+                )}
+                <Link href="/history">
+                  <Button variant="ghost" className="w-full mt-4 text-xs">
+                    View All Packets <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
                 </Link>
-                {assessmentsEnabled && (
-                  <Link href="/assessments">
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions / Getting Started */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Create personalized content for your patients</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {assessmentsEnabled && (
+                    <Link href="/content-packet-guide">
+                      <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <Sparkles className="w-8 h-8 text-primary" />
+                          <div>
+                            <h3 className="font-medium">Guide Me to Content</h3>
+                            <p className="text-sm text-muted-foreground">Use an assessment to get personalized recommendations</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )}
+                  <Link href="/library">
                     <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
-                      <ClipboardList className="w-8 h-8 text-primary mb-2" />
-                      <h3 className="font-medium">Take an Assessment</h3>
-                      <p className="text-sm text-muted-foreground">Complete an assessment to get personalized content recommendations</p>
+                      <div className="flex items-center gap-3">
+                        <Download className="w-8 h-8 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Browse Content Library</h3>
+                          <p className="text-sm text-muted-foreground">Explore educational modules and create packets manually</p>
+                        </div>
+                      </div>
                     </div>
                   </Link>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {assessmentsEnabled && (
+                    <Link href="/assessments">
+                      <div className="p-4 border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <ClipboardList className="w-8 h-8 text-primary" />
+                          <div>
+                            <h3 className="font-medium">View Assessments</h3>
+                            <p className="text-sm text-muted-foreground">See all available clinician assessments</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </DashboardLayout>

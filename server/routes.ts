@@ -1734,19 +1734,75 @@ export function registerRoutes(app: Express): Server {
       
       // Get total content and assessments for provider-only mode
       const allContent = await storage.getAllContent();
-      const assessments = await storage.getAssessments();
+      const assessments = await storage.getAllAssessments();
+      
+      // Get packet stats (internal screenings)
+      const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
+      const packetsThisWeek = screenings.filter(s => new Date(s.createdAt) >= weekAgo).length;
+      const packetsLastWeek = screenings.filter(s => new Date(s.createdAt) >= twoWeeksAgo && new Date(s.createdAt) < weekAgo).length;
+      
+      let packetsGrowth = "+0%";
+      if (packetsLastWeek > 0) {
+        const growth = Math.round(((packetsThisWeek - packetsLastWeek) / packetsLastWeek) * 100);
+        packetsGrowth = growth >= 0 ? `+${growth}%` : `${growth}%`;
+      } else if (packetsThisWeek > 0) {
+        packetsGrowth = "+100%";
+      }
+      
+      // Build recent packets (last 5)
+      const recentPackets = screenings
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5)
+        .map(s => {
+          const assessment = assessments.find((a: { id: string; name: string }) => a.id === s.assessmentId);
+          return {
+            id: s.id,
+            patientName: s.patientName || "Unnamed",
+            assessmentName: assessment?.name || "Assessment",
+            outcome: s.primaryOutcome,
+            contentCount: s.recommendedContentIds?.length || 0,
+            timeAgo: getTimeAgo(s.createdAt),
+          };
+        });
+      
+      // Get top tags from internal screenings
+      const screeningTagCounts: Record<string, number> = {};
+      for (const screening of screenings) {
+        const scores = screening.tagScores as { tag: string; percentage: number }[] | null;
+        if (scores) {
+          for (const score of scores) {
+            if (score.percentage >= 50) { // Only count significant scores
+              screeningTagCounts[score.tag] = (screeningTagCounts[score.tag] || 0) + 1;
+            }
+          }
+        }
+      }
+      const topScreeningTags = Object.entries(screeningTagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([tag]) => tag);
+      
+      // Combine tags: use screening tags for MVP mode, email tags for full mode
+      const combinedTopTags = topTags.length > 0 ? topTags : 
+        (topScreeningTags.length > 0 ? topScreeningTags : ["No data yet"]);
       
       res.json({
         sendsThisWeek,
         sendsGrowth,
         contentReadRate: `${contentReadRate}%`,
         completionRate: `${completionRate}%`,
-        topTags: topTags.length > 0 ? topTags : ["No data yet"],
+        topTags: combinedTopTags,
         chartData,
         recentActivity: topRecentActivity,
         actionNeeded,
         totalContent: allContent.length,
         totalAssessments: assessments.length,
+        // New packet stats
+        packetsThisWeek,
+        packetsTotal: screenings.length,
+        packetsGrowth,
+        recentPackets,
+        topScreeningTags: topScreeningTags.length > 0 ? topScreeningTags : ["No data yet"],
       });
     } catch (error) {
       next(error);
