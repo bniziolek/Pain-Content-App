@@ -57,7 +57,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
     { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments", flagKey: "assessments_enabled" },
     { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways", flagKey: "pathways_enabled" },
     { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups", flagKey: "follow_ups_enabled" },
-    { href: "/history", label: "Send History", icon: History, tourId: "nav-history", flagKey: "send_history_enabled" },
+    { href: "/history", label: "History", icon: History, tourId: "nav-history", flagKey: "send_history_enabled" },
     { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings", flagKey: null },
   ];
 
