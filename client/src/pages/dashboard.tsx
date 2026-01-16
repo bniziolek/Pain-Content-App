@@ -108,6 +108,76 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Concierge Hero Card - Only in MVP mode with assessments */}
+        {!patientMessagingEnabled && assessmentsEnabled && (
+          <Card className="bg-gradient-to-br from-primary/5 via-primary/10 to-amber-500/5 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-amber-500" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-primary">Content Concierge</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-foreground mb-2">Personalized Content, Curated for You</h2>
+                  <p className="text-muted-foreground mb-4">
+                    Answer a few clinical questions and our intelligent system matches you to the most relevant educational modules. No more manual searching.
+                  </p>
+                  
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">1</div>
+                      <span className="text-sm font-medium">Answer</span>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">2</div>
+                      <span className="text-sm font-medium">Match</span>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">3</div>
+                      <span className="text-sm font-medium">Deliver</span>
+                    </div>
+                  </div>
+                  
+                  <Link href="/content-packet-guide">
+                    <Button size="lg" className="gap-2" data-testid="button-concierge-start">
+                      <Sparkles className="w-4 h-4" />
+                      Start Content Curation
+                    </Button>
+                  </Link>
+                </div>
+                
+                <div className="hidden lg:block w-px h-32 bg-border" />
+                
+                <div className="lg:w-72 space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border border-border/50">
+                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Evidence-Based Matching</p>
+                      <p className="text-xs text-muted-foreground">Content aligned with clinical findings</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border border-border/50">
+                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Save Hours of Curation</p>
+                      <p className="text-xs text-muted-foreground">Skip manual content selection</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border border-border/50">
+                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Printable Packets</p>
+                      <p className="text-xs text-muted-foreground">Ready-to-use patient handouts</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Grid - Adaptive based on feature flags */}
         {patientMessagingEnabled ? (
           // Full mode: Patient engagement stats

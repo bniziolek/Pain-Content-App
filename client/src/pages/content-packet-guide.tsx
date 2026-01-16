@@ -234,14 +234,31 @@ export default function ContentPacketGuidePage() {
 
   const renderSelectStep = () => (
     <div className="space-y-6">
+      <Card className="bg-gradient-to-br from-primary/5 to-amber-500/5 border-primary/20 mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-1">Content Concierge</h3>
+              <p className="text-muted-foreground text-sm">
+                Your answers drive personalized recommendations. Our intelligent matching system analyzes clinical findings 
+                and connects you to the most relevant educational content — no manual searching required.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5" />
-            Select Assessment
+            Step 1: Select Assessment
           </CardTitle>
           <CardDescription>
-            Choose a clinician assessment to conduct with your patient. The results will guide content recommendations.
+            Choose an assessment that fits your clinical scenario. Your responses will automatically match to relevant content.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -344,8 +361,14 @@ export default function ContentPacketGuidePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5" />
-            {selectedAssessment?.name}
+            Step 2: {selectedAssessment?.name}
           </CardTitle>
+          <CardDescription>
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              Your answers will drive personalized content recommendations
+            </span>
+          </CardDescription>
           <CardDescription>
             Complete the assessment with your patient to generate personalized content recommendations.
           </CardDescription>
@@ -377,11 +400,11 @@ export default function ContentPacketGuidePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            Assessment Results & Recommendations
+            <Sparkles className="w-5 h-5 text-amber-500" />
+            Step 3: Your Personalized Matches
           </CardTitle>
           <CardDescription>
-            Based on the assessment, here are the recommended content items. Select the ones to include in the patient's packet.
+            Based on your clinical inputs, our system matched you to the most relevant content. Each item shows why it was recommended.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -413,7 +436,7 @@ export default function ContentPacketGuidePage() {
                   {recommendations.map((rec) => (
                     <div
                       key={rec.contentId}
-                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                      className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
                         selectedContentIds.includes(rec.contentId)
                           ? "border-primary bg-primary/5"
                           : "hover:bg-muted/50"
@@ -424,24 +447,45 @@ export default function ContentPacketGuidePage() {
                         checked={selectedContentIds.includes(rec.contentId)}
                         onCheckedChange={() => toggleContent(rec.contentId)}
                         data-testid={`checkbox-content-${rec.contentId}`}
+                        className="mt-1"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{rec.contentTitle}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {rec.source}
-                          </Badge>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="font-medium">{rec.contentTitle}</span>
+                          <div className="flex items-center gap-1.5">
+                            {rec.matchScore >= 80 && (
+                              <Badge className="bg-green-100 text-green-700 border-none text-xs">
+                                {Math.round(rec.matchScore)}% match
+                              </Badge>
+                            )}
+                            {rec.matchScore >= 50 && rec.matchScore < 80 && (
+                              <Badge className="bg-amber-100 text-amber-700 border-none text-xs">
+                                {Math.round(rec.matchScore)}% match
+                              </Badge>
+                            )}
+                            {rec.matchScore < 50 && rec.matchScore > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {Math.round(rec.matchScore)}% match
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         {rec.contentSummary && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                             {rec.contentSummary}
                           </p>
                         )}
-                        {rec.rationale && (
-                          <p className="text-xs text-primary mt-1 italic">
-                            {rec.rationale}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs bg-primary/5 border-primary/20 text-primary">
+                            {rec.tag}
+                          </Badge>
+                          {rec.rationale && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              {rec.rationale}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
