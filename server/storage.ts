@@ -45,12 +45,14 @@ import {
   type RecommendationConfig,
   type InsertRecommendationConfig,
   type PatientRecommendation,
-  type InsertPatientRecommendation
+  type InsertPatientRecommendation,
+  type UserEmailConnection,
+  type InsertUserEmailConnection
 } from "@shared/schema";
 import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, gte, lte, count, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count, sql, isNull } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -78,6 +80,14 @@ export interface IStorage {
       subscriptionPeriodEnd?: Date;
     }
   ): Promise<void>;
+  updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
+  updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void>;
+
+  // Email connections
+  getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined>;
+  createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection>;
+  updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void>;
+  deleteEmailConnection(userId: string): Promise<void>;
 
   // Content
   getAllContent(): Promise<ContentItem[]>;
@@ -214,12 +224,36 @@ export interface IStorage {
   assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission>;
   removePermissionFromRole(role: string, permissionId: string): Promise<void>;
   hasPermission(role: string, permissionName: string): Promise<boolean>;
+  
+  // User-level permission overrides
+  getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null>;
+  getUserPermissions(userId: string): Promise<schema.UserPermission[]>;
+  grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission>;
+  revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission>;
+  removeUserPermission(id: string): Promise<void>;
+  
+  // Persona switching
+  switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch>;
+  clearPersona(userId: string): Promise<void>;
+  getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]>;
 
   // Data inventory
   getDataInventory(): Promise<DataInventory[]>;
   createDataInventoryItem(item: InsertDataInventory): Promise<DataInventory>;
   updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void>;
   deleteDataInventoryItem(id: string): Promise<void>;
+
+  // Password reset tokens
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
+
+  // Feature flags
+  getFeatureFlags(): Promise<schema.FeatureFlag[]>;
+  getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined>;
+  createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag>;
+  updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -296,6 +330,44 @@ export class DatabaseStorage implements IStorage {
     await db.update(schema.users)
       .set({ ...subscription, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
+  }
+
+  async updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void> {
+    await db.update(schema.users)
+      .set({ emailDeliveryMode: mode, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  // Email connection methods
+  async getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined> {
+    const [connection] = await db.select()
+      .from(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
+    return connection;
+  }
+
+  async createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection> {
+    const [created] = await db.insert(schema.userEmailConnections)
+      .values(connection)
+      .returning();
+    return created!;
+  }
+
+  async updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void> {
+    await db.update(schema.userEmailConnections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userEmailConnections.userId, userId));
+  }
+
+  async deleteEmailConnection(userId: string): Promise<void> {
+    await db.delete(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
   }
 
   // Content methods
@@ -1011,11 +1083,137 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hasPermission(role: string, permissionName: string): Promise<boolean> {
-    // Admin has all permissions
-    if (role === 'admin') return true;
+    // Super admin and admin have all permissions
+    if (role === 'admin' || role === 'super_admin') return true;
     
     const permissions = await this.getPermissionsByRole(role);
     return permissions.some(p => p.name === permissionName);
+  }
+
+  // User-level permission overrides
+  async getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null> {
+    const permission = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (permission.length === 0) return null;
+    
+    const [override] = await db.select()
+      .from(schema.userPermissions)
+      .where(and(
+        eq(schema.userPermissions.userId, userId),
+        eq(schema.userPermissions.permissionId, permission[0].id)
+      ))
+      .limit(1);
+    
+    if (!override) return null;
+    
+    // Check expiration
+    if (override.expiresAt && override.expiresAt < new Date()) {
+      return null;
+    }
+    
+    return override.granted;
+  }
+
+  async getUserPermissions(userId: string): Promise<schema.UserPermission[]> {
+    return await db.select()
+      .from(schema.userPermissions)
+      .where(eq(schema.userPermissions.userId, userId));
+  }
+
+  async grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+    
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+    
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: true,
+      grantedBy,
+      reason,
+      expiresAt
+    }).returning();
+    
+    return created!;
+  }
+
+  async revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+    
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+    
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: false,
+      grantedBy,
+      reason
+    }).returning();
+    
+    return created!;
+  }
+
+  async removeUserPermission(id: string): Promise<void> {
+    await db.delete(schema.userPermissions).where(eq(schema.userPermissions.id, id));
+  }
+
+  // Persona switching
+  async switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+    
+    const fromPersona = user.activePersona || user.role;
+    
+    // Update user's active persona
+    await db.update(schema.users)
+      .set({ activePersona: toPersona, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+    
+    // Log the switch
+    const [log] = await db.insert(schema.personaSwitches).values({
+      userId,
+      fromPersona,
+      toPersona,
+      ipAddress,
+      userAgent
+    }).returning();
+    
+    return log!;
+  }
+
+  async clearPersona(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+    
+    // Mark the most recent switch as switched back
+    await db.update(schema.personaSwitches)
+      .set({ switchedBackAt: new Date() })
+      .where(and(
+        eq(schema.personaSwitches.userId, userId),
+        isNull(schema.personaSwitches.switchedBackAt)
+      ));
+    
+    // Clear the active persona
+    await db.update(schema.users)
+      .set({ activePersona: null, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]> {
+    return await db.select()
+      .from(schema.personaSwitches)
+      .where(eq(schema.personaSwitches.userId, userId))
+      .orderBy(desc(schema.personaSwitches.switchedAt))
+      .limit(50);
   }
 
   // Data inventory methods
@@ -1036,6 +1234,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDataInventoryItem(id: string): Promise<void> {
     await db.delete(schema.dataInventory).where(eq(schema.dataInventory.id, id));
+  }
+
+  // Password reset token methods
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(schema.passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined> {
+    const [result] = await db.select().from(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.token, token));
+    return result;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(schema.passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(schema.passwordResetTokens.token, token));
+  }
+
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    await db.delete(schema.passwordResetTokens).where(lte(schema.passwordResetTokens.expiresAt, new Date()));
   }
 
   // Admin analytics methods
@@ -1071,6 +1289,29 @@ export class DatabaseStorage implements IStorage {
       recentSignups: recentSignupsResult?.count ?? 0,
       mrr,
     };
+  }
+
+  // Feature flag methods
+  async getFeatureFlags(): Promise<schema.FeatureFlag[]> {
+    return await db.select().from(schema.featureFlags).orderBy(schema.featureFlags.category, schema.featureFlags.name);
+  }
+
+  async getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined> {
+    const [flag] = await db.select().from(schema.featureFlags).where(eq(schema.featureFlags.key, key));
+    return flag;
+  }
+
+  async createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag> {
+    const [created] = await db.insert(schema.featureFlags).values(flag).returning();
+    return created!;
+  }
+
+  async updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined> {
+    const [updated] = await db.update(schema.featureFlags)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.featureFlags.key, key))
+      .returning();
+    return updated;
   }
 }
 

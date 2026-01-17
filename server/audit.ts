@@ -27,6 +27,7 @@ export type AuditAction =
   | 'assessment_update'
   | 'assessment_delete'
   | 'assessment_submit'
+  | 'assessment_score'
   | 'screening_create'
   | 'screening_access'
   | 'patient_summary_view'

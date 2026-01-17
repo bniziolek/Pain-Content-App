@@ -13,14 +13,16 @@ import {
   ShieldCheck,
   Bell,
   Route,
-  Sparkles
+  Sparkles,
+  ToggleLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 interface SidebarProps {
   className?: string;
@@ -30,27 +32,44 @@ interface SidebarProps {
 function Sidebar({ className, onNavigate }: SidebarProps) {
   const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
+  const { data: featureFlags = {} } = useFeatureFlags();
 
   const isAdmin = user?.role === "admin";
+
+  // Helper to check if a feature flag is enabled
+  const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
 
   // Admin gets different navigation
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/assessments", label: "Assessments", icon: ClipboardList },
+    { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
+    { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft },
     { href: "/library", label: "Content Oversight", icon: Library },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  const clinicianLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/library", label: "Content Library", icon: Library },
-    { href: "/assessments", label: "Assessments", icon: ClipboardList },
-    { href: "/pathways", label: "Care Pathways", icon: Route },
-    { href: "/recommendation-rules", label: "Recommendations", icon: Sparkles },
-    { href: "/follow-ups", label: "Follow-ups", icon: Bell },
-    { href: "/history", label: "Send History", icon: History },
-    { href: "/settings", label: "Settings", icon: Settings },
+  // Clinician links - filtered based on feature flags
+  const allClinicianLinks = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tourId: "nav-dashboard", flagKey: null },
+    { href: "/library", label: "Content Library", icon: Library, tourId: "nav-library", flagKey: null },
+    { href: "/assessments", label: "Assessments", icon: ClipboardList, tourId: "nav-assessments", flagKey: "assessments_enabled" },
+    { href: "/pathways", label: "Care Pathways", icon: Route, tourId: "nav-pathways", flagKey: "pathways_enabled" },
+    { href: "/follow-ups", label: "Follow-ups", icon: Bell, tourId: "nav-followups", flagKey: "follow_ups_enabled" },
+    { href: "/history", label: "History", icon: History, tourId: "nav-history", flagKey: "send_history_enabled" },
+    { href: "/settings", label: "Settings", icon: Settings, tourId: "nav-settings", flagKey: null },
   ];
+
+  // Filter clinician links based on feature flags
+  const clinicianLinks = useMemo(() => {
+    return allClinicianLinks.filter(link => {
+      // Always show links without a flag requirement
+      if (!link.flagKey) return true;
+      // Only show links if their feature flag is enabled
+      return isEnabled(link.flagKey);
+    });
+  }, [featureFlags]);
 
   const links = isAdmin ? adminLinks : clinicianLinks;
 
@@ -59,7 +78,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
       <div className="p-6">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-sidebar-primary">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
       </div>
       
@@ -67,15 +86,17 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location === link.href;
+          const tourId = 'tourId' in link ? link.tourId : undefined;
           return (
             <Link key={link.href} href={link.href}>
               <div 
                 onClick={onNavigate}
+                data-tour={tourId}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   isActive 
-                    ? "bg-sidebar-accent text-sidebar-primary-foreground font-semibold" 
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm font-semibold" 
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
                 <Icon className="w-4 h-4" />

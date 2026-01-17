@@ -1,8 +1,8 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2, Eye, X } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { getContent, createEmailLog } from "@/lib/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
+import { Link } from "wouter";
 
 interface ContentItem {
   id: string;
@@ -30,11 +32,14 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isPacketModalOpen, setIsPacketModalOpen] = useState(false);
   const [patientEmail, setPatientEmail] = useState("");
   const [providerNote, setProviderNote] = useState("");
   const [previewItem, setPreviewItem] = useState<ContentItem | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isPacketMode, isLoading: isLoadingMode } = useContentDeliveryMode();
+  const printRef = useRef<HTMLDivElement>(null);
 
   const { data: contentItems = [], isLoading } = useQuery({
     queryKey: ["content"],
@@ -118,7 +123,7 @@ export default function LibraryPage() {
     setPreviewItem(item);
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingMode) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -137,12 +142,31 @@ export default function LibraryPage() {
             <p className="text-muted-foreground">Curated education modules for your patients.</p>
           </div>
           
+          <div className="flex items-center gap-3">
+            <Link href="/content-packet-guide">
+              <Button variant="outline" data-testid="button-guide-me">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Guide Me to Create Packet
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div></div>
           {selectedItems.length > 0 && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-6 right-6 sm:static z-50">
-              <Button onClick={() => setIsSendModalOpen(true)} size="lg" className="shadow-xl">
-                <Send className="w-4 h-4 mr-2" />
-                Send {selectedItems.length} Items
-              </Button>
+              {isPacketMode ? (
+                <Button onClick={() => setIsPacketModalOpen(true)} size="lg" className="shadow-xl" data-testid="button-download-packet">
+                  <Download className="w-4 h-4 mr-2" />
+                  Create Packet ({selectedItems.length})
+                </Button>
+              ) : (
+                <Button onClick={() => setIsSendModalOpen(true)} size="lg" className="shadow-xl" data-testid="button-send-items">
+                  <Send className="w-4 h-4 mr-2" />
+                  Send {selectedItems.length} Items
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -325,6 +349,133 @@ export default function LibraryPage() {
               <Button variant="outline" onClick={() => setIsSendModalOpen(false)} data-testid="button-cancel">Cancel</Button>
               <Button onClick={handleSend} disabled={!patientEmail || sendMutation.isPending} data-testid="button-send">
                 {sendMutation.isPending ? "Sending..." : "Send Email"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Download Packet Modal (PHI-free mode) */}
+        <Dialog open={isPacketModalOpen} onOpenChange={setIsPacketModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Content Packet
+              </DialogTitle>
+              <DialogDescription>
+                Print or download {selectedItems.length} educational items as a patient handout.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="border rounded-lg overflow-hidden">
+              <ScrollArea className="h-96">
+                <div ref={printRef} className="p-6 space-y-8 bg-white print:p-0" id="print-content">
+                  <div className="text-center pb-4 border-b print:border-b-2">
+                    <h1 className="text-2xl font-serif font-bold text-gray-900">Patient Education Materials</h1>
+                    <p className="text-sm text-gray-600 mt-1">Prepared by your healthcare provider</p>
+                  </div>
+                  
+                  {selectedItems.map((itemId, index) => {
+                    const item = contentItems.find(c => c.id === itemId);
+                    if (!item) return null;
+                    return (
+                      <div key={itemId} className="page-break-inside-avoid">
+                        <div className="border-b pb-6 mb-6 last:border-b-0">
+                          <div className="flex items-start gap-3 mb-3">
+                            <span className="bg-primary/10 text-primary font-bold px-2.5 py-1 rounded text-sm">
+                              {index + 1}
+                            </span>
+                            <div className="flex-1">
+                              <h2 className="text-xl font-serif font-bold text-gray-900">{item.title}</h2>
+                              <p className="text-gray-600 mt-1">{item.summary}</p>
+                            </div>
+                          </div>
+                          <div className="prose prose-sm max-w-none text-gray-700 pl-9">
+                            {item.body.split('\n').map((paragraph, idx) => {
+                              if (!paragraph.trim()) return null;
+                              if (paragraph.startsWith('# ')) {
+                                return <h3 key={idx} className="text-lg font-bold mt-4 mb-2">{paragraph.slice(2)}</h3>;
+                              }
+                              if (paragraph.startsWith('## ')) {
+                                return <h4 key={idx} className="text-base font-semibold mt-3 mb-2">{paragraph.slice(3)}</h4>;
+                              }
+                              if (paragraph.startsWith('- ')) {
+                                return <li key={idx} className="ml-4">{paragraph.slice(2)}</li>;
+                              }
+                              return <p key={idx} className="mb-2">{paragraph}</p>;
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  <div className="text-center pt-4 border-t text-sm text-gray-500 print:border-t-2">
+                    <p>This educational content is provided for informational purposes only.</p>
+                    <p>Please discuss any questions with your healthcare provider.</p>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+            
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setIsPacketModalOpen(false)} data-testid="button-close-packet">
+                Close
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    const content = document.getElementById('print-content')?.innerHTML || '';
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <title>Patient Education Materials</title>
+                          <style>
+                            body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; }
+                            h1 { font-size: 24px; margin-bottom: 8px; }
+                            h2 { font-size: 20px; margin-top: 24px; }
+                            h3 { font-size: 16px; margin-top: 16px; }
+                            p { margin-bottom: 12px; line-height: 1.6; }
+                            .border-b { border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; margin-bottom: 24px; }
+                            @media print { body { padding: 20px; } }
+                          </style>
+                        </head>
+                        <body>${content}</body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                    printWindow.print();
+                  }
+                }}
+                data-testid="button-print-packet"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+              <Button 
+                onClick={() => {
+                  const content = document.getElementById('print-content')?.innerText || '';
+                  const blob = new Blob([content], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'patient-education-materials.txt';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  toast({
+                    title: "Downloaded",
+                    description: "Content packet saved to your device.",
+                  });
+                }}
+                data-testid="button-download-txt"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
               </Button>
             </DialogFooter>
           </DialogContent>

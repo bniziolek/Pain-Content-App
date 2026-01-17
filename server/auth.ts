@@ -55,7 +55,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
       try {
-        const user = await storage.getUserByEmail(email);
+        const user = await storage.getUserByEmail(email.toLowerCase());
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Invalid email or password" });
         }
@@ -87,13 +87,14 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Email and password are required");
       }
 
-      const existingUser = await storage.getUserByEmail(email);
+      const normalizedEmail = email.toLowerCase();
+      const existingUser = await storage.getUserByEmail(normalizedEmail);
       if (existingUser) {
         return res.status(400).send("Email already exists");
       }
 
       const user = await storage.createUser({
-        email,
+        email: normalizedEmail,
         password: await hashPassword(password),
         name: name || null,
       });

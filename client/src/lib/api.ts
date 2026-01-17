@@ -132,6 +132,14 @@ export async function getStats(): Promise<{
   chartData: { name: string; sends: number }[];
   recentActivity: { email: string; action: string; status: string; timeAgo: string }[];
   actionNeeded: { email: string; subject: string; daysSinceSent: number; id: string }[];
+  totalContent: number;
+  totalAssessments: number;
+  // Packet stats
+  packetsThisWeek: number;
+  packetsTotal: number;
+  packetsGrowth: string;
+  recentPackets: { id: string; patientName: string; assessmentName: string; outcome: string | null; contentCount: number; timeAgo: string }[];
+  topScreeningTags: string[];
 }> {
   return fetchAPI("/stats");
 }

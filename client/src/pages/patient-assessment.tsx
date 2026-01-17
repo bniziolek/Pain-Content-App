@@ -100,7 +100,7 @@ export default function PatientAssessment() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         <p className="mt-4 text-muted-foreground">Loading your assessment...</p>
@@ -113,7 +113,7 @@ export default function PatientAssessment() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
@@ -134,7 +134,7 @@ export default function PatientAssessment() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4">
         <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
           <Activity className="w-6 h-6" />
-          <span>RehabPilot</span>
+          <span>DriverPath</span>
         </div>
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
@@ -160,7 +160,7 @@ export default function PatientAssessment() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4">
       <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
         <Activity className="w-6 h-6" />
-        <span>RehabPilot</span>
+        <span>DriverPath</span>
       </div>
 
       <div className="w-full max-w-3xl">

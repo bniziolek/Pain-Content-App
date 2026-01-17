@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
+import { requireSuperAdmin } from "./rbac";
 import { 
   insertContentItemSchema, 
   insertAssessmentSchema,
@@ -11,7 +12,7 @@ import {
   insertEmailLogSchema 
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
+import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
 import { 
@@ -31,6 +32,106 @@ import {
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
+
+  // Feature flag middleware factory - returns 404 if flag is disabled
+  const requireFeatureFlag = (flagKey: string) => {
+    return async (req: any, res: any, next: any) => {
+      try {
+        const flag = await storage.getFeatureFlagByKey(flagKey);
+        if (!flag?.isEnabled) {
+          return res.status(404).json({ error: "Not found" });
+        }
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  };
+
+  // ====== Password Reset Routes ======
+  app.post("/api/forgot-password", async (req, res, next) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      // Always return success to prevent email enumeration attacks
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      if (user) {
+        // Generate a secure token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        
+        // Store the token
+        await storage.createPasswordResetToken(user.id, token, expiresAt);
+        
+        // Send the reset email
+        const baseUrl = req.headers.origin || `https://${req.headers.host}`;
+        const resetLink = `${baseUrl}/forgot-password?token=${token}`;
+        
+        await sendPasswordResetEmail({
+          toEmail: email,
+          resetLink,
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/reset-password", async (req, res, next) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ error: "Token and password are required" });
+      }
+      
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+      }
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
+      }
+      if (!/\d/.test(password)) {
+        return res.status(400).json({ error: "Password must contain at least one number" });
+      }
+      
+      // Find the token
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ error: "Invalid or expired reset link" });
+      }
+      
+      if (resetToken.usedAt) {
+        return res.status(400).json({ error: "This reset link has already been used" });
+      }
+      
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ error: "This reset link has expired" });
+      }
+      
+      // Update the password
+      const hashedPassword = await hashPassword(password);
+      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+      
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(token);
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   // ====== Public Content View Routes (for patient email links) ======
   app.get("/api/public/content-view/:token", async (req, res, next) => {
@@ -112,7 +213,7 @@ export function registerRoutes(app: Express): Server {
   };
 
   // ====== Patient Portal Authentication ======
-  app.post("/api/patient-portal/auth", async (req, res, next) => {
+  app.post("/api/patient-portal/auth", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
     try {
       const { email, accessCode } = req.body;
       
@@ -243,7 +344,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Get patient's assigned content and assessments
-  app.get("/api/patient-portal/content", async (req, res, next) => {
+  app.get("/api/patient-portal/content", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -445,12 +546,27 @@ export function registerRoutes(app: Express): Server {
   // ====== Assessment CRUD Routes (Clinician-facing) ======
   app.get("/api/assessments", requireSubscription, async (req, res, next) => {
     try {
-      const assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
-      const templates = await storage.getTemplateAssessments();
+      const typeFilter = req.query.type as string | undefined;
+      const publishedOnly = req.query.published === "true";
+      
+      let assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
+      let templates = await storage.getTemplateAssessments();
+      
+      // Filter by type if specified
+      if (typeFilter) {
+        assessments = assessments.filter(a => a.assessmentType === typeFilter);
+        templates = templates.filter(t => t.assessmentType === typeFilter);
+      }
+      
+      // Filter to published only if specified
+      if (publishedOnly) {
+        assessments = assessments.filter(a => a.isPublished);
+        templates = templates.filter(t => t.isPublished);
+      }
       
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
-        details: { count: assessments.length + templates.length },
+        details: { count: assessments.length + templates.length, typeFilter },
       });
       
       res.json([...assessments, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
@@ -473,6 +589,78 @@ export function registerRoutes(app: Express): Server {
       });
       
       res.json(assessment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get question names/tags from an assessment's surveyJson with full metadata for answer pickers
+  app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
+    try {
+      const assessment = await storage.getAssessmentById(req.params.id);
+      if (!assessment) {
+        return res.status(404).send("Assessment not found");
+      }
+      
+      interface SurveyElement {
+        name?: string;
+        title?: string;
+        type?: string;
+        choices?: Array<{ value: string | number; text: string } | string | number>;
+        rateMax?: number;
+        rateMin?: number;
+        rateCount?: number;
+        elements?: SurveyElement[];
+      }
+      
+      const surveyJson = assessment.surveyJson as { pages?: Array<{ elements?: SurveyElement[] }> } | null;
+      const questions: Array<{
+        name: string;
+        title: string;
+        type: string;
+        choices?: Array<{ value: string | number; text: string }>;
+        rateMax?: number;
+        rateMin?: number;
+      }> = [];
+      
+      if (surveyJson?.pages) {
+        for (const page of surveyJson.pages) {
+          if (page.elements) {
+            const extractQuestions = (elements: SurveyElement[]) => {
+              for (const element of elements) {
+                if (element.name && element.type !== 'panel' && element.type !== 'html') {
+                  // Normalize choices to { value, text } format
+                  let choices: Array<{ value: string | number; text: string }> | undefined;
+                  if (element.choices) {
+                    choices = element.choices.map(c => {
+                      if (typeof c === 'object' && c !== null) {
+                        return { value: c.value, text: c.text };
+                      }
+                      return { value: c, text: String(c) };
+                    });
+                  }
+                  
+                  questions.push({
+                    name: element.name,
+                    title: typeof element.title === 'string' ? element.title : element.name,
+                    type: element.type || 'unknown',
+                    choices,
+                    rateMax: element.rateMax || element.rateCount,
+                    rateMin: element.rateMin || 1,
+                  });
+                }
+                // Handle nested elements in panels
+                if (element.elements) {
+                  extractQuestions(element.elements);
+                }
+              }
+            };
+            extractQuestions(page.elements);
+          }
+        }
+      }
+      
+      res.json(questions);
     } catch (error) {
       next(error);
     }
@@ -547,8 +735,31 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Score an assessment (for clinician-conducted assessments)
+  app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
+    try {
+      const { assessmentId, answers } = req.body;
+      
+      if (!assessmentId || !answers) {
+        return res.status(400).json({ error: "assessmentId and answers are required" });
+      }
+      
+      const result = await scoreAssessmentResponse(assessmentId, answers);
+      
+      await logClinicianAction(req, req.user!, 'assessment_score', {
+        resourceType: 'assessment',
+        resourceId: assessmentId,
+        details: { tagCount: result.tagScores.length },
+      });
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Assessment Invite Routes (Patient-facing) ======
-  app.post("/api/assessment-invites", requireSubscription, async (req, res, next) => {
+  app.post("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const validated = insertAssessmentInviteSchema.parse({
         ...req.body,
@@ -597,7 +808,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/assessment-invites", requireSubscription, async (req, res, next) => {
+  app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
       
@@ -615,7 +826,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/assessment-invites/token/:token", async (req, res, next) => {
+  app.get("/api/assessment-invites/token/:token", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invite = await storage.getAssessmentInviteByToken(req.params.token);
       if (!invite) {
@@ -633,7 +844,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/assessment-invites/:inviteId/complete", async (req, res, next) => {
+  app.post("/api/assessment-invites/:inviteId/complete", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const { answers } = req.body;
       if (!answers) {
@@ -673,6 +884,73 @@ export function registerRoutes(app: Express): Server {
       });
       
       res.status(201).json({ success: true, responseId: response.id });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Assessment Results with Recommendations (Clinician View) ======
+  app.get("/api/assessment-invites/:inviteId/results", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+    try {
+      const invite = await storage.getAssessmentInviteById(req.params.inviteId);
+      if (!invite) {
+        return res.status(404).send("Invite not found");
+      }
+      
+      // Verify clinician owns this invite
+      if (invite.clinicianUserId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).send("Access denied");
+      }
+      
+      const response = await storage.getAssessmentResponseByInviteId(invite.id);
+      if (!response) {
+        return res.status(404).json({ error: "No response yet", status: invite.status });
+      }
+      
+      // Get assessment details
+      const assessment = await storage.getAssessmentById(invite.assessmentId);
+      
+      // Generate recommendations based on tag scores
+      let recommendations: any[] = [];
+      if (response.tagScores && Array.isArray(response.tagScores) && response.tagScores.length > 0) {
+        const result = await generateRecommendations({
+          tagScores: response.tagScores,
+          assessmentId: invite.assessmentId,
+          patientEmail: invite.patientEmail,
+          clinicianUserId: req.user!.id,
+        });
+        recommendations = result.recommendations;
+      }
+      
+      // Log the access
+      await logClinicianAction(req, req.user!, 'assessment_access', {
+        resourceType: 'assessment',
+        resourceId: invite.id,
+        phiAccessed: true,
+        phiScope: 'assessment results',
+        details: { inviteId: invite.id },
+      });
+      
+      res.json({
+        invite: {
+          id: invite.id,
+          patientEmail: invite.patientEmail,
+          status: invite.status,
+          sentAt: invite.createdAt,
+          completedAt: invite.completedAt,
+        },
+        assessment: assessment ? {
+          id: assessment.id,
+          name: assessment.name,
+        } : null,
+        response: {
+          id: response.id,
+          tagScores: response.tagScores,
+          answers: response.answers,
+          createdAt: response.createdAt,
+        },
+        recommendations,
+      });
     } catch (error) {
       next(error);
     }
@@ -779,10 +1057,19 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
     try {
-      const { name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, priority, contentIds, rationale } = req.body;
+      const { 
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      } = req.body;
       
-      if (!name || !tag || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
-        return res.status(400).send("name, tag, and contentIds are required");
+      // For answer-based rules, questionName is required instead of tag
+      if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name and contentIds are required");
+      }
+      
+      // Either tag (legacy) or questionName (new) must be provided
+      if (!tag && !questionName) {
+        return res.status(400).send("Either tag or questionName is required");
       }
       
       const config = await createRecommendationConfig({
@@ -791,12 +1078,16 @@ export function registerRoutes(app: Express): Server {
         assessmentId,
         pathwayId,
         pathwayWeek,
-        tag,
+        tag: tag || questionName || '',
         minScore: minScore ?? 0,
         maxScore: maxScore ?? 100,
         priority: priority ?? 1,
         contentIds,
         rationale,
+        questionName,
+        questionType,
+        matchOperator: matchOperator || 'equals',
+        matchValues,
       });
       
       await logClinicianAction(req, req.user!, 'settings_change', {
@@ -812,18 +1103,22 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
     try {
-      const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
+      // Only include fields that were explicitly provided (not undefined)
+      // This prevents partial updates from wiping existing data
+      const updates: Record<string, unknown> = {};
+      const fields = [
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
+        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'questionType', 'matchOperator', 'matchValues'
+      ];
       
-      const updated = await updateRecommendationConfig(req.params.id, {
-        name,
-        tag,
-        minScore,
-        maxScore,
-        priority,
-        contentIds,
-        rationale,
-        isActive,
-      });
+      for (const field of fields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updated = await updateRecommendationConfig(req.params.id, updates);
       
       if (!updated) {
         return res.status(404).send("Recommendation config not found");
@@ -855,7 +1150,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Patient Recommendations History ======
-  app.get("/api/patient-recommendations", requireSubscription, async (req, res, next) => {
+  app.get("/api/patient-recommendations", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const { patientEmail, source } = req.query;
       const recs = await storage.getPatientRecommendations({
@@ -869,7 +1164,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/patient-recommendations/:id", requireSubscription, async (req, res, next) => {
+  app.get("/api/patient-recommendations/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const rec = await storage.getPatientRecommendationById(req.params.id);
       if (!rec) {
@@ -934,7 +1229,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Email Log Routes ======
-  app.post("/api/email-logs", requireSubscription, async (req, res, next) => {
+  app.post("/api/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       // Generate a 6-digit access code for patient portal
       const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1037,7 +1332,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/email-logs", requireSubscription, async (req, res, next) => {
+  app.get("/api/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
       const logs = await storage.getEmailLogsByClinicianId(req.user!.id);
       res.json(logs);
@@ -1046,7 +1341,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/email-logs/:id/content-views", requireSubscription, async (req, res, next) => {
+  app.get("/api/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
       const views = await storage.getContentViewsByEmailLogId(req.params.id);
       res.json(views);
@@ -1056,7 +1351,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Resend content to patient with new access code
-  app.post("/api/email-logs/:id/resend", requireSubscription, async (req, res, next) => {
+  app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const clinicianId = req.user!.id;
       
@@ -1203,6 +1498,100 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Onboarding Routes ======
+  app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
+    try {
+      const { onboardingStep, onboardingCompleted } = req.body;
+      
+      await storage.updateOnboardingStatus(req.user!.id, {
+        onboardingStep,
+        onboardingCompleted,
+      });
+      
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/onboarding/skip", requireAuth, async (req, res, next) => {
+    try {
+      await storage.updateOnboardingStatus(req.user!.id, {
+        onboardingCompleted: true,
+      });
+      
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Email Settings Routes ======
+  app.get("/api/email-settings", requireAuth, async (req, res, next) => {
+    try {
+      const emailConnection = await storage.getEmailConnectionByUserId(req.user!.id);
+      res.json({
+        emailDeliveryMode: req.user!.emailDeliveryMode || 'central',
+        connection: emailConnection ? {
+          email: emailConnection.email,
+          status: emailConnection.status,
+          lastError: emailConnection.lastError,
+          provider: emailConnection.provider,
+        } : null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/email-settings/mode", requireAuth, async (req, res, next) => {
+    try {
+      const { mode } = req.body;
+      if (mode !== 'central' && mode !== 'personal') {
+        return res.status(400).json({ error: "Invalid email delivery mode" });
+      }
+
+      // If switching to personal, check if connection exists
+      if (mode === 'personal') {
+        const connection = await storage.getEmailConnectionByUserId(req.user!.id);
+        if (!connection) {
+          return res.status(400).json({ error: "Please connect your Gmail account first" });
+        }
+        if (connection.status !== 'active') {
+          return res.status(400).json({ error: "Your Gmail connection has an issue. Please reconnect." });
+        }
+      }
+
+      await storage.updateEmailDeliveryMode(req.user!.id, mode);
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
+    try {
+      // Fetch fresh user data to avoid stale session issues
+      const currentUser = await storage.getUser(req.user!.id);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // If using personal email, switch back to central
+      if (currentUser.emailDeliveryMode === 'personal') {
+        await storage.updateEmailDeliveryMode(req.user!.id, 'central');
+      }
+      await storage.deleteEmailConnection(req.user!.id);
+      const updatedUser = await storage.getUser(req.user!.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Subscription Routes (Stripe integration will come later) ======
   app.post("/api/subscription/create", requireAuth, async (req, res, next) => {
     try {
@@ -1344,15 +1733,77 @@ export function registerRoutes(app: Express): Server {
           });
         });
       
+      // Get total content and assessments for provider-only mode
+      const allContent = await storage.getAllContent();
+      const assessments = await storage.getAllAssessments();
+      
+      // Get packet stats (internal screenings)
+      const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
+      const packetsThisWeek = screenings.filter(s => new Date(s.createdAt) >= weekAgo).length;
+      const packetsLastWeek = screenings.filter(s => new Date(s.createdAt) >= twoWeeksAgo && new Date(s.createdAt) < weekAgo).length;
+      
+      let packetsGrowth = "+0%";
+      if (packetsLastWeek > 0) {
+        const growth = Math.round(((packetsThisWeek - packetsLastWeek) / packetsLastWeek) * 100);
+        packetsGrowth = growth >= 0 ? `+${growth}%` : `${growth}%`;
+      } else if (packetsThisWeek > 0) {
+        packetsGrowth = "+100%";
+      }
+      
+      // Build recent packets (last 5)
+      const recentPackets = screenings
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5)
+        .map(s => {
+          const assessment = assessments.find((a: { id: string; name: string }) => a.id === s.assessmentId);
+          return {
+            id: s.id,
+            patientName: s.patientName || "Unnamed",
+            assessmentName: assessment?.name || "Assessment",
+            outcome: s.primaryOutcome,
+            contentCount: s.recommendedContentIds?.length || 0,
+            timeAgo: getTimeAgo(s.createdAt),
+          };
+        });
+      
+      // Get top tags from internal screenings
+      const screeningTagCounts: Record<string, number> = {};
+      for (const screening of screenings) {
+        const scores = screening.tagScores as { tag: string; percentage: number }[] | null;
+        if (scores) {
+          for (const score of scores) {
+            if (score.percentage >= 50) { // Only count significant scores
+              screeningTagCounts[score.tag] = (screeningTagCounts[score.tag] || 0) + 1;
+            }
+          }
+        }
+      }
+      const topScreeningTags = Object.entries(screeningTagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([tag]) => tag);
+      
+      // Combine tags: use screening tags for MVP mode, email tags for full mode
+      const combinedTopTags = topTags.length > 0 ? topTags : 
+        (topScreeningTags.length > 0 ? topScreeningTags : ["No data yet"]);
+      
       res.json({
         sendsThisWeek,
         sendsGrowth,
         contentReadRate: `${contentReadRate}%`,
         completionRate: `${completionRate}%`,
-        topTags: topTags.length > 0 ? topTags : ["No data yet"],
+        topTags: combinedTopTags,
         chartData,
         recentActivity: topRecentActivity,
         actionNeeded,
+        totalContent: allContent.length,
+        totalAssessments: assessments.length,
+        // New packet stats
+        packetsThisWeek,
+        packetsTotal: screenings.length,
+        packetsGrowth,
+        recentPackets,
+        topScreeningTags: topScreeningTags.length > 0 ? topScreeningTags : ["No data yet"],
       });
     } catch (error) {
       next(error);
@@ -1378,9 +1829,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
     try {
       const { email, name, password, subscriptionMonths } = req.body;
+      const normalizedEmail = email.toLowerCase();
       
       // Check if user already exists
-      const existing = await storage.getUserByEmail(email);
+      const existing = await storage.getUserByEmail(normalizedEmail);
       if (existing) {
         return res.status(400).json({ error: "User with this email already exists" });
       }
@@ -1392,8 +1844,8 @@ export function registerRoutes(app: Express): Server {
         : null;
       
       const user = await storage.createUser({
-        email,
-        name: name || email.split("@")[0],
+        email: normalizedEmail,
+        name: name || normalizedEmail.split("@")[0],
         password: hashedPassword,
         role: "clinician",
         subscriptionStatus: subscriptionMonths ? "active" : "inactive",
@@ -1416,9 +1868,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
     try {
       const { email, name } = req.body;
+      const normalizedEmail = email.toLowerCase();
       
       // Check if user already exists
-      let user = await storage.getUserByEmail(email);
+      let user = await storage.getUserByEmail(normalizedEmail);
       
       if (user) {
         // Update existing user to have trial access
@@ -1431,8 +1884,8 @@ export function registerRoutes(app: Express): Server {
         // Create new user with trial access
         const hashedPassword = await hashPassword("changeme123"); // Default password
         user = await storage.createUser({
-          email,
-          name: name || email.split("@")[0],
+          email: normalizedEmail,
+          name: name || normalizedEmail.split("@")[0],
           password: hashedPassword,
           role: "clinician",
           subscriptionStatus: "active",
@@ -1581,8 +2034,112 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Admin Recommendation Config Routes ======
+  app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+    try {
+      const { assessmentId, pathwayId } = req.query;
+      const configs = await getRecommendationConfigs({
+        assessmentId: assessmentId as string | undefined,
+        pathwayId: pathwayId as string | undefined,
+      });
+      res.json(configs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+    try {
+      const { 
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      } = req.body;
+      
+      if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).send("name and contentIds are required");
+      }
+      
+      if (!tag && !questionName) {
+        return res.status(400).send("Either tag or questionName is required");
+      }
+      
+      const config = await createRecommendationConfig({
+        clinicianUserId: undefined,
+        name,
+        assessmentId,
+        pathwayId,
+        pathwayWeek,
+        tag: tag || questionName || '',
+        minScore: minScore ?? 0,
+        maxScore: maxScore ?? 100,
+        priority: priority ?? 1,
+        contentIds,
+        rationale,
+        questionName,
+        questionType,
+        matchOperator: matchOperator || 'equals',
+        matchValues,
+      });
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'create_recommendation_config', configId: config.id },
+      });
+      
+      res.status(201).json(config);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const updates: Record<string, unknown> = {};
+      const fields = [
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
+        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'questionType', 'matchOperator', 'matchValues'
+      ];
+      
+      for (const field of fields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updated = await updateRecommendationConfig(req.params.id, updates);
+      
+      if (!updated) {
+        return res.status(404).send("Recommendation config not found");
+      }
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'update_recommendation_config', configId: req.params.id },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'settings',
+        details: { action: 'delete_recommendation_config', configId: req.params.id },
+      });
+      
+      await deleteRecommendationConfig(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Follow-up Rules Routes ======
-  app.get("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+  app.get("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const customRules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
       const templates = await storage.getTemplateFollowUpRules();
@@ -1599,7 +2156,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/follow-up-rules", requireSubscription, async (req, res, next) => {
+  app.post("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const rule = await storage.createFollowUpRule({
         ...req.body,
@@ -1611,7 +2168,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+  app.patch("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       await storage.updateFollowUpRule(req.params.id, req.body);
       res.json({ success: true });
@@ -1620,7 +2177,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.delete("/api/follow-up-rules/:id", requireSubscription, async (req, res, next) => {
+  app.delete("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       await storage.deleteFollowUpRule(req.params.id);
       res.sendStatus(204);
@@ -1629,7 +2186,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/follow-up-templates/:id/toggle", requireSubscription, async (req, res, next) => {
+  app.post("/api/follow-up-templates/:id/toggle", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const { isEnabled } = req.body;
       const pref = await storage.setUserTemplatePreference(req.user!.id, req.params.id, isEnabled);
@@ -1639,7 +2196,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/scheduled-follow-ups", requireSubscription, async (req, res, next) => {
+  app.get("/api/scheduled-follow-ups", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
     try {
       const followUps = await storage.getScheduledFollowUpsByClinicianId(req.user!.id);
       res.json(followUps);
@@ -1649,7 +2206,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // ====== Care Pathways Routes ======
-  app.get("/api/pathways", requireSubscription, async (req, res, next) => {
+  app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
@@ -1676,7 +2233,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Try Contentful first for pathway templates
       if (isContentfulConfigured()) {
@@ -1705,7 +2262,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/pathways", requireSubscription, async (req, res, next) => {
+  app.post("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       const pathway = await storage.createCarePathway({
         ...req.body,
@@ -1717,7 +2274,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.patch("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       await storage.updateCarePathway(req.params.id, req.body);
       const updated = await storage.getCarePathwayById(req.params.id);
@@ -1727,7 +2284,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.delete("/api/pathways/:id", requireSubscription, async (req, res, next) => {
+  app.delete("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       await storage.deleteCarePathway(req.params.id);
       res.sendStatus(204);
@@ -1737,7 +2294,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Pathway milestones
-  app.post("/api/pathways/:id/milestones", requireSubscription, async (req, res, next) => {
+  app.post("/api/pathways/:id/milestones", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       const milestone = await storage.createPathwayMilestone({
         ...req.body,
@@ -1974,6 +2531,278 @@ export function registerRoutes(app: Express): Server {
           ).length,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Feature Flags Routes (Admin Only) ======
+  app.get("/api/admin/feature-flags", requireAdmin, async (req, res, next) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      res.json(flags);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
+    try {
+      const { key } = req.params;
+      const { isEnabled, value, payload, name, description, category } = req.body;
+      
+      // Fetch current state to record in audit log
+      const currentFlags = await storage.getFeatureFlags();
+      const currentFlag = currentFlags.find(f => f.key === key);
+      
+      const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload, name, description, category });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Feature flag not found" });
+      }
+      
+      await logClinicianAction(req, req.user!, 'settings_change', {
+        resourceType: 'feature_flag',
+        resourceId: key,
+        details: { 
+          action: 'updated_feature_flag', 
+          flagKey: key,
+          previousValue: currentFlag?.value,
+          newValue: value !== undefined ? value : currentFlag?.value,
+          previousEnabled: currentFlag?.isEnabled,
+          isEnabled: isEnabled !== undefined ? isEnabled : currentFlag?.isEnabled,
+          changedFields: Object.keys(req.body),
+        },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/feature-flags/:key/history", requireAdmin, async (req, res, next) => {
+    try {
+      const { key } = req.params;
+      const logs = await storage.getAuditLogs({
+        action: 'settings_change',
+        limit: 50,
+      });
+      
+      // Filter for feature flag changes for this specific key
+      const flagHistory = logs.filter(log => {
+        const details = log.details as Record<string, unknown> | null;
+        return details?.action === 'updated_feature_flag' && details?.flagKey === key;
+      });
+      
+      res.json(flagHistory);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/feature-flags/history/all", requireAdmin, async (req, res, next) => {
+    try {
+      const logs = await storage.getAuditLogs({
+        action: 'settings_change',
+        limit: 100,
+      });
+      
+      // Filter for all feature flag changes
+      const flagHistory = logs.filter(log => {
+        const details = log.details as Record<string, unknown> | null;
+        return details?.action === 'updated_feature_flag';
+      });
+      
+      res.json(flagHistory);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Public endpoint for clients to get feature flags (doesn't require admin)
+  app.get("/api/feature-flags", requireAuth, async (req, res, next) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      // Return a simplified object for the frontend
+      const flagsMap = flags.reduce((acc, flag) => {
+        acc[flag.key] = {
+          isEnabled: flag.isEnabled,
+          value: flag.value,
+        };
+        return acc;
+      }, {} as Record<string, { isEnabled: boolean; value: string | null }>);
+      res.json(flagsMap);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Super Admin Routes - Persona Switching
+  app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { toPersona } = req.body;
+      if (!['clinician', 'admin'].includes(toPersona)) {
+        return res.status(400).json({ message: "Invalid persona" });
+      }
+
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+
+      const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        user.id,
+        false,
+        req,
+        'success',
+        { action: 'persona_switch', toPersona }
+      );
+
+      res.json({ 
+        message: `Switched to ${toPersona} persona`,
+        activePersona: toPersona,
+        switchLog
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      await storage.clearPersona(user.id);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        user.id,
+        false,
+        req,
+        'success',
+        { action: 'persona_clear' }
+      );
+
+      res.json({ message: "Persona cleared, back to super admin view" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const history = await storage.getPersonaSwitchHistory(user.id);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Super Admin Routes - User Permission Overrides
+  app.get("/api/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const permissions = await storage.getUserPermissions(userId);
+      res.json(permissions);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId } = req.params;
+      const { permissionName, reason, expiresAt } = req.body;
+
+      if (!permissionName) {
+        return res.status(400).json({ message: "Permission name required" });
+      }
+
+      const grant = await storage.grantUserPermission(
+        userId, 
+        permissionName, 
+        user.id, 
+        reason,
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_grant', permissionName, targetUserId: userId }
+      );
+
+      res.json(grant);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId } = req.params;
+      const { permissionName, reason } = req.body;
+
+      if (!permissionName) {
+        return res.status(400).json({ message: "Permission name required" });
+      }
+
+      const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_revoke', permissionName, targetUserId: userId }
+      );
+
+      res.json(revoke);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId, id } = req.params;
+      await storage.removeUserPermission(id);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
+      );
+
+      res.json({ message: "Permission override removed" });
     } catch (error) {
       next(error);
     }

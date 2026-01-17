@@ -103,7 +103,7 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
           <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #0f766e; font-size: 24px; margin: 0;">RehabPilot</h1>
+            <h1 style="color: #0f766e; font-size: 24px; margin: 0;">DriverPath</h1>
             <p style="color: #666; margin: 8px 0 0 0;">Educational Content for Your Recovery</p>
           </div>
           
@@ -121,7 +121,7 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
           <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
           
           <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
-            This content was shared with you by your healthcare provider through RehabPilot.
+            This content was shared with you by your healthcare provider through DriverPath.
           </p>
         </body>
       </html>
@@ -166,7 +166,7 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
           <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #0f766e; font-size: 24px; margin: 0;">RehabPilot</h1>
+            <h1 style="color: #0f766e; font-size: 24px; margin: 0;">DriverPath</h1>
             <p style="color: #666; margin: 8px 0 0 0;">Health Assessment</p>
           </div>
           

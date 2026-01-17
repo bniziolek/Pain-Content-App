@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { assessmentInvites, internalScreenings } from "@/lib/mockData";
-import { Plus, Search, Mail, Eye, CheckCircle, Stethoscope, Send, PenTool, Edit } from "lucide-react";
+import { internalScreenings } from "@/lib/mockData";
+import { Plus, Search, Mail, Eye, CheckCircle, Stethoscope, Send, PenTool, Edit, Sparkles, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 interface Assessment {
   id: string;
@@ -22,6 +23,15 @@ interface Assessment {
   isTemplate: boolean;
   isPublished: boolean;
   createdAt: string;
+}
+
+interface AssessmentInvite {
+  id: string;
+  patientEmail: string;
+  status: string;
+  createdAt: string;
+  completedAt: string | null;
+  assessmentId: string;
 }
 
 export default function AssessmentsPage() {
@@ -35,6 +45,15 @@ export default function AssessmentsPage() {
     queryFn: async () => {
       const res = await fetch("/api/assessments", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch assessments");
+      return res.json();
+    },
+  });
+
+  const { data: invites = [], isLoading: invitesLoading } = useQuery<AssessmentInvite[]>({
+    queryKey: ["assessment-invites"],
+    queryFn: async () => {
+      const res = await fetch("/api/assessment-invites", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch invites");
       return res.json();
     },
   });
@@ -255,39 +274,68 @@ export default function AssessmentsPage() {
                   </div>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Search invites..." className="pl-9 h-9" />
+                    <Input placeholder="Search invites..." className="pl-9 h-9" data-testid="input-search-invites" />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Patient</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Sent Date</TableHead>
-                      <TableHead>Result / Flag</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {assessmentInvites.map((invite) => (
-                      <TableRow key={invite.id}>
-                        <TableCell className="font-medium">{invite.patientEmail}</TableCell>
-                        <TableCell>{getStatusBadge(invite.status)}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{invite.date}</TableCell>
-                        <TableCell>
-                          {invite.result !== '-' && (
-                            <span className="font-medium text-primary">{invite.result}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">View</Button>
-                        </TableCell>
+                {invitesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                ) : invites.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Send className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No assessment invites sent yet.</p>
+                    <p className="text-sm">Send an assessment to a patient to get started.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Sent Date</TableHead>
+                        <TableHead>Completed</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {invites.map((invite) => (
+                        <TableRow key={invite.id} data-testid={`invite-row-${invite.id}`}>
+                          <TableCell className="font-medium">{invite.patientEmail}</TableCell>
+                          <TableCell>{getStatusBadge(invite.status)}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {format(new Date(invite.createdAt), "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {invite.completedAt 
+                              ? format(new Date(invite.completedAt), "MMM d, yyyy")
+                              : "-"
+                            }
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {invite.status === "completed" ? (
+                              <Button 
+                                variant="default" 
+                                size="sm"
+                                onClick={() => setLocation(`/assessments/results/${invite.id}`)}
+                                data-testid={`button-view-results-${invite.id}`}
+                              >
+                                <Sparkles className="w-4 h-4 mr-1" />
+                                View Results
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" size="sm" disabled>
+                                Pending
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

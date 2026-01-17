@@ -16,17 +16,17 @@ export async function seedDatabase() {
 
   // Create admin user for testing
   try {
-    const existingAdmin = await storage.getUserByEmail("admin@rehabpilot.com");
+    const existingAdmin = await storage.getUserByEmail("admin@driverpath.com");
     if (!existingAdmin) {
       await storage.createUser({
-        email: "admin@rehabpilot.com",
+        email: "admin@driverpath.com",
         password: await hashPassword("admin123"),
         name: "Admin User",
         role: "admin",
         subscriptionStatus: "active",
         subscriptionPeriodEnd: new Date("9999-12-31"),
       });
-      console.log("Created admin user: admin@rehabpilot.com / admin123 (perpetual subscription)");
+      console.log("Created admin user: admin@driverpath.com / admin123 (perpetual subscription)");
     } else if (existingAdmin.role !== "admin" || existingAdmin.subscriptionStatus !== "active") {
       // Update existing admin to have correct role and perpetual subscription
       await storage.updateUserRole(existingAdmin.id, "admin");
@@ -151,6 +151,88 @@ export async function seedDatabase() {
     console.log("Permissions seeded");
   } catch (error) {
     console.log("Permissions seeding error:", error);
+  }
+
+  // Seed feature flags for MVP provider-only mode
+  const featureFlagData = [
+    {
+      key: "content_delivery_mode",
+      name: "Email Delivery",
+      description: "When enabled, content can be sent via email to patients. When disabled, only downloadable PDF packets are available.",
+      isEnabled: false,
+      value: null,
+      category: "content_delivery",
+    },
+    {
+      key: "patient_portal_enabled",
+      name: "Patient Portal",
+      description: "Enable patient portal access for viewing content and completing assessments",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "patient_messaging_enabled",
+      name: "Patient Messaging",
+      description: "Enable email sending to patients, Gmail integration, and patient communications",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "patient_assessments_enabled",
+      name: "Patient Assessments",
+      description: "Enable patient-facing assessments (sent to patients for at-home completion)",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "follow_ups_enabled",
+      name: "Follow-ups",
+      description: "Enable automated follow-up scheduling and reminders for patients",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "pathways_enabled",
+      name: "Care Pathways",
+      description: "Enable care pathway enrollment and milestone tracking for patients",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "send_history_enabled",
+      name: "Send History",
+      description: "Enable viewing of patient content delivery history and email logs",
+      isEnabled: false,
+      value: null,
+      category: "features",
+    },
+    {
+      key: "assessments_enabled",
+      name: "Assessments",
+      description: "Enable the assessments feature for clinicians to create and take assessments with content recommendations",
+      isEnabled: true,
+      value: null,
+      category: "features",
+    },
+  ];
+
+  try {
+    const existingFlags = await storage.getFeatureFlags();
+    for (const flag of featureFlagData) {
+      const exists = existingFlags.some(f => f.key === flag.key);
+      if (!exists) {
+        await storage.createFeatureFlag(flag as any);
+        console.log(`Created feature flag: ${flag.name}`);
+      }
+    }
+    console.log("Feature flags seeded");
+  } catch (error) {
+    console.log("Feature flags seeding error:", error);
   }
 
   // Seed data inventory for PHI classification

@@ -16,6 +16,7 @@ export interface RecommendationResult {
 
 export interface RecommendationContext {
   tagScores: TagScore[];
+  rawAnswers?: Record<string, unknown>; // actual answer values for answer-based matching
   assessmentId?: string;
   pathwayId?: string;
   currentPathwayWeek?: number;
@@ -32,7 +33,7 @@ export interface FullRecommendationResult {
 export async function generateRecommendations(
   context: RecommendationContext
 ): Promise<FullRecommendationResult> {
-  const { tagScores, assessmentId, pathwayId, currentPathwayWeek } = context;
+  const { tagScores, rawAnswers, assessmentId, pathwayId, currentPathwayWeek } = context;
   
   const scoreMap: Record<string, number> = {};
   for (const ts of tagScores) {
@@ -47,7 +48,7 @@ export async function generateRecommendations(
   const contentRationale: Record<string, string> = {};
   const usedContentIds = new Set<string>();
 
-  const tier1Results = await getTier1Recommendations(scoreMap, assessmentId, pathwayId, currentPathwayWeek, contentMap);
+  const tier1Results = await getTier1Recommendations(scoreMap, rawAnswers || {}, assessmentId, pathwayId, currentPathwayWeek, contentMap);
   for (const r of tier1Results) {
     if (!usedContentIds.has(r.contentId)) {
       usedContentIds.add(r.contentId);
@@ -99,6 +100,7 @@ export async function generateRecommendations(
 
 async function getTier1Recommendations(
   scoreMap: Record<string, number>,
+  rawAnswers: Record<string, unknown>,
   assessmentId?: string,
   pathwayId?: string,
   pathwayWeek?: number,
@@ -107,15 +109,32 @@ async function getTier1Recommendations(
   const configs = await storage.getRecommendationConfigs({ isActive: true });
   
   const applicableConfigs = configs.filter(config => {
+    // Filter by assessment/pathway scope
     if (config.assessmentId && config.assessmentId !== assessmentId) return false;
     if (config.pathwayId && config.pathwayId !== pathwayId) return false;
     if (config.pathwayWeek !== null && config.pathwayWeek !== pathwayWeek) return false;
     
-    const tagScore = scoreMap[config.tag] ?? 0;
-    const minScore = config.minScore ?? 0;
-    const maxScore = config.maxScore ?? 100;
+    // Check answer-based triggers first (new approach)
+    if (config.questionName && config.matchValues !== null && config.matchValues !== undefined) {
+      // Skip rules with no valid match values configured
+      const hasValidMatchValues = Array.isArray(config.matchValues) 
+        ? config.matchValues.length > 0 
+        : (typeof config.matchValues === 'object' && Object.keys(config.matchValues as object).length > 0);
+      
+      if (!hasValidMatchValues) return false;
+      return evaluateAnswerTrigger(rawAnswers, config);
+    }
     
-    return tagScore >= minScore && tagScore <= maxScore;
+    // Fall back to legacy tag/percentage matching ONLY if no questionName is set
+    // This prevents questionName-based rules from incorrectly matching via legacy path
+    if (config.tag && !config.questionName) {
+      const tagScore = scoreMap[config.tag] ?? 0;
+      const minScore = config.minScore ?? 0;
+      const maxScore = config.maxScore ?? 100;
+      return tagScore >= minScore && tagScore <= maxScore;
+    }
+    
+    return false;
   });
 
   const results: RecommendationResult[] = [];
@@ -126,14 +145,16 @@ async function getTier1Recommendations(
       const content = contentMap?.get(contentId);
       if (!content) continue;
       
-      const tagScore = scoreMap[config.tag] ?? 0;
-      const matchScore = calculateMatchScore(tagScore, config.minScore ?? 0, config.maxScore ?? 100);
+      const tagScore = scoreMap[config.tag || config.questionName || ''] ?? 0;
+      const matchScore = config.questionName 
+        ? 1.0 // Answer-based rules get full match score
+        : calculateMatchScore(tagScore, config.minScore ?? 0, config.maxScore ?? 100);
       
       results.push({
         contentId,
         contentTitle: content.title,
         contentSummary: content.summary,
-        tag: config.tag,
+        tag: config.questionName || config.tag || '',
         priority: config.priority ?? 1,
         rationale: config.rationale,
         matchScore,
@@ -144,6 +165,72 @@ async function getTier1Recommendations(
   }
 
   return results;
+}
+
+// Evaluate if an answer matches the configured trigger
+function evaluateAnswerTrigger(
+  rawAnswers: Record<string, unknown>,
+  config: { questionName: string | null; matchOperator: string | null; matchValues: unknown }
+): boolean {
+  if (!config.questionName) return false;
+  
+  const answer = rawAnswers[config.questionName];
+  if (answer === undefined) return false;
+  
+  const operator = config.matchOperator || 'equals';
+  const matchValues = config.matchValues as unknown;
+  
+  switch (operator) {
+    case 'equals':
+      // matchValues should be a single value or array with one value
+      if (Array.isArray(matchValues)) {
+        return matchValues.length > 0 && matchValues[0] === answer;
+      }
+      return matchValues === answer;
+      
+    case 'in':
+      // matchValues should be an array of acceptable values
+      if (Array.isArray(matchValues)) {
+        return matchValues.includes(answer);
+      }
+      return false;
+      
+    case 'not_equals':
+      if (Array.isArray(matchValues)) {
+        return matchValues.length === 0 || matchValues[0] !== answer;
+      }
+      return matchValues !== answer;
+      
+    case 'greater_than':
+      if (typeof answer === 'number' && typeof matchValues === 'number') {
+        return answer > matchValues;
+      }
+      if (typeof answer === 'number' && typeof matchValues === 'object' && matchValues !== null) {
+        const threshold = (matchValues as { value?: number }).value;
+        return typeof threshold === 'number' && answer > threshold;
+      }
+      return false;
+      
+    case 'less_than':
+      if (typeof answer === 'number' && typeof matchValues === 'number') {
+        return answer < matchValues;
+      }
+      if (typeof answer === 'number' && typeof matchValues === 'object' && matchValues !== null) {
+        const threshold = (matchValues as { value?: number }).value;
+        return typeof threshold === 'number' && answer < threshold;
+      }
+      return false;
+      
+    case 'between':
+      if (typeof answer === 'number' && typeof matchValues === 'object' && matchValues !== null) {
+        const { min, max } = matchValues as { min?: number; max?: number };
+        return typeof min === 'number' && typeof max === 'number' && answer >= min && answer <= max;
+      }
+      return false;
+      
+    default:
+      return false;
+  }
 }
 
 async function getTier2PathwayRecommendations(

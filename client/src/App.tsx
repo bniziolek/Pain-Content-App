@@ -4,11 +4,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./lib/auth";
-import { RequireAuth, RequireSubscription } from "@/components/protected-route";
+import { RequireAuth, RequireSubscription, RequireAdmin } from "@/components/protected-route";
+import { TourProvider } from "@/components/product-tour";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing";
 import AuthPage from "@/pages/auth";
+import ForgotPasswordPage from "@/pages/forgot-password";
 import Dashboard from "@/pages/dashboard";
 import LibraryPage from "@/pages/library";
 import AssessmentsPage from "@/pages/assessments";
@@ -21,23 +23,36 @@ import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
+import AdminRecommendationsPage from "@/pages/admin/recommendations";
+import AdminFeatureFlagsPage from "@/pages/admin/feature-flags";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
-import RecommendationRulesPage from "@/pages/recommendation-rules";
 import PathwaysPage from "@/pages/pathways";
 import PatientPortal from "@/pages/patient-portal";
 import AssessmentBuilderPage from "@/pages/assessment-builder";
+import AssessmentResultsPage from "@/pages/assessment-results";
+import OnboardingPage from "@/pages/onboarding";
+import ContentPacketGuidePage from "@/pages/content-packet-guide";
+import RecommendationRulesPage from "@/pages/recommendation-rules";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
             <SubscriptionPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/onboarding">
+        {() => (
+          <RequireAuth>
+            <OnboardingPage />
           </RequireAuth>
         )}
       </Route>
@@ -46,23 +61,37 @@ function Router() {
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/dashboard">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <AdminDashboard />
-          </RequireAuth>
+          </RequireAdmin>
         )}
       </Route>
       <Route path="/admin/users">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <AdminUsersPage />
-          </RequireAuth>
+          </RequireAdmin>
         )}
       </Route>
       <Route path="/admin/users/:id">
         {() => (
-          <RequireAuth>
+          <RequireAdmin>
             <UserDetailPage />
-          </RequireAuth>
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/recommendations">
+        {() => (
+          <RequireAdmin>
+            <AdminRecommendationsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/feature-flags">
+        {() => (
+          <RequireAdmin>
+            <AdminFeatureFlagsPage />
+          </RequireAdmin>
         )}
       </Route>
 
@@ -78,6 +107,13 @@ function Router() {
         {() => (
           <RequireSubscription>
             <LibraryPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/content-packet-guide">
+        {() => (
+          <RequireSubscription>
+            <ContentPacketGuidePage />
           </RequireSubscription>
         )}
       </Route>
@@ -102,6 +138,13 @@ function Router() {
           </RequireSubscription>
         )}
       </Route>
+      <Route path="/assessments/results/:inviteId">
+        {() => (
+          <RequireSubscription>
+            <AssessmentResultsPage />
+          </RequireSubscription>
+        )}
+      </Route>
       <Route path="/history">
         {() => (
           <RequireSubscription>
@@ -123,13 +166,6 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
-      <Route path="/recommendation-rules">
-        {() => (
-          <RequireSubscription>
-            <RecommendationRulesPage />
-          </RequireSubscription>
-        )}
-      </Route>
       <Route path="/follow-ups">
         {() => (
           <RequireSubscription>
@@ -141,6 +177,13 @@ function Router() {
         {() => (
           <RequireSubscription>
             <PathwaysPage />
+          </RequireSubscription>
+        )}
+      </Route>
+      <Route path="/recommendation-rules">
+        {() => (
+          <RequireSubscription>
+            <RecommendationRulesPage />
           </RequireSubscription>
         )}
       </Route>
@@ -161,10 +204,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <TourProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </TourProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

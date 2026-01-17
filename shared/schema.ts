@@ -9,15 +9,54 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name"),
-  role: text("role").notNull().default("clinician"), // 'clinician' | 'admin'
+  role: text("role").notNull().default("clinician"), // 'clinician' | 'admin' | 'super_admin'
   
   // Subscription fields
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"), // 'active' | 'inactive' | 'past_due' | 'canceled'
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
+  subscriptionTier: text("subscription_tier").default("basic"), // 'free' | 'basic' | 'pro' | 'enterprise'
   
   lastLogin: timestamp("last_login"),
+  
+  // Onboarding tracking
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  onboardingStep: integer("onboarding_step").default(0), // Current step if abandoned mid-flow
+  
+  // Email delivery preference
+  emailDeliveryMode: text("email_delivery_mode").default("central"), // 'central' | 'personal'
+  
+  // Persona switching for super admins
+  activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Password reset tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User email connections - stores OAuth tokens for personal Gmail
+export const userEmailConnections = pgTable("user_email_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  provider: text("provider").notNull().default("gmail"), // 'gmail' for now
+  email: text("email").notNull(), // The connected email address
+  accessToken: text("access_token").notNull(), // Encrypted
+  refreshToken: text("refresh_token"), // Encrypted
+  expiresAt: timestamp("expires_at"),
+  scopes: text("scopes").array(),
+  status: text("status").notNull().default("active"), // 'active' | 'error' | 'expired' | 'revoked'
+  lastError: text("last_error"),
+  lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -42,6 +81,8 @@ export const assessments = pgTable("assessments", {
   name: text("name").notNull(),
   description: text("description"),
   version: text("version").default("1.0"),
+  assessmentType: text("assessment_type").notNull().default("patient"), // 'clinician' | 'patient'
+  questions: jsonb("questions").notNull().default(sql`'[]'::jsonb`), // Legacy field - kept for compatibility
   surveyJson: jsonb("survey_json").notNull(), // Full SurveyJS definition (questions, pages, logic)
   scoringConfig: jsonb("scoring_config"), // Custom scoring rules: { tags: { tagName: { questionWeights: {...} } } }
   outcomeRules: jsonb("outcome_rules"), // Rules to determine primary outcome from tag scores
@@ -219,12 +260,21 @@ export const recommendationConfigs = pgTable("recommendation_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system rules
   name: text("name").notNull(), // descriptive name for the rule
-  assessmentId: varchar("assessment_id").references(() => assessments.id), // optional: scope to specific assessment
+  assessmentId: varchar("assessment_id").references(() => assessments.id), // required: which assessment triggers this rule
   pathwayId: varchar("pathway_id").references(() => carePathways.id), // optional: scope to specific pathway
   pathwayWeek: integer("pathway_week"), // optional: scope to specific week in pathway
-  tag: text("tag").notNull(), // the assessment tag this rule triggers on
+  
+  // Answer-based trigger configuration
+  questionName: text("question_name"), // the specific question this rule triggers on
+  questionType: text("question_type"), // 'boolean' | 'rating' | 'radiogroup' | 'dropdown' | 'checkbox' | 'text'
+  matchOperator: text("match_operator").default("equals"), // 'equals' | 'in' | 'not_equals' | 'greater_than' | 'less_than' | 'between'
+  matchValues: jsonb("match_values"), // the answer value(s) that trigger this rule (e.g., ["Yes"], [4, 5], {"min": 60, "max": 100})
+  
+  // Legacy tag-based scoring (kept for backward compatibility)
+  tag: text("tag").notNull().default(""), // the assessment tag this rule triggers on (legacy)
   minScore: integer("min_score").default(0),
   maxScore: integer("max_score").default(100),
+  
   priority: integer("priority").default(1), // lower = higher priority
   contentIds: text("content_ids").array().notNull().default(sql`ARRAY[]::text[]`), // content to recommend
   rationale: text("rationale"), // clinician-facing explanation of why this rule exists
@@ -297,9 +347,33 @@ export const permissions = pgTable("permissions", {
 // Role-permission mappings
 export const rolePermissions = pgTable("role_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  role: text("role").notNull(), // 'clinician' | 'admin' | 'readonly' | 'support'
+  role: text("role").notNull(), // 'clinician' | 'admin' | 'super_admin' | 'readonly' | 'support'
   permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User-level permission overrides - allows granting/revoking permissions for specific users
+export const userPermissions = pgTable("user_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
+  granted: boolean("granted").notNull().default(true), // true = grant, false = revoke
+  grantedBy: varchar("granted_by").references(() => users.id).notNull(),
+  reason: text("reason"), // Why this override was applied
+  expiresAt: timestamp("expires_at"), // Optional expiration for temporary grants
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Persona switch audit log - tracks when super admins switch personas
+export const personaSwitches = pgTable("persona_switches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  fromPersona: text("from_persona").notNull(), // Original role
+  toPersona: text("to_persona").notNull(), // Switched to role
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  switchedAt: timestamp("switched_at").defaultNow().notNull(),
+  switchedBackAt: timestamp("switched_back_at"), // When they switched back
 });
 
 // Data inventory for classification and compliance
@@ -443,6 +517,17 @@ export const insertRolePermissionSchema = createInsertSchema(rolePermissions).om
   createdAt: true,
 });
 
+export const insertUserPermissionSchema = createInsertSchema(userPermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPersonaSwitchSchema = createInsertSchema(personaSwitches).omit({
+  id: true,
+  switchedAt: true,
+  switchedBackAt: true,
+});
+
 export const insertDataInventorySchema = createInsertSchema(dataInventory).omit({
   id: true,
   lastReviewedAt: true,
@@ -450,8 +535,16 @@ export const insertDataInventorySchema = createInsertSchema(dataInventory).omit(
   updatedAt: true,
 });
 
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  usedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type User = typeof users.$inferSelect;
 
 export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
@@ -525,5 +618,45 @@ export type Permission = typeof permissions.$inferSelect;
 export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type RolePermission = typeof rolePermissions.$inferSelect;
 
+export type InsertUserPermission = z.infer<typeof insertUserPermissionSchema>;
+export type UserPermission = typeof userPermissions.$inferSelect;
+
+export type InsertPersonaSwitch = z.infer<typeof insertPersonaSwitchSchema>;
+export type PersonaSwitch = typeof personaSwitches.$inferSelect;
+
 export type InsertDataInventory = z.infer<typeof insertDataInventorySchema>;
 export type DataInventory = typeof dataInventory.$inferSelect;
+
+export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConnections).omit({
+  id: true,
+  status: true,
+  lastError: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
+export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
+
+// Feature flags - global system settings managed by super admins
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  value: text("value"), // For enum-style flags (e.g., 'email' | 'packet')
+  payload: jsonb("payload"), // Additional configuration data
+  category: text("category").default("general"), // 'general' | 'content_delivery' | 'compliance' | 'features'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+export type FeatureFlag = typeof featureFlags.$inferSelect;
