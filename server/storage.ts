@@ -52,7 +52,7 @@ import {
 import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, gte, lte, count, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count, sql, isNull } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -224,6 +224,18 @@ export interface IStorage {
   assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission>;
   removePermissionFromRole(role: string, permissionId: string): Promise<void>;
   hasPermission(role: string, permissionName: string): Promise<boolean>;
+  
+  // User-level permission overrides
+  getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null>;
+  getUserPermissions(userId: string): Promise<schema.UserPermission[]>;
+  grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission>;
+  revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission>;
+  removeUserPermission(id: string): Promise<void>;
+  
+  // Persona switching
+  switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch>;
+  clearPersona(userId: string): Promise<void>;
+  getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]>;
 
   // Data inventory
   getDataInventory(): Promise<DataInventory[]>;
@@ -1071,11 +1083,137 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hasPermission(role: string, permissionName: string): Promise<boolean> {
-    // Admin has all permissions
-    if (role === 'admin') return true;
+    // Super admin and admin have all permissions
+    if (role === 'admin' || role === 'super_admin') return true;
     
     const permissions = await this.getPermissionsByRole(role);
     return permissions.some(p => p.name === permissionName);
+  }
+
+  // User-level permission overrides
+  async getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null> {
+    const permission = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (permission.length === 0) return null;
+    
+    const [override] = await db.select()
+      .from(schema.userPermissions)
+      .where(and(
+        eq(schema.userPermissions.userId, userId),
+        eq(schema.userPermissions.permissionId, permission[0].id)
+      ))
+      .limit(1);
+    
+    if (!override) return null;
+    
+    // Check expiration
+    if (override.expiresAt && override.expiresAt < new Date()) {
+      return null;
+    }
+    
+    return override.granted;
+  }
+
+  async getUserPermissions(userId: string): Promise<schema.UserPermission[]> {
+    return await db.select()
+      .from(schema.userPermissions)
+      .where(eq(schema.userPermissions.userId, userId));
+  }
+
+  async grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+    
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+    
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: true,
+      grantedBy,
+      reason,
+      expiresAt
+    }).returning();
+    
+    return created!;
+  }
+
+  async revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+    
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+    
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: false,
+      grantedBy,
+      reason
+    }).returning();
+    
+    return created!;
+  }
+
+  async removeUserPermission(id: string): Promise<void> {
+    await db.delete(schema.userPermissions).where(eq(schema.userPermissions.id, id));
+  }
+
+  // Persona switching
+  async switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+    
+    const fromPersona = user.activePersona || user.role;
+    
+    // Update user's active persona
+    await db.update(schema.users)
+      .set({ activePersona: toPersona, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+    
+    // Log the switch
+    const [log] = await db.insert(schema.personaSwitches).values({
+      userId,
+      fromPersona,
+      toPersona,
+      ipAddress,
+      userAgent
+    }).returning();
+    
+    return log!;
+  }
+
+  async clearPersona(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+    
+    // Mark the most recent switch as switched back
+    await db.update(schema.personaSwitches)
+      .set({ switchedBackAt: new Date() })
+      .where(and(
+        eq(schema.personaSwitches.userId, userId),
+        isNull(schema.personaSwitches.switchedBackAt)
+      ));
+    
+    // Clear the active persona
+    await db.update(schema.users)
+      .set({ activePersona: null, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]> {
+    return await db.select()
+      .from(schema.personaSwitches)
+      .where(eq(schema.personaSwitches.userId, userId))
+      .orderBy(desc(schema.personaSwitches.switchedAt))
+      .limit(50);
   }
 
   // Data inventory methods

@@ -9,13 +9,14 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name"),
-  role: text("role").notNull().default("clinician"), // 'clinician' | 'admin'
+  role: text("role").notNull().default("clinician"), // 'clinician' | 'admin' | 'super_admin'
   
   // Subscription fields
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"), // 'active' | 'inactive' | 'past_due' | 'canceled'
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
+  subscriptionTier: text("subscription_tier").default("basic"), // 'free' | 'basic' | 'pro' | 'enterprise'
   
   lastLogin: timestamp("last_login"),
   
@@ -25,6 +26,9 @@ export const users = pgTable("users", {
   
   // Email delivery preference
   emailDeliveryMode: text("email_delivery_mode").default("central"), // 'central' | 'personal'
+  
+  // Persona switching for super admins
+  activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -343,9 +347,33 @@ export const permissions = pgTable("permissions", {
 // Role-permission mappings
 export const rolePermissions = pgTable("role_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  role: text("role").notNull(), // 'clinician' | 'admin' | 'readonly' | 'support'
+  role: text("role").notNull(), // 'clinician' | 'admin' | 'super_admin' | 'readonly' | 'support'
   permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User-level permission overrides - allows granting/revoking permissions for specific users
+export const userPermissions = pgTable("user_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
+  granted: boolean("granted").notNull().default(true), // true = grant, false = revoke
+  grantedBy: varchar("granted_by").references(() => users.id).notNull(),
+  reason: text("reason"), // Why this override was applied
+  expiresAt: timestamp("expires_at"), // Optional expiration for temporary grants
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Persona switch audit log - tracks when super admins switch personas
+export const personaSwitches = pgTable("persona_switches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  fromPersona: text("from_persona").notNull(), // Original role
+  toPersona: text("to_persona").notNull(), // Switched to role
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  switchedAt: timestamp("switched_at").defaultNow().notNull(),
+  switchedBackAt: timestamp("switched_back_at"), // When they switched back
 });
 
 // Data inventory for classification and compliance
@@ -489,6 +517,17 @@ export const insertRolePermissionSchema = createInsertSchema(rolePermissions).om
   createdAt: true,
 });
 
+export const insertUserPermissionSchema = createInsertSchema(userPermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPersonaSwitchSchema = createInsertSchema(personaSwitches).omit({
+  id: true,
+  switchedAt: true,
+  switchedBackAt: true,
+});
+
 export const insertDataInventorySchema = createInsertSchema(dataInventory).omit({
   id: true,
   lastReviewedAt: true,
@@ -578,6 +617,12 @@ export type Permission = typeof permissions.$inferSelect;
 
 export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type RolePermission = typeof rolePermissions.$inferSelect;
+
+export type InsertUserPermission = z.infer<typeof insertUserPermissionSchema>;
+export type UserPermission = typeof userPermissions.$inferSelect;
+
+export type InsertPersonaSwitch = z.infer<typeof insertPersonaSwitchSchema>;
+export type PersonaSwitch = typeof personaSwitches.$inferSelect;
 
 export type InsertDataInventory = z.infer<typeof insertDataInventorySchema>;
 export type DataInventory = typeof dataInventory.$inferSelect;

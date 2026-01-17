@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
+import { requireSuperAdmin } from "./rbac";
 import { 
   insertContentItemSchema, 
   insertAssessmentSchema,
@@ -2632,6 +2633,176 @@ export function registerRoutes(app: Express): Server {
         return acc;
       }, {} as Record<string, { isEnabled: boolean; value: string | null }>);
       res.json(flagsMap);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Super Admin Routes - Persona Switching
+  app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { toPersona } = req.body;
+      if (!['clinician', 'admin'].includes(toPersona)) {
+        return res.status(400).json({ message: "Invalid persona" });
+      }
+
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+
+      const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        user.id,
+        false,
+        req,
+        'success',
+        { action: 'persona_switch', toPersona }
+      );
+
+      res.json({ 
+        message: `Switched to ${toPersona} persona`,
+        activePersona: toPersona,
+        switchLog
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      await storage.clearPersona(user.id);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        user.id,
+        false,
+        req,
+        'success',
+        { action: 'persona_clear' }
+      );
+
+      res.json({ message: "Persona cleared, back to super admin view" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const history = await storage.getPersonaSwitchHistory(user.id);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Super Admin Routes - User Permission Overrides
+  app.get("/api/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const permissions = await storage.getUserPermissions(userId);
+      res.json(permissions);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId } = req.params;
+      const { permissionName, reason, expiresAt } = req.body;
+
+      if (!permissionName) {
+        return res.status(400).json({ message: "Permission name required" });
+      }
+
+      const grant = await storage.grantUserPermission(
+        userId, 
+        permissionName, 
+        user.id, 
+        reason,
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_grant', permissionName, targetUserId: userId }
+      );
+
+      res.json(grant);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId } = req.params;
+      const { permissionName, reason } = req.body;
+
+      if (!permissionName) {
+        return res.status(400).json({ message: "Permission name required" });
+      }
+
+      const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_revoke', permissionName, targetUserId: userId }
+      );
+
+      res.json(revoke);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const { userId, id } = req.params;
+      await storage.removeUserPermission(id);
+
+      await logClinicianAction(
+        user.id,
+        user.email,
+        'settings_change',
+        'user',
+        userId,
+        false,
+        req,
+        'success',
+        { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
+      );
+
+      res.json({ message: "Permission override removed" });
     } catch (error) {
       next(error);
     }
