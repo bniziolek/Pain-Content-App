@@ -10,7 +10,9 @@ Preferred communication style: Simple, everyday language.
 
 ## Design System
 
-The application follows the **DriverPath Style Guide** (see `docs/STYLE_GUIDE.md`):
+The application follows the **DriverPath Style Guide** (see `docs/STYLE_GUIDE.md`).
+
+For a complete list of external services and APIs, see **`docs/INTEGRATIONS.md`**.
 - **Brand**: Health Drivers Institute (HDI) / DriverPath
 - **Primary Color**: Teal (#0F766E light, #14B8A6 dark)
 - **Accent Color**: Amber (#F59E0B) - used sparingly for highlights
