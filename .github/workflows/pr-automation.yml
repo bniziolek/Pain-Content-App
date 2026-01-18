@@ -1,0 +1,36 @@
+name: Automate PRs from Replit
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-branch-and-pr:
+    if: startsWith(github.event.issue.title, 'feature')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Create Feature Branch and PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_TITLE=$(echo "${{ github.event.issue.title }}" | sed 's/ /-/g' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
+          BRANCH_NAME="feature/$ISSUE_NUMBER-$ISSUE_TITLE"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
+          
+          gh pr create \
+            --title "Feature #$ISSUE_NUMBER: ${{ github.event.issue.title }}" \
+            --body "This pull request addresses issue #$ISSUE_NUMBER. Closes #$ISSUE_NUMBER" \
+            --base main \
+            --head "$BRANCH_NAME"
