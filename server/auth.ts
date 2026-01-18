@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser, SubscriptionTier, SUBSCRIPTION_TIERS, TIER_ENTITLEMENTS } from "@shared/schema";
 import { logClinicianAction, logAuditEvent } from "./audit";
 
 declare global {
@@ -229,4 +229,102 @@ export function requireAdmin(req: any, res: any, next: any) {
   }
   
   next();
+}
+
+// Middleware factory to check if user has required subscription tier
+export function requireTier(requiredTier: SubscriptionTier | SubscriptionTier[]) {
+  const requiredTiers = Array.isArray(requiredTier) ? requiredTier : [requiredTier];
+  
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+    
+    const user = req.user as SelectUser;
+    if (user.subscriptionStatus !== "active") {
+      return res.status(403).json({ 
+        error: "Active subscription required",
+        code: "SUBSCRIPTION_REQUIRED"
+      });
+    }
+    
+    const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
+    const userTierLevel = SUBSCRIPTION_TIERS[userTier]?.level ?? 0;
+    
+    // Check if user's tier level meets any of the required tiers
+    const hasAccess = requiredTiers.some(tier => {
+      const requiredLevel = SUBSCRIPTION_TIERS[tier]?.level ?? 0;
+      return userTierLevel >= requiredLevel;
+    });
+    
+    if (!hasAccess) {
+      const minRequiredTier = requiredTiers.reduce((min, tier) => {
+        const level = SUBSCRIPTION_TIERS[tier]?.level ?? 99;
+        return level < (SUBSCRIPTION_TIERS[min]?.level ?? 99) ? tier : min;
+      }, requiredTiers[0]);
+      
+      return res.status(403).json({ 
+        error: `${SUBSCRIPTION_TIERS[minRequiredTier].name} tier or higher required`,
+        code: "TIER_UPGRADE_REQUIRED",
+        requiredTier: minRequiredTier,
+        currentTier: userTier
+      });
+    }
+    
+    next();
+  };
+}
+
+// Middleware factory to check tier entitlement for a specific feature
+export function requireFeatureEntitlement(featureKey: string) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+    
+    const user = req.user as SelectUser;
+    if (user.subscriptionStatus !== "active") {
+      return res.status(403).json({ 
+        error: "Active subscription required",
+        code: "SUBSCRIPTION_REQUIRED"
+      });
+    }
+    
+    const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
+    const allowedTiers = TIER_ENTITLEMENTS[featureKey];
+    
+    if (!allowedTiers) {
+      // Feature not in entitlement matrix, allow access
+      return next();
+    }
+    
+    if (!allowedTiers.includes(userTier)) {
+      const minRequiredTier = allowedTiers.reduce((min, tier) => {
+        const level = SUBSCRIPTION_TIERS[tier]?.level ?? 99;
+        return level < (SUBSCRIPTION_TIERS[min]?.level ?? 99) ? tier : min;
+      }, allowedTiers[0]);
+      
+      return res.status(403).json({ 
+        error: `${SUBSCRIPTION_TIERS[minRequiredTier].name} tier or higher required for this feature`,
+        code: "TIER_UPGRADE_REQUIRED",
+        feature: featureKey,
+        requiredTier: minRequiredTier,
+        currentTier: userTier
+      });
+    }
+    
+    next();
+  };
+}
+
+// Helper function to check if a user has access to a feature based on their tier
+export function hasTierAccess(user: SelectUser, featureKey: string): boolean {
+  const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
+  const allowedTiers = TIER_ENTITLEMENTS[featureKey];
+  
+  if (!allowedTiers) {
+    return true; // Feature not in entitlement matrix, allow access
+  }
+  
+  return allowedTiers.includes(userTier);
 }

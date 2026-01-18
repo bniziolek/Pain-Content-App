@@ -66,6 +66,9 @@ const pool = new pg.Pool({
 
 const db = drizzle({ client: pool, schema });
 
+// Export db for use in routes that need direct database access
+export { db };
+
 export interface IStorage {
   // Auth
   getUser(id: string): Promise<User | undefined>;
@@ -86,6 +89,11 @@ export interface IStorage {
   ): Promise<void>;
   updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
   updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void>;
+  
+  // Stripe-related
+  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
+  getTierFromPriceId(priceId: string): Promise<string | null>;
+  updateSubscriptionTier(userId: string, tier: string): Promise<void>;
 
   // Email connections
   getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined>;
@@ -374,6 +382,56 @@ export class DatabaseStorage implements IStorage {
   async updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void> {
     await db.update(schema.users)
       .set({ emailDeliveryMode: mode, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
+    const [user] = await db.select()
+      .from(schema.users)
+      .where(eq(schema.users.stripeCustomerId, customerId));
+    return user;
+  }
+
+  async getTierFromPriceId(priceId: string): Promise<string | null> {
+    // Map Stripe price IDs to subscription tiers
+    // These IDs should be set when creating products in Stripe
+    const tierMapping: Record<string, string> = {
+      // Basic tier prices (monthly and annual)
+      'price_basic_monthly': 'basic',
+      'price_basic_annual': 'basic',
+      // Pro tier prices (monthly and annual)
+      'price_pro_monthly': 'pro',
+      'price_pro_annual': 'pro',
+      // Enterprise tier prices
+      'price_enterprise_monthly': 'enterprise',
+      'price_enterprise_annual': 'enterprise',
+    };
+
+    // First check hardcoded mapping
+    if (tierMapping[priceId]) {
+      return tierMapping[priceId];
+    }
+
+    // Fall back to checking price metadata in Stripe
+    try {
+      const result = await db.execute(
+        sql`SELECT metadata FROM stripe.prices WHERE id = ${priceId}`
+      );
+      const row = result.rows[0] as { metadata?: { tier?: string } } | undefined;
+      if (row?.metadata?.tier) {
+        return row.metadata.tier;
+      }
+    } catch (error) {
+      console.error('Error fetching tier from price:', error);
+    }
+
+    // Default to basic if we can't determine the tier
+    return 'basic';
+  }
+
+  async updateSubscriptionTier(userId: string, tier: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ subscriptionTier: tier, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
   }
 

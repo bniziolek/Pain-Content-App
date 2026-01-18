@@ -660,6 +660,40 @@ export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConne
 export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
 export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
 
+// Subscription tiers and entitlements
+export const SUBSCRIPTION_TIERS = {
+  free: { level: 0, name: 'Free', monthlyPrice: 0 },
+  basic: { level: 1, name: 'Basic', monthlyPrice: 19 },
+  pro: { level: 2, name: 'Pro', monthlyPrice: 29 },
+  enterprise: { level: 3, name: 'Enterprise', monthlyPrice: 99 },
+} as const;
+
+export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS;
+
+// Tier entitlement matrix - what each tier can access
+export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
+  // Core features - available to all paid tiers
+  content_library: ['basic', 'pro', 'enterprise'],
+  content_concierge: ['basic', 'pro', 'enterprise'],
+  content_packets: ['basic', 'pro', 'enterprise'],
+  internal_screenings: ['basic', 'pro', 'enterprise'],
+  
+  // Limited features - basic has limits
+  assessment_builder: ['basic', 'pro', 'enterprise'], // Basic limited to 5 assessments
+  
+  // Pro-only features
+  patient_portal: ['pro', 'enterprise'],
+  email_delivery: ['pro', 'enterprise'],
+  care_pathways: ['pro', 'enterprise'],
+  follow_up_automation: ['pro', 'enterprise'],
+  priority_support: ['pro', 'enterprise'],
+  
+  // Enterprise-only
+  white_label: ['enterprise'],
+  api_access: ['enterprise'],
+  sso: ['enterprise'],
+};
+
 // Feature flags - global system settings managed by super admins
 export const featureFlags = pgTable("feature_flags", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -669,6 +703,7 @@ export const featureFlags = pgTable("feature_flags", {
   isEnabled: boolean("is_enabled").notNull().default(true),
   value: text("value"), // For enum-style flags (e.g., 'email' | 'packet')
   payload: jsonb("payload"), // Additional configuration data
+  tiersAllowed: text("tiers_allowed").array().default(sql`ARRAY['basic', 'pro', 'enterprise']`), // Which tiers can access this feature
   category: text("category").default("general"), // 'general' | 'content_delivery' | 'compliance' | 'features'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

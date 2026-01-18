@@ -71,6 +71,8 @@
     "recharts": "^2.15.4",
     "resend": "^4.0.0",
     "sonner": "^2.0.7",
+    "stripe": "^20.0.0",
+    "stripe-replit-sync": "^1.0.0",
     "survey-core": "^2.5.4",
     "survey-creator-core": "^2.5.4",
     "survey-creator-react": "^2.5.4",

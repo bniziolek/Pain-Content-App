@@ -1592,31 +1592,295 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // ====== Subscription Routes (Stripe integration will come later) ======
-  app.post("/api/subscription/create", requireAuth, async (req, res, next) => {
+  // ====== Subscription Routes (Stripe integration) ======
+  
+  // Get current subscription info
+  app.get("/api/subscription", requireAuth, async (req, res, next) => {
     try {
-      // TODO: Create Stripe checkout session
-      // For now, simulate activation
-      await storage.updateUserSubscription(req.user!.id, {
-        subscriptionStatus: "active",
-        subscriptionPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({
+        status: user.subscriptionStatus,
+        tier: user.subscriptionTier || 'basic',
+        periodEnd: user.subscriptionPeriodEnd,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get Stripe publishable key
+  app.get("/api/stripe/config", async (_req, res, next) => {
+    try {
+      const { getStripePublishableKey } = await import("./stripeClient");
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get available products and prices
+  app.get("/api/subscription/plans", async (_req, res, next) => {
+    try {
+      const { db } = await import("./storage");
+      const { sql } = await import("drizzle-orm");
       
-      const updatedUser = await storage.getUser(req.user!.id);
+      // Query products and prices from stripe schema
+      const result = await db.execute(sql`
+        SELECT 
+          p.id as product_id,
+          p.name as product_name,
+          p.description as product_description,
+          p.metadata as product_metadata,
+          pr.id as price_id,
+          pr.unit_amount,
+          pr.currency,
+          pr.recurring,
+          pr.metadata as price_metadata
+        FROM stripe.products p
+        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+        WHERE p.active = true
+        ORDER BY pr.unit_amount ASC
+      `);
+
+      // Group by product
+      const productsMap = new Map();
+      for (const row of result.rows as any[]) {
+        if (!productsMap.has(row.product_id)) {
+          productsMap.set(row.product_id, {
+            id: row.product_id,
+            name: row.product_name,
+            description: row.product_description,
+            metadata: row.product_metadata,
+            prices: []
+          });
+        }
+        if (row.price_id) {
+          productsMap.get(row.product_id).prices.push({
+            id: row.price_id,
+            unitAmount: row.unit_amount,
+            currency: row.currency,
+            recurring: row.recurring,
+            metadata: row.price_metadata,
+          });
+        }
+      }
+
+      res.json({ plans: Array.from(productsMap.values()) });
+    } catch (error) {
+      // Return empty plans if Stripe schema not ready
+      console.error("Error fetching plans:", error);
+      res.json({ plans: [] });
+    }
+  });
+
+  // Create checkout session for subscription
+  app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+    try {
+      const { priceId, tier } = req.body;
+      
+      if (!priceId) {
+        return res.status(400).json({ error: "priceId is required" });
+      }
+
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email, user.id, user.name || undefined);
+        await storage.updateUserSubscription(user.id, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Create checkout session
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      const session = await stripeService.createCheckoutSession(
+        customerId,
+        priceId,
+        `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/subscription/cancel`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Create billing portal session
+  app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+    try {
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ error: "No Stripe customer found" });
+      }
+
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      const session = await stripeService.createCustomerPortalSession(
+        user.stripeCustomerId,
+        `${baseUrl}/settings`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Upgrade/downgrade subscription
+  app.post("/api/subscription/change", requireAuth, async (req, res, next) => {
+    try {
+      const { priceId } = req.body;
+      
+      if (!priceId) {
+        return res.status(400).json({ error: "priceId is required" });
+      }
+
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user?.stripeSubscriptionId) {
+        return res.status(400).json({ error: "No active subscription found" });
+      }
+
+      const subscription = await stripeService.updateSubscription(user.stripeSubscriptionId, priceId);
+      
+      res.json({ success: true, subscription });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Cancel subscription
+  app.post("/api/subscription/cancel", requireAuth, async (req, res, next) => {
+    try {
+      const { immediate } = req.body;
+      
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user?.stripeSubscriptionId) {
+        return res.status(400).json({ error: "No active subscription found" });
+      }
+
+      await stripeService.cancelSubscription(user.stripeSubscriptionId, !immediate);
+      
+      if (immediate) {
+        await storage.updateUserSubscription(user.id, { subscriptionStatus: "canceled" });
+      }
+      
+      const updatedUser = await storage.getUser(user.id);
       res.json(updatedUser);
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/subscription/cancel", requireAuth, async (req, res, next) => {
+  // Resume canceled subscription
+  app.post("/api/subscription/resume", requireAuth, async (req, res, next) => {
     try {
-      // TODO: Cancel via Stripe
-      await storage.updateUserSubscription(req.user!.id, {
-        subscriptionStatus: "canceled",
-      });
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
       
-      const updatedUser = await storage.getUser(req.user!.id);
+      if (!user?.stripeSubscriptionId) {
+        return res.status(400).json({ error: "No subscription found" });
+      }
+
+      await stripeService.resumeSubscription(user.stripeSubscriptionId);
+      
+      const updatedUser = await storage.getUser(user.id);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get billing history
+  app.get("/api/subscription/invoices", requireAuth, async (req, res, next) => {
+    try {
+      const { stripeService } = await import("./stripeService");
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user?.stripeCustomerId) {
+        return res.json({ invoices: [] });
+      }
+
+      const { data: invoices } = await stripeService.getInvoices(user.stripeCustomerId);
+      
+      res.json({ 
+        invoices: invoices.map(inv => ({
+          id: inv.id,
+          number: inv.number,
+          amount: inv.amount_paid,
+          currency: inv.currency,
+          status: inv.status,
+          created: inv.created,
+          pdfUrl: inv.invoice_pdf,
+          hostedUrl: inv.hosted_invoice_url,
+        }))
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Admin: Change user subscription tier
+  app.post("/api/admin/users/:userId/tier", requireAdmin, async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { tier } = req.body;
+      
+      if (!['free', 'basic', 'pro', 'enterprise'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier" });
+      }
+
+      await storage.updateSubscriptionTier(userId, tier);
+      
+      const updatedUser = await storage.getUser(userId);
+      res.json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Admin: Manually activate/extend subscription
+  app.post("/api/admin/users/:userId/subscription", requireAdmin, async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { status, periodEndDays, tier } = req.body;
+      
+      const updates: any = {};
+      
+      if (status) {
+        updates.subscriptionStatus = status;
+      }
+      
+      if (periodEndDays && typeof periodEndDays === 'number') {
+        updates.subscriptionPeriodEnd = new Date(Date.now() + periodEndDays * 24 * 60 * 60 * 1000);
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await storage.updateUserSubscription(userId, updates);
+      }
+      
+      if (tier && ['free', 'basic', 'pro', 'enterprise'].includes(tier)) {
+        await storage.updateSubscriptionTier(userId, tier);
+      }
+      
+      const updatedUser = await storage.getUser(userId);
       res.json(updatedUser);
     } catch (error) {
       next(error);
