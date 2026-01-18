@@ -47,7 +47,11 @@ import {
   type PatientRecommendation,
   type InsertPatientRecommendation,
   type UserEmailConnection,
-  type InsertUserEmailConnection
+  type InsertUserEmailConnection,
+  type AdminNote,
+  type InsertAdminNote,
+  type LoginHistory,
+  type InsertLoginHistory
 } from "@shared/schema";
 import crypto from "crypto";
 import session from "express-session";
@@ -264,6 +268,35 @@ export interface IStorage {
     recentSignups: number;
     mrr: number;
   }>;
+
+  // Enhanced admin analytics
+  getEnhancedAdminStats(): Promise<{
+    activeUsersDaily: number;
+    activeUsersWeekly: number;
+    activeUsersMonthly: number;
+    recentSignups: Array<{ id: string; email: string; name: string | null; createdAt: Date }>;
+    churned: number;
+    subscriptionBreakdown: { tier: string; count: number }[];
+  }>;
+
+  // Admin notes
+  getAdminNotes(userId: string): Promise<AdminNote[]>;
+  createAdminNote(note: InsertAdminNote): Promise<AdminNote>;
+  updateAdminNote(id: string, note: string): Promise<AdminNote | undefined>;
+  deleteAdminNote(id: string): Promise<void>;
+
+  // Login history
+  getLoginHistory(userId: string, limit?: number): Promise<LoginHistory[]>;
+  createLoginHistory(entry: InsertLoginHistory): Promise<LoginHistory>;
+
+  // User activity
+  getUserContentActivity(userId: string): Promise<Array<{
+    contentId: string;
+    contentTitle: string;
+    patientEmail: string;
+    sentAt: Date;
+    status: string;
+  }>>;
 
   sessionStore: session.Store;
 }
@@ -1312,6 +1345,160 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.featureFlags.key, key))
       .returning();
     return updated;
+  }
+
+  // Enhanced admin analytics
+  async getEnhancedAdminStats(): Promise<{
+    activeUsersDaily: number;
+    activeUsersWeekly: number;
+    activeUsersMonthly: number;
+    recentSignups: Array<{ id: string; email: string; name: string | null; createdAt: Date }>;
+    churned: number;
+    subscriptionBreakdown: { tier: string; count: number }[];
+  }> {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [dailyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, oneDayAgo));
+
+    const [weeklyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, oneWeekAgo));
+
+    const [monthlyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, thirtyDaysAgo));
+
+    const recentSignups = await db.select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      createdAt: schema.users.createdAt,
+    })
+      .from(schema.users)
+      .orderBy(desc(schema.users.createdAt))
+      .limit(10);
+
+    const [churnedResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(eq(schema.users.subscriptionStatus, 'canceled'));
+
+    const tierCounts = await db.select({
+      tier: schema.users.subscriptionTier,
+      count: count(),
+    })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionTier);
+
+    return {
+      activeUsersDaily: dailyResult?.count ?? 0,
+      activeUsersWeekly: weeklyResult?.count ?? 0,
+      activeUsersMonthly: monthlyResult?.count ?? 0,
+      recentSignups,
+      churned: churnedResult?.count ?? 0,
+      subscriptionBreakdown: tierCounts.map(tc => ({
+        tier: tc.tier || 'basic',
+        count: tc.count,
+      })),
+    };
+  }
+
+  // Admin notes methods
+  async getAdminNotes(userId: string): Promise<AdminNote[]> {
+    return await db.select()
+      .from(schema.adminNotes)
+      .where(eq(schema.adminNotes.userId, userId))
+      .orderBy(desc(schema.adminNotes.createdAt));
+  }
+
+  async createAdminNote(note: InsertAdminNote): Promise<AdminNote> {
+    const [created] = await db.insert(schema.adminNotes).values(note).returning();
+    return created!;
+  }
+
+  async updateAdminNote(id: string, note: string): Promise<AdminNote | undefined> {
+    const [updated] = await db.update(schema.adminNotes)
+      .set({ note, updatedAt: new Date() })
+      .where(eq(schema.adminNotes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAdminNote(id: string): Promise<void> {
+    await db.delete(schema.adminNotes).where(eq(schema.adminNotes.id, id));
+  }
+
+  // Login history methods
+  async getLoginHistory(userId: string, limit: number = 20): Promise<LoginHistory[]> {
+    return await db.select()
+      .from(schema.loginHistory)
+      .where(eq(schema.loginHistory.userId, userId))
+      .orderBy(desc(schema.loginHistory.createdAt))
+      .limit(limit);
+  }
+
+  async createLoginHistory(entry: InsertLoginHistory): Promise<LoginHistory> {
+    const [created] = await db.insert(schema.loginHistory).values(entry).returning();
+    return created!;
+  }
+
+  // User content activity
+  async getUserContentActivity(userId: string): Promise<Array<{
+    contentId: string;
+    contentTitle: string;
+    patientEmail: string;
+    sentAt: Date;
+    status: string;
+  }>> {
+    const emailLogs = await db.select({
+      contentIds: schema.emailLogs.contentIds,
+      patientEmail: schema.emailLogs.patientEmail,
+      sentAt: schema.emailLogs.sentAt,
+      status: schema.emailLogs.status,
+    })
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.clinicianUserId, userId))
+      .orderBy(desc(schema.emailLogs.sentAt))
+      .limit(50);
+
+    const allContentIds = new Set<string>();
+    emailLogs.forEach(log => {
+      (log.contentIds || []).forEach(id => allContentIds.add(id));
+    });
+
+    const contentItems = allContentIds.size > 0
+      ? await db.select({ id: schema.contentItems.id, title: schema.contentItems.title })
+          .from(schema.contentItems)
+          .where(sql`${schema.contentItems.id} = ANY(${Array.from(allContentIds)})`)
+      : [];
+
+    const contentMap = new Map(contentItems.map(c => [c.id, c.title]));
+
+    const result: Array<{
+      contentId: string;
+      contentTitle: string;
+      patientEmail: string;
+      sentAt: Date;
+      status: string;
+    }> = [];
+
+    emailLogs.forEach(log => {
+      (log.contentIds || []).forEach(contentId => {
+        result.push({
+          contentId,
+          contentTitle: contentMap.get(contentId) || 'Unknown Content',
+          patientEmail: log.patientEmail,
+          sentAt: log.sentAt,
+          status: log.status || 'sent',
+        });
+      });
+    });
+
+    return result;
   }
 }
 

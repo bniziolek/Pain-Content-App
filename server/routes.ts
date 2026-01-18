@@ -2034,6 +2034,134 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Enhanced admin stats endpoint
+  app.get("/api/admin/enhanced-stats", requireAdmin, async (req, res, next) => {
+    try {
+      const enhancedStats = await storage.getEnhancedAdminStats();
+      res.json(enhancedStats);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Admin Notes Routes ======
+  app.get("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+    try {
+      const notes = await storage.getAdminNotes(req.params.userId);
+      res.json(notes);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+    try {
+      const { note } = req.body;
+      if (!note || typeof note !== 'string') {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+      const created = await storage.createAdminNote({
+        userId: req.params.userId,
+        adminId: req.user!.id,
+        note,
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const { note } = req.body;
+      if (!note || typeof note !== 'string') {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+      const updated = await storage.updateAdminNote(req.params.id, note);
+      if (!updated) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteAdminNote(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Login History Routes ======
+  app.get("/api/admin/users/:userId/login-history", requireAdmin, async (req, res, next) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const history = await storage.getLoginHistory(req.params.userId, limit);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== User Content Activity Routes ======
+  app.get("/api/admin/users/:userId/content-activity", requireAdmin, async (req, res, next) => {
+    try {
+      const activity = await storage.getUserContentActivity(req.params.userId);
+      res.json(activity);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== User Data Export Route ======
+  app.get("/api/admin/users/:userId/export", requireAdmin, async (req, res, next) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const notes = await storage.getAdminNotes(req.params.userId);
+      const loginHistory = await storage.getLoginHistory(req.params.userId, 100);
+      const contentActivity = await storage.getUserContentActivity(req.params.userId);
+      
+      const exportData = {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionTier: user.subscriptionTier,
+          subscriptionPeriodEnd: user.subscriptionPeriodEnd,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+        },
+        adminNotes: notes.map(n => ({
+          note: n.note,
+          createdAt: n.createdAt,
+        })),
+        loginHistory: loginHistory.map(h => ({
+          outcome: h.outcome,
+          ipAddress: h.ipAddress,
+          createdAt: h.createdAt,
+        })),
+        contentActivity: contentActivity.slice(0, 100),
+        exportedAt: new Date().toISOString(),
+      };
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="user-export-${user.id}.json"`);
+      res.json(exportData);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Admin Recommendation Config Routes ======
   app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
     try {

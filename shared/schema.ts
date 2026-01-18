@@ -397,6 +397,27 @@ export const dataInventory = pgTable("data_inventory", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Admin notes on user records
+export const adminNotes = pgTable("admin_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User login history for tracking
+export const loginHistory = pgTable("login_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  outcome: text("outcome").notNull().default("success"), // 'success' | 'failure'
+  failureReason: text("failure_reason"), // 'invalid_password' | 'account_locked' | etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -660,3 +681,20 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 });
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 export type FeatureFlag = typeof featureFlags.$inferSelect;
+
+// Admin notes schemas
+export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdminNote = z.infer<typeof insertAdminNoteSchema>;
+export type AdminNote = typeof adminNotes.$inferSelect;
+
+// Login history schemas
+export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
+export type LoginHistory = typeof loginHistory.$inferSelect;
