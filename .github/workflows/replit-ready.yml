@@ -1,3 +1,15 @@
+# Create a feature branch + placeholder commit + PR when an issue is labeled "replit-ready".
+# Behavior:
+# - Trigger: issue labeled
+# - Only runs when the added label is exactly "replit-ready"
+# - Requires an existing issue label that starts with "dev" (case-insensitive). If no such label is found the workflow comments on the issue and exits (it WILL NOT target the default branch).
+# - Uses the found dev-* label value (sanitized) as the base branch for the PR.
+# - Creates a feature branch named replit/issue-<number> (appends timestamp if exists), adds a placeholder file to ensure at least one commit, opens a PR against the dev branch, updates PR body to include repo-qualified "Closes owner/repo#N", and comments on the issue.
+#
+# Notes:
+# - Workflows must have write permission to contents, issues and pull-requests.
+# - The dev label must already exist on the issue (e.g. "Dev_26.2" or "dev-26.2"); the workflow will not create the dev branch for you.
+
 permissions:
   contents: write
   issues: write
@@ -12,49 +24,39 @@ jobs:
     if: github.event.label && github.event.label.name == 'replit-ready'
     runs-on: ubuntu-latest
     steps:
-      - name: Create branch, add placeholder commit, and open PR targeting Dev_* or default branch
+      - name: Create branch, add placeholder commit, and open PR targeting Dev_* branch
         uses: actions/github-script@v6
         with:
           script: |
             (async () => {
               try {
-                const label = context.payload.label && context.payload.label.name;
-                if (label !== 'replit-ready') {
-                  console.log(`Label is "${label}" — nothing to do.`);
+                // Only proceed when the added label is exactly 'replit-ready'
+                const addedLabel = context.payload.label && context.payload.label.name;
+                if (addedLabel !== 'replit-ready') {
+                  console.log(`Added label is "${addedLabel}" — nothing to do.`);
                   return;
                 }
 
-                const issue_number = context.payload.issue.number;
+                const issue = context.payload.issue || {};
+                const issue_number = issue.number;
                 const owner = context.repo.owner;
                 const repo = context.repo.repo;
 
-                // Get default branch
-                const { data: repoData } = await github.rest.repos.get({ owner, repo });
-                const defaultBranch = repoData.default_branch;
-                console.log(`Repository default branch: ${defaultBranch}`);
-
-                // Determine desired base branch:
-                // Look for an issue label that begins with "Dev_" and use that as base if present.
-                const issueLabels = (context.payload.issue && context.payload.issue.labels) || [];
-                let baseBranch = null;
-                for (const l of issueLabels) {
-                  if (typeof l.name === 'string' && l.name.startsWith('Dev_')) {
-                    baseBranch = l.name;
-                    console.log(`Found Dev_* label; using "${baseBranch}" as target base branch`);
+                // Find an issue label that starts with "dev" (case-insensitive)
+                const labels = issue.labels || [];
+                let rawBase = null;
+                for (const l of labels) {
+                  const name = (l && l.name) || '';
+                  if (/^dev/i.test(name)) {
+                    rawBase = name.trim();
+                    console.log(`Selected dev label "${rawBase}" as target base branch`);
                     break;
                   }
                 }
-                if (!baseBranch) {
-                  baseBranch = defaultBranch;
-                  console.log(`No Dev_* label found; falling back to default branch: ${baseBranch}`);
-                }
 
-                // Verify base branch exists
-                try {
-                  await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
-                } catch (err) {
-                  // If base branch doesn't exist, comment on the issue and exit
-                  const msg = `Cannot open PR: target branch "${baseBranch}" does not exist. Please create the branch or add a valid Dev_* label to the issue.`;
+                // If no dev-* label found, comment and exit (do NOT fall back to default branch)
+                if (!rawBase) {
+                  const msg = 'No label starting with "dev" found on this issue. Please add a label beginning with "dev" (for example "Dev_26.2") before adding "replit-ready". The workflow will not open a PR otherwise.';
                   console.log(msg);
                   await github.rest.issues.createComment({
                     owner,
@@ -65,23 +67,49 @@ jobs:
                   return;
                 }
 
-                // Create feature branch name and create it from the baseBranch commit SHA
-                const { data: branchData } = await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
-                const sha = branchData.commit.sha;
-                let branchName = `replit/issue-${issue_number}`;
+                // Sanitize base branch name: replace spaces, remove unsafe chars except . _ - / 
+                let baseBranch = rawBase.replace(/\s+/g, '_').replace(/[^A-Za-z0-9._\-\/]/g, '');
+                // trim leading/trailing ., -, /
+                baseBranch = baseBranch.replace(/^[-.\/]+|[-.\/]+$/g, '');
+                if (!baseBranch) {
+                  const msg = `Derived base branch name from label "${rawBase}" is empty after sanitization. Please use a simpler label.`;
+                  console.log(msg);
+                  await github.rest.issues.createComment({ owner, repo, issue_number, body: msg });
+                  return;
+                }
 
+                // Verify base branch exists; if not, inform and stop (no fallback)
                 try {
-                  await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
-                  console.log(`Created branch ${branchName} from ${baseBranch}@${sha}`);
+                  await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
+                } catch (err) {
+                  const msg = `Target branch "${baseBranch}" (from label "${rawBase}") does not exist. Please create it or use an existing dev-* label.`;
+                  console.log(msg);
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number,
+                    body: msg
+                  });
+                  return;
+                }
+
+                // Get commit SHA of the base branch to create the feature branch from
+                const { data: baseBranchData } = await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
+                const baseSha = baseBranchData.commit.sha;
+
+                // Create feature branch name and create it from the base branch
+                let branchName = `replit/issue-${issue_number}`;
+                try {
+                  await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha: baseSha });
+                  console.log(`Created branch ${branchName} from ${baseBranch}@${baseSha}`);
                 } catch (err) {
                   console.log(`createRef failed: ${err.message}`);
-                  // If ref already exists, create a unique branch name
                   branchName = `${branchName}-${Date.now()}`;
-                  await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
+                  await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha: baseSha });
                   console.log(`Created branch ${branchName} instead`);
                 }
 
-                // Add placeholder file to ensure there's a commit on the new branch
+                // Add a placeholder file on the new branch so the PR has at least one commit
                 const timestamp = Date.now();
                 const basePath = `.github/replit-placeholders`;
                 let placeholderPath = `${basePath}/issue-${issue_number}-${timestamp}.md`;
@@ -111,19 +139,19 @@ jobs:
                   throw new Error('Could not create placeholder file after several attempts');
                 }
 
-                // Create the PR against the selected baseBranch
+                // Create the PR targeting the selected dev base branch
                 const { data: pr } = await github.rest.pulls.create({
                   owner,
                   repo,
                   title: `Replit-ready: work for issue #${issue_number}`,
                   head: branchName,
                   base: baseBranch,
-                  body: `Automated PR created from issue #${issue_number} labeled \"replit-ready\".`
+                  body: `Automated PR created from issue #${issue_number} labeled "replit-ready".`
                 });
 
                 console.log(`Created PR: ${pr.html_url}`);
 
-                // Ensure PR body contains a repo-qualified close reference so GitHub links it
+                // Ensure PR body contains a repo-qualified "Closes owner/repo#N"
                 const repoQualifiedClose = `Closes ${owner}/${repo}#${issue_number}`;
                 const prBodyCurrent = pr.body || '';
                 if (!prBodyCurrent.includes(`${owner}/${repo}#${issue_number}`) && !prBodyCurrent.includes(`#${issue_number}`)) {
@@ -148,7 +176,7 @@ jobs:
                   console.log('PR body already contains an issue reference; no update needed.');
                 }
 
-                // Comment on the issue with the PR link and closing keyword
+                // Comment on the issue with the PR link and repo-qualified close
                 await github.rest.issues.createComment({
                   owner,
                   repo,
