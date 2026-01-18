@@ -96,7 +96,6 @@ interface AssessmentInviteEmailData {
 export async function sendContentEmail(data: ContentEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const isConfigured = await isGmailConfigured();
   if (!isConfigured) {
-    console.log('\n========== DEV MODE: EMAIL WOULD BE SENT ==========');
     console.log('To:', data.toEmail);
     console.log('Subject:', data.subject);
     console.log('Content Items:', data.contentItems.length);
@@ -105,7 +104,6 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
       console.log(`      View URL: ${item.viewUrl}`);
     });
     if (data.providerNote) console.log('Provider Note:', data.providerNote);
-    console.log('===================================================\n');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
@@ -180,11 +178,9 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
 export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const isConfigured = await isGmailConfigured();
   if (!isConfigured) {
-    console.log('\n========== DEV MODE: ASSESSMENT INVITE EMAIL ==========');
     console.log('To:', data.toEmail);
     console.log('Assessment Link:', data.assessmentLink);
     if (data.clinicianName) console.log('From Clinician:', data.clinicianName);
-    console.log('========================================================\n');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
@@ -251,10 +247,8 @@ interface PasswordResetEmailData {
 export async function sendPasswordResetEmail(data: PasswordResetEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const isConfigured = await isGmailConfigured();
   if (!isConfigured) {
-    console.log('\n========== DEV MODE: PASSWORD RESET EMAIL ==========');
     console.log('To:', data.toEmail);
     console.log('Reset Link:', data.resetLink);
-    console.log('=====================================================\n');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
@@ -312,14 +306,12 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
 export async function sendPatientPortalEmail(data: PatientPortalEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const isConfigured = await isGmailConfigured();
   if (!isConfigured) {
-    console.log('\n========== DEV MODE: PATIENT PORTAL EMAIL ==========');
     console.log('To:', data.toEmail);
     console.log('Subject:', data.subject);
     console.log('Access Code:', data.accessCode);
     console.log('Portal URL:', data.portalUrl);
     console.log('Content Count:', data.contentCount);
     if (data.providerNote) console.log('Provider Note:', data.providerNote);
-    console.log('=====================================================\n');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
