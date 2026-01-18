@@ -1,14 +1,15 @@
-# Create a feature branch + placeholder commit + PR when an issue is labeled "replit-ready".
+# Workflow: create a feature branch + placeholder commit + PR when an issue is labeled "replit-ready"
 # Behavior:
 # - Trigger: issue labeled
-# - Only runs when the added label is exactly "replit-ready"
-# - Requires an existing issue label that starts with "dev" (case-insensitive). If no such label is found the workflow comments on the issue and exits (it WILL NOT target the default branch).
-# - Uses the found dev-* label value (sanitized) as the base branch for the PR.
-# - Creates a feature branch named replit/issue-<number> (appends timestamp if exists), adds a placeholder file to ensure at least one commit, opens a PR against the dev branch, updates PR body to include repo-qualified "Closes owner/repo#N", and comments on the issue.
+# - Finds the most recently updated branch whose name starts with "dev" (case-insensitive) and uses that branch as the PR base
+# - If no "dev*" branch exists the workflow comments on the issue and exits (it will NOT target default branch)
+# - Creates feature branch replit/issue-<number> (appends timestamp if exists), adds a placeholder file (initial commit), opens a PR against the chosen dev branch,
+#   appends a repo-qualified "Closes owner/repo#<issue>" to the PR body, and comments the PR URL on the issue.
 #
 # Notes:
 # - Workflows must have write permission to contents, issues and pull-requests.
-# - The dev label must already exist on the issue (e.g. "Dev_26.2" or "dev-26.2"); the workflow will not create the dev branch for you.
+# - This selects the target dev branch by the latest commit timestamp among branches whose name starts with "dev".
+# - If you prefer a different selection rule (e.g., alphabetical or explicit target in the issue body), tell me and I can adapt it.
 
 permissions:
   contents: write
@@ -24,16 +25,15 @@ jobs:
     if: github.event.label && github.event.label.name == 'replit-ready'
     runs-on: ubuntu-latest
     steps:
-      - name: Create branch, add placeholder commit, and open PR targeting Dev_* branch
+      - name: Create branch, add placeholder commit, and open PR targeting latest dev* branch
         uses: actions/github-script@v6
         with:
           script: |
             (async () => {
               try {
-                // Only proceed when the added label is exactly 'replit-ready'
                 const addedLabel = context.payload.label && context.payload.label.name;
                 if (addedLabel !== 'replit-ready') {
-                  console.log(`Added label is "${addedLabel}" — nothing to do.`);
+                  console.log(`Added label is "${addedLabel}" — exiting.`);
                   return;
                 }
 
@@ -42,66 +42,62 @@ jobs:
                 const owner = context.repo.owner;
                 const repo = context.repo.repo;
 
-                // Find an issue label that starts with "dev" (case-insensitive)
-                const labels = issue.labels || [];
-                let rawBase = null;
-                for (const l of labels) {
-                  const name = (l && l.name) || '';
-                  if (/^dev/i.test(name)) {
-                    rawBase = name.trim();
-                    console.log(`Selected dev label "${rawBase}" as target base branch`);
-                    break;
-                  }
-                }
+                // 1) List all branches and filter for those starting with 'dev' (case-insensitive)
+                const allBranches = await github.paginate(github.rest.repos.listBranches, {
+                  owner,
+                  repo,
+                  per_page: 100
+                });
 
-                // If no dev-* label found, comment and exit (do NOT fall back to default branch)
-                if (!rawBase) {
-                  const msg = 'No label starting with "dev" found on this issue. Please add a label beginning with "dev" (for example "Dev_26.2") before adding "replit-ready". The workflow will not open a PR otherwise.';
-                  console.log(msg);
-                  await github.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number,
-                    body: msg
-                  });
-                  return;
-                }
-
-                // Sanitize base branch name: replace spaces, remove unsafe chars except . _ - / 
-                let baseBranch = rawBase.replace(/\s+/g, '_').replace(/[^A-Za-z0-9._\-\/]/g, '');
-                // trim leading/trailing ., -, /
-                baseBranch = baseBranch.replace(/^[-.\/]+|[-.\/]+$/g, '');
-                if (!baseBranch) {
-                  const msg = `Derived base branch name from label "${rawBase}" is empty after sanitization. Please use a simpler label.`;
+                const devBranches = allBranches.filter(b => /^dev/i.test(b.name));
+                if (!devBranches || devBranches.length === 0) {
+                  const msg = 'No active branch starting with "dev" was found in the repository. Please create a branch that starts with "dev" (for example "Dev_26.2") before adding the "replit-ready" label.';
                   console.log(msg);
                   await github.rest.issues.createComment({ owner, repo, issue_number, body: msg });
                   return;
                 }
 
-                // Verify base branch exists; if not, inform and stop (no fallback)
+                // 2) For each candidate dev branch, fetch branch info to get the latest commit timestamp
+                const branchesWithDates = [];
+                for (const b of devBranches) {
+                  try {
+                    const { data: branchInfo } = await github.rest.repos.getBranch({ owner, repo, branch: b.name });
+                    // Prefer commit.commit.committer.date, fallback to author date
+                    const commitObj = branchInfo.commit && branchInfo.commit.commit;
+                    const dateStr = (commitObj && (commitObj.committer && commitObj.committer.date)) || (commitObj && commitObj.author && commitObj.author.date) || null;
+                    const dateVal = dateStr ? Date.parse(dateStr) : 0;
+                    branchesWithDates.push({ name: b.name, date: dateVal });
+                  } catch (err) {
+                    console.log(`Warning: unable to get branch info for ${b.name}: ${err.message}`);
+                    // still include with date 0 to avoid dropping it silently
+                    branchesWithDates.push({ name: b.name, date: 0 });
+                  }
+                }
+
+                // 3) Sort by date descending and pick the most recently updated dev branch
+                branchesWithDates.sort((a, b) => b.date - a.date);
+                const targetBase = branchesWithDates[0].name;
+                console.log(`Selected target base branch: ${targetBase}`);
+
+                // Verify selected base exists (defensive)
                 try {
-                  await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
+                  await github.rest.repos.getBranch({ owner, repo, branch: targetBase });
                 } catch (err) {
-                  const msg = `Target branch "${baseBranch}" (from label "${rawBase}") does not exist. Please create it or use an existing dev-* label.`;
+                  const msg = `Selected target branch "${targetBase}" does not exist or is inaccessible. Aborting.`;
                   console.log(msg);
-                  await github.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number,
-                    body: msg
-                  });
+                  await github.rest.issues.createComment({ owner, repo, issue_number, body: msg });
                   return;
                 }
 
                 // Get commit SHA of the base branch to create the feature branch from
-                const { data: baseBranchData } = await github.rest.repos.getBranch({ owner, repo, branch: baseBranch });
+                const { data: baseBranchData } = await github.rest.repos.getBranch({ owner, repo, branch: targetBase });
                 const baseSha = baseBranchData.commit.sha;
 
-                // Create feature branch name and create it from the base branch
+                // Create feature branch name and create it from the base branch SHA
                 let branchName = `replit/issue-${issue_number}`;
                 try {
                   await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha: baseSha });
-                  console.log(`Created branch ${branchName} from ${baseBranch}@${baseSha}`);
+                  console.log(`Created branch ${branchName} from ${targetBase}@${baseSha}`);
                 } catch (err) {
                   console.log(`createRef failed: ${err.message}`);
                   branchName = `${branchName}-${Date.now()}`;
@@ -109,7 +105,7 @@ jobs:
                   console.log(`Created branch ${branchName} instead`);
                 }
 
-                // Add a placeholder file on the new branch so the PR has at least one commit
+                // Create a unique placeholder file path under .github to avoid conflicts and ensure a commit exists
                 const timestamp = Date.now();
                 const basePath = `.github/replit-placeholders`;
                 let placeholderPath = `${basePath}/issue-${issue_number}-${timestamp}.md`;
@@ -139,13 +135,13 @@ jobs:
                   throw new Error('Could not create placeholder file after several attempts');
                 }
 
-                // Create the PR targeting the selected dev base branch
+                // Create the PR targeting the chosen dev base branch
                 const { data: pr } = await github.rest.pulls.create({
                   owner,
                   repo,
                   title: `Replit-ready: work for issue #${issue_number}`,
                   head: branchName,
-                  base: baseBranch,
+                  base: targetBase,
                   body: `Automated PR created from issue #${issue_number} labeled "replit-ready".`
                 });
 
