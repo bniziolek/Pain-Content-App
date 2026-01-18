@@ -116,6 +116,13 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+    const getClientIp = (request: any): string => {
+      const forwarded = request.headers['x-forwarded-for'];
+      if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+      if (Array.isArray(forwarded)) return forwarded[0];
+      return request.socket?.remoteAddress || 'unknown';
+    };
+
     passport.authenticate("local", async (err: any, user: SelectUser | false, info: any) => {
       if (err) return next(err);
       if (!user) {
@@ -127,6 +134,23 @@ export function setupAuth(app: Express) {
           details: { reason: info?.message || 'invalid_credentials' },
           outcome: 'failure',
         });
+        
+        // Try to record failed login if user exists
+        const existingUser = await storage.getUserByEmail(req.body?.email);
+        if (existingUser) {
+          try {
+            await storage.createLoginHistory({
+              userId: existingUser.id,
+              ipAddress: getClientIp(req),
+              userAgent: req.headers['user-agent'] || 'unknown',
+              outcome: 'failure',
+              failureReason: info?.message || 'invalid_credentials',
+            });
+          } catch (e) {
+            console.error('Failed to log login history:', e);
+          }
+        }
+        
         return res.status(401).send(info?.message || "Authentication failed");
       }
       req.login(user, async (err) => {
@@ -135,6 +159,19 @@ export function setupAuth(app: Express) {
         await logClinicianAction(req, user, 'login', {
           details: { method: 'password' },
         });
+        
+        // Record successful login in history
+        try {
+          await storage.createLoginHistory({
+            userId: user.id,
+            ipAddress: getClientIp(req),
+            userAgent: req.headers['user-agent'] || 'unknown',
+            outcome: 'success',
+          });
+        } catch (e) {
+          console.error('Failed to log login history:', e);
+        }
+        
         res.status(200).json(user);
       });
     })(req, res, next);

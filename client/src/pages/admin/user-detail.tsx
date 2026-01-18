@@ -6,15 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { User, AdminNote, LoginHistory } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface ContentActivity {
+  contentId: string;
+  contentTitle: string;
+  patientEmail: string;
+  sentAt: string;
+  status: string;
+}
 
 export default function UserDetailPage() {
   const [, params] = useRoute("/admin/users/:id");
@@ -33,6 +43,9 @@ export default function UserDetailPage() {
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
+  const [newNote, setNewNote] = useState("");
+  const [addNoteDialogOpen, setAddNoteDialogOpen] = useState(false);
+
   const { data: user, isLoading } = useQuery({
     queryKey: ["admin-user", userId],
     queryFn: async () => {
@@ -43,6 +56,36 @@ export default function UserDetailPage() {
       setEditedEmail(userData.email);
       setEditedRole(userData.role as "clinician" | "admin");
       return userData;
+    },
+    enabled: !!userId,
+  });
+
+  const { data: adminNotes = [] } = useQuery<AdminNote[]>({
+    queryKey: ["admin-user-notes", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/notes`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch notes");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: loginHistory = [] } = useQuery<LoginHistory[]>({
+    queryKey: ["admin-user-login-history", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/login-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch login history");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: contentActivity = [] } = useQuery<ContentActivity[]>({
+    queryKey: ["admin-user-content-activity", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/content-activity`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch content activity");
+      return res.json();
     },
     enabled: !!userId,
   });
@@ -138,6 +181,88 @@ export default function UserDetailPage() {
     },
   });
 
+  const addNoteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ note: newNote }),
+      });
+      if (!res.ok) throw new Error("Failed to add note");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-notes", userId] });
+      setAddNoteDialogOpen(false);
+      setNewNote("");
+      toast({
+        title: "Note Added",
+        description: "Admin note has been added to this user.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Add Note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const res = await fetch(`/api/admin/notes/${noteId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete note");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-notes", userId] });
+      toast({
+        title: "Note Deleted",
+        description: "Admin note has been removed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Delete Note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/export`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to export user data");
+      
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `user-export-${userId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export Complete",
+        description: "User data has been downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export user data.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -169,7 +294,6 @@ export default function UserDetailPage() {
   return (
     <DashboardLayout>
       <div className="flex-1 p-8 overflow-auto">
-        {/* Header */}
         <div className="mb-6">
           <Link href="/admin/users">
             <Button variant="ghost" size="sm" className="mb-4" data-testid="button-back">
@@ -183,9 +307,15 @@ export default function UserDetailPage() {
               <h1 className="text-3xl font-bold mb-2">{user.name || "Unnamed User"}</h1>
               <p className="text-muted-foreground">{user.email}</p>
             </div>
-            <Badge variant={user.role === "admin" ? "destructive" : "secondary"} className="text-sm">
-              {user.role}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleExport} data-testid="button-export">
+                <Download className="w-4 h-4 mr-2" />
+                Export Data
+              </Button>
+              <Badge variant={user.role === "admin" ? "destructive" : "secondary"} className="text-sm">
+                {user.role}
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -194,10 +324,10 @@ export default function UserDetailPage() {
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="subscription" data-testid="tab-subscription">Subscription</TabsTrigger>
             <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
+            <TabsTrigger value="notes" data-testid="tab-notes">Notes</TabsTrigger>
             <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -364,7 +494,6 @@ export default function UserDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Subscription Tab */}
           <TabsContent value="subscription" className="space-y-6">
             <Card>
               <CardHeader>
@@ -385,6 +514,14 @@ export default function UserDetailPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
+                    <Label>Tier</Label>
+                    <div>
+                      <Badge variant="outline" className="capitalize">
+                        {user.subscriptionTier || "basic"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
                     <Label>Subscription End Date</Label>
                     <p className="text-sm font-medium">
                       {user.subscriptionPeriodEnd
@@ -401,12 +538,6 @@ export default function UserDetailPage() {
                     <div className="space-y-2">
                       <Label>Stripe Customer ID</Label>
                       <p className="text-sm font-mono text-muted-foreground">{user.stripeCustomerId}</p>
-                    </div>
-                  )}
-                  {user.stripeSubscriptionId && (
-                    <div className="space-y-2">
-                      <Label>Stripe Subscription ID</Label>
-                      <p className="text-sm font-mono text-muted-foreground">{user.stripeSubscriptionId}</p>
                     </div>
                   )}
                 </div>
@@ -432,52 +563,144 @@ export default function UserDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Activity Tab */}
           <TabsContent value="activity" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Activity Log</CardTitle>
-                <CardDescription>Recent user actions and events</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <LogIn className="h-5 w-5" />
+                  Login History
+                </CardTitle>
+                <CardDescription>Recent login attempts for this user</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 text-sm">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
-                    <div className="flex-1">
-                      <p className="font-medium">Account Created</p>
-                      <p className="text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  {user.lastLogin && (
-                    <div className="flex items-start gap-4 text-sm">
-                      <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
-                      <div className="flex-1">
-                        <p className="font-medium">Last Login</p>
-                        <p className="text-muted-foreground">
-                          {new Date(user.lastLogin).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {user.subscriptionPeriodEnd && (
-                    <div className="flex items-start gap-4 text-sm">
-                      <div className="w-2 h-2 mt-2 rounded-full bg-green-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">Subscription Active</p>
-                        <p className="text-muted-foreground">
-                          Until {new Date(user.subscriptionPeriodEnd).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {loginHistory.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>User Agent</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loginHistory.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell>
+                            {entry.outcome === "success" ? (
+                              <Badge className="bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> Success</Badge>
+                            ) : (
+                              <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{entry.ipAddress || "—"}</TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate">{entry.userAgent || "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No login history available</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Content Activity
+                </CardTitle>
+                <CardDescription>Content sent to patients by this user</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {contentActivity.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Content</TableHead>
+                        <TableHead>Patient Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Sent</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {contentActivity.slice(0, 20).map((activity, idx) => (
+                        <TableRow key={`${activity.contentId}-${idx}`}>
+                          <TableCell className="font-medium">{activity.contentTitle}</TableCell>
+                          <TableCell>{activity.patientEmail}</TableCell>
+                          <TableCell>
+                            <Badge variant={activity.status === "clicked" ? "default" : "outline"}>
+                              {activity.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(activity.sentAt), { addSuffix: true })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No content activity found</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Billing Tab */}
+          <TabsContent value="notes" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Admin Notes
+                  </CardTitle>
+                  <CardDescription>Internal notes about this user</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setAddNoteDialogOpen(true)} data-testid="button-add-note">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Note
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {adminNotes.length > 0 ? (
+                  <div className="space-y-4">
+                    {adminNotes.map((note) => (
+                      <div key={note.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm whitespace-pre-wrap">{note.note}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm("Delete this note?")) {
+                                deleteNoteMutation.mutate(note.id);
+                              }
+                            }}
+                            data-testid={`button-delete-note-${note.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No notes added yet</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="billing" className="space-y-6">
             <Card>
               <CardHeader>
@@ -492,6 +715,12 @@ export default function UserDetailPage() {
                         <Label>Stripe Customer</Label>
                         <p className="text-sm font-mono">{user.stripeCustomerId}</p>
                       </div>
+                      {user.stripeSubscriptionId && (
+                        <div className="space-y-2">
+                          <Label>Stripe Subscription</Label>
+                          <p className="text-sm font-mono">{user.stripeSubscriptionId}</p>
+                        </div>
+                      )}
                       <p className="text-sm text-muted-foreground">
                         Detailed billing statements will appear here once Stripe integration is fully configured.
                       </p>
@@ -507,7 +736,6 @@ export default function UserDetailPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Extend Subscription Dialog */}
         <Dialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -553,7 +781,6 @@ export default function UserDetailPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Reset Password Dialog */}
         <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -588,6 +815,45 @@ export default function UserDetailPage() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 )}
                 Reset Password
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={addNoteDialogOpen} onOpenChange={setAddNoteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Admin Note</DialogTitle>
+              <DialogDescription>
+                Add an internal note about {user.name || user.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-note">Note</Label>
+                <Textarea
+                  id="new-note"
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Enter your note..."
+                  rows={4}
+                  data-testid="input-new-note"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddNoteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => addNoteMutation.mutate()}
+                disabled={!newNote.trim() || addNoteMutation.isPending}
+                data-testid="button-confirm-add-note"
+              >
+                {addNoteMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Add Note
               </Button>
             </DialogFooter>
           </DialogContent>
