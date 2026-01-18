@@ -219,6 +219,14 @@ export async function seedDatabase() {
       value: null,
       category: "features",
     },
+    {
+      key: "pro_tier_enabled",
+      name: "Pro Tier",
+      description: "Enable the Pro subscription tier. When disabled, only Basic tier is available for new subscriptions.",
+      isEnabled: true,
+      value: null,
+      category: "billing",
+    },
   ];
 
   try {

@@ -1887,6 +1887,104 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get available products and prices from Stripe
+  app.get("/api/subscription/plans", async (_req, res, next) => {
+    try {
+      const { db } = await import("./storage");
+      const { sql } = await import("drizzle-orm");
+      
+      // Query products and prices from stripe schema
+      const result = await db.execute(sql`
+        SELECT 
+          p.id as product_id,
+          p.name as product_name,
+          p.description as product_description,
+          p.metadata as product_metadata,
+          pr.id as price_id,
+          pr.unit_amount,
+          pr.currency,
+          pr.recurring,
+          pr.metadata as price_metadata
+        FROM stripe.products p
+        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+        WHERE p.active = true
+        ORDER BY pr.unit_amount ASC
+      `);
+
+      // Group by product
+      const productsMap = new Map();
+      for (const row of result.rows as any[]) {
+        if (!productsMap.has(row.product_id)) {
+          productsMap.set(row.product_id, {
+            id: row.product_id,
+            name: row.product_name,
+            description: row.product_description,
+            metadata: row.product_metadata,
+            prices: []
+          });
+        }
+        if (row.price_id) {
+          productsMap.get(row.product_id).prices.push({
+            id: row.price_id,
+            unitAmount: row.unit_amount,
+            currency: row.currency,
+            recurring: row.recurring,
+            metadata: row.price_metadata,
+          });
+        }
+      }
+
+      res.json({ plans: Array.from(productsMap.values()) });
+    } catch (error) {
+      // Return empty plans if Stripe schema not ready
+      console.error("Error fetching plans:", error);
+      res.json({ plans: [] });
+    }
+  });
+
+  // Get feature flags relevant to subscription page (public endpoint)
+  app.get("/api/subscription/feature-flags", async (_req, res, next) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      // Only return billing-related flags
+      const billingFlags = flags
+        .filter(f => f.category === "billing" || f.key === "pro_tier_enabled")
+        .map(f => ({ key: f.key, isEnabled: f.isEnabled }));
+      res.json({ flags: billingFlags });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Create Stripe checkout session
+  app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+    try {
+      const { priceId, tier } = req.body;
+      if (!priceId || !tier) {
+        return res.status(400).json({ message: "priceId and tier are required" });
+      }
+      // Stripe checkout integration not yet configured
+      // For now, return an error directing users to contact support
+      res.status(503).json({ 
+        message: "Payment processing is being set up. Please try again later or contact support." 
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Stripe customer portal for managing billing
+  app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+    try {
+      // Stripe portal integration not yet configured
+      res.status(503).json({ 
+        message: "Billing portal is being set up. Please try again later or contact support." 
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // ====== Stats/Dashboard Routes ======
   app.get("/api/stats", requireSubscription, async (req, res, next) => {
     try {
