@@ -1,0 +1,76 @@
+# GitHub Actions workflow: create a branch + PR when an issue is labeled "replit-ready".
+# Behavior:
+#  - Trigger: issue labeled
+#  - If label is exactly "replit-ready": create a branch from default_branch, create a PR, comment PR URL on the issue
+# Notes:
+#  - The workflow uses the built-in GITHUB_TOKEN. Ensure repository Actions permissions allow workflows to create branches, issues, and pull requests.
+#  - If you prefer a different branch naming pattern or PR title/body, tell me and I'll update the file.
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  create_branch_and_pr:
+    if: github.event.label && github.event.label.name == 'replit-ready'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create branch and PR for replit-ready issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const label = context.payload.label && context.payload.label.name;
+            if (label !== 'replit-ready') {
+              core.info(`Label is "${label}" — nothing to do.`);
+              return;
+            }
+
+            const issue_number = context.payload.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Get default branch and its commit SHA
+            const { data: repoData } = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repoData.default_branch;
+            const { data: branchData } = await github.rest.repos.getBranch({ owner, repo, branch: defaultBranch });
+            const sha = branchData.commit.sha;
+
+            // Prepare branch name
+            let branchName = `replit/issue-${issue_number}`;
+
+            // Create branch ref from default branch commit SHA. If the branch already exists, append a timestamp.
+            try {
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
+              core.info(`Created branch ${branchName} from ${defaultBranch}@${sha}`);
+            } catch (err) {
+              core.info(`createRef failed: ${err.message}`);
+              // If ref already exists, create a unique branch name
+              branchName = `${branchName}-${Date.now()}`;
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
+              core.info(`Created branch ${branchName} instead`);
+            }
+
+            // Create a PR from the new branch to the default branch
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: `Replit-ready: work for issue #${issue_number}`,
+              head: branchName,
+              base: defaultBranch,
+              body: `Automated PR created from issue #${issue_number} labeled "replit-ready".\n\nCloses #${issue_number}`
+            });
+
+            core.info(`Created PR: ${pr.html_url}`);
+
+            // Post PR link back to the issue
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `Created PR: ${pr.html_url}`
+            });
