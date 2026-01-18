@@ -1,6 +1,6 @@
 # GitHub Actions workflow: create a branch + PR when an issue is labeled "replit-ready".
-# Fix: ensure the new branch has at least one commit by creating a unique placeholder file
-#       before attempting to open the PR (avoids "No commits between ..." error).
+# Ensures the new branch has at least one commit by creating a placeholder
+# file in .github/replit-placeholders/ to avoid conflicts with a possible .replit file.
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ jobs:
           script: |
             const label = context.payload.label && context.payload.label.name;
             if (label !== 'replit-ready') {
-              core.info(`Label is "${label}" — nothing to do.`);
+              console.log(`Label is "${label}" — nothing to do.`);
               return;
             }
 
@@ -39,34 +39,48 @@ jobs:
             // Prepare branch name
             let branchName = `replit/issue-${issue_number}`;
 
-            // Create branch ref from default branch commit SHA. If the branch already exists, append a timestamp.
+            // Create branch ref from default branch commit SHA. If branch exists, append timestamp
             try {
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
-              core.info(`Created branch ${branchName} from ${defaultBranch}@${sha}`);
+              console.log(`Created branch ${branchName} from ${defaultBranch}@${sha}`);
             } catch (err) {
-              core.info(`createRef failed: ${err.message}`);
-              // If ref already exists, create a unique branch name
+              console.log(`createRef failed: ${err.message}`);
               branchName = `${branchName}-${Date.now()}`;
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
-              core.info(`Created branch ${branchName} instead`);
+              console.log(`Created branch ${branchName} instead`);
             }
 
-            // Create a unique placeholder file on the new branch to ensure there is at least one commit
+            // Create a unique placeholder file path under .github to avoid conflicts with .replit file
             const timestamp = Date.now();
-            const placeholderPath = `.replit/issue-${issue_number}-${timestamp}.md`;
+            const basePath = `.github/replit-placeholders`;
+            let placeholderPath = `${basePath}/issue-${issue_number}-${timestamp}.md`;
             const placeholderContent = `# Placeholder for issue #${issue_number}\n\nCreated by workflow at ${new Date().toISOString()}\n`;
             const contentBase64 = Buffer.from(placeholderContent, 'utf8').toString('base64');
 
-            await github.rest.repos.createOrUpdateFileContents({
-              owner,
-              repo,
-              path: placeholderPath,
-              message: `chore: add placeholder for issue #${issue_number}`,
-              content: contentBase64,
-              branch: branchName
-            });
+            // Try to create the file; if a conflict occurs, retry with a new timestamped name
+            let created = false;
+            for (let attempt = 0; attempt < 3 && !created; attempt++) {
+              try {
+                await github.rest.repos.createOrUpdateFileContents({
+                  owner,
+                  repo,
+                  path: placeholderPath,
+                  message: `chore: add placeholder for issue #${issue_number}`,
+                  content: contentBase64,
+                  branch: branchName
+                });
+                created = true;
+                console.log(`Added placeholder file ${placeholderPath} on ${branchName}`);
+              } catch (err) {
+                // If file exists or other conflict, pick a new unique path and retry
+                console.log(`Failed to create ${placeholderPath}: ${err.message}`);
+                placeholderPath = `${basePath}/issue-${issue_number}-${Date.now()}-${attempt}.md`;
+              }
+            }
 
-            core.info(`Added placeholder file ${placeholderPath} on ${branchName}`);
+            if (!created) {
+              throw new Error('Could not create placeholder file after several attempts');
+            }
 
             // Create a PR from the new branch to the default branch
             const { data: pr } = await github.rest.pulls.create({
@@ -78,7 +92,7 @@ jobs:
               body: `Automated PR created from issue #${issue_number} labeled "replit-ready".\n\nCloses #${issue_number}`
             });
 
-            core.info(`Created PR: ${pr.html_url}`);
+            console.log(`Created PR: ${pr.html_url}`);
 
             // Post PR link back to the issue
             await github.rest.issues.createComment({
