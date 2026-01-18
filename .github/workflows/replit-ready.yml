@@ -1,10 +1,6 @@
 # GitHub Actions workflow: create a branch + PR when an issue is labeled "replit-ready".
-# Behavior:
-#  - Trigger: issue labeled
-#  - If label is exactly "replit-ready": create a branch from default_branch, create a PR, comment PR URL on the issue
-# Notes:
-#  - The workflow uses the built-in GITHUB_TOKEN. Ensure repository Actions permissions allow workflows to create branches, issues, and pull requests.
-#  - If you prefer a different branch naming pattern or PR title/body, tell me and I'll update the file.
+# Fix: ensure the new branch has at least one commit by creating a unique placeholder file
+#       before attempting to open the PR (avoids "No commits between ..." error).
 
 permissions:
   contents: write
@@ -20,7 +16,7 @@ jobs:
     if: github.event.label && github.event.label.name == 'replit-ready'
     runs-on: ubuntu-latest
     steps:
-      - name: Create branch and PR for replit-ready issue
+      - name: Create branch, add placeholder commit, and open PR
         uses: actions/github-script@v6
         with:
           script: |
@@ -54,6 +50,23 @@ jobs:
               await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha });
               core.info(`Created branch ${branchName} instead`);
             }
+
+            // Create a unique placeholder file on the new branch to ensure there is at least one commit
+            const timestamp = Date.now();
+            const placeholderPath = `.replit/issue-${issue_number}-${timestamp}.md`;
+            const placeholderContent = `# Placeholder for issue #${issue_number}\n\nCreated by workflow at ${new Date().toISOString()}\n`;
+            const contentBase64 = Buffer.from(placeholderContent, 'utf8').toString('base64');
+
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path: placeholderPath,
+              message: `chore: add placeholder for issue #${issue_number}`,
+              content: contentBase64,
+              branch: branchName
+            });
+
+            core.info(`Added placeholder file ${placeholderPath} on ${branchName}`);
 
             // Create a PR from the new branch to the default branch
             const { data: pr } = await github.rest.pulls.create({
