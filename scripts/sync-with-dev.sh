@@ -6,7 +6,7 @@
 # Update DEV_BRANCH below every two weeks when you merge into main
 # =============================================================================
 
-DEV_BRANCH="dev"
+DEV_BRANCH="Dev_26.2"
 
 # Get current branch name
 CURRENT_BRANCH=$(git branch --show-current)
@@ -20,6 +20,16 @@ fi
 echo "========================================"
 echo "Syncing $CURRENT_BRANCH with $DEV_BRANCH"
 echo "========================================"
+
+# Check for uncommitted changes and commit them
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Uncommitted changes detected. Committing them..."
+  git add .
+  git commit -m "WIP: Auto-commit before syncing with $DEV_BRANCH"
+  echo "Changes committed."
+else
+  echo "No uncommitted changes."
+fi
 
 # Fetch latest from remote
 echo "Fetching latest from remote..."
