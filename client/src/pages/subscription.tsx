@@ -2,19 +2,11 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-<<<<<<< HEAD
 import { Activity, Check, Crown, Loader2, Settings, Sparkles, X, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-=======
-import { Activity, Check, Crown, Loader2, Settings, Sparkles, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
 
 interface Price {
   id: string;
@@ -32,14 +24,11 @@ interface Plan {
   prices: Price[];
 }
 
-<<<<<<< HEAD
-=======
 interface FeatureFlag {
   key: string;
   isEnabled: boolean;
 }
 
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
 const TIER_FEATURES = {
   basic: [
     { name: "Content Library Access", included: true },
@@ -76,17 +65,11 @@ export default function SubscriptionPage() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-<<<<<<< HEAD
-
-  useEffect(() => {
-    fetchPlans();
-=======
   const [proTierEnabled, setProTierEnabled] = useState(true);
 
   useEffect(() => {
     fetchPlans();
     fetchFeatureFlags();
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
   }, []);
 
   const fetchPlans = async () => {
@@ -103,8 +86,6 @@ export default function SubscriptionPage() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const fetchFeatureFlags = async () => {
     try {
       const res = await fetch("/api/subscription/feature-flags", { credentials: "include" });
@@ -120,7 +101,6 @@ export default function SubscriptionPage() {
     }
   };
 
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
   const handleCheckout = async (priceId: string, tier: string) => {
     setCheckoutLoading(priceId);
     try {
@@ -250,205 +230,6 @@ export default function SubscriptionPage() {
             </CardContent>
           </Card>
         )}
-<<<<<<< HEAD
-
-        <div className="flex justify-center">
-          <Tabs
-            value={billingInterval}
-            onValueChange={(v) => setBillingInterval(v as "month" | "year")}
-            className="w-fit"
-          >
-            <TabsList>
-              <TabsTrigger value="month" data-testid="tab-monthly">
-                Monthly
-              </TabsTrigger>
-              <TabsTrigger value="year" data-testid="tab-annual">
-                Annual
-                <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">
-                  Save 17%
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {loadingPlans ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card
-              className={`relative transition-all border-2 ${
-                currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
-              }`}
-            >
-              {currentTier === "basic" && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>
-              )}
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-500" />
-                  Basic
-                </CardTitle>
-                <CardDescription>
-                  Essential tools for solo practitioners getting started with evidence-based education.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {basicPlan ? (
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">
-                      {formatPrice(
-                        getPrice(basicPlan, billingInterval)?.unitAmount || 1900,
-                        getPrice(basicPlan, billingInterval)?.currency || "usd"
-                      )}
-                    </span>
-                    <span className="text-lg text-muted-foreground">
-                      /{billingInterval === "year" ? "year" : "mo"}
-                    </span>
-                    {billingInterval === "year" && (
-                      <p className="text-sm text-green-600 mt-1">
-                        That's {formatPrice(Math.round((getPrice(basicPlan, "year")?.unitAmount || 19000) / 12), "usd")}/mo billed annually
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">$19</span>
-                    <span className="text-lg text-muted-foreground">/mo</span>
-                  </div>
-                )}
-                <ul className="space-y-3">
-                  {TIER_FEATURES.basic.map((feature) => (
-                    <li key={feature.name} className="flex items-center gap-2 text-sm">
-                      {feature.included ? (
-                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <X className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                      )}
-                      <span className={feature.included ? "" : "text-muted-foreground"}>
-                        {feature.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter>
-                {currentTier === "basic" ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    Current Plan
-                  </Button>
-                ) : currentTier === "pro" ? (
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={handleManageSubscription}
-                    disabled={isLoading}
-                    data-testid="button-downgrade-basic"
-                  >
-                    Downgrade to Basic
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      const price = getPrice(basicPlan!, billingInterval);
-                      if (price) handleCheckout(price.id, "basic");
-                    }}
-                    disabled={!basicPlan || checkoutLoading !== null}
-                    data-testid="button-subscribe-basic"
-                  >
-                    {checkoutLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : null}
-                    Get Started
-                  </Button>
-                )}
-              </CardFooter>
-            </Card>
-
-            <Card
-              className={`relative transition-all border-2 ${
-                currentTier === "pro" ? "border-primary shadow-lg" : "border-amber-200 shadow-md"
-              }`}
-            >
-              {currentTier === "pro" ? (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>
-              ) : (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500">
-                  Most Popular
-                </Badge>
-              )}
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="w-5 h-5 text-amber-500" />
-                  Pro
-                </CardTitle>
-                <CardDescription>
-                  Complete toolkit for practices ready to scale with full patient engagement features.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {proPlan ? (
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">
-                      {formatPrice(
-                        getPrice(proPlan, billingInterval)?.unitAmount || 2900,
-                        getPrice(proPlan, billingInterval)?.currency || "usd"
-                      )}
-                    </span>
-                    <span className="text-lg text-muted-foreground">
-                      /{billingInterval === "year" ? "year" : "mo"}
-                    </span>
-                    {billingInterval === "year" && (
-                      <p className="text-sm text-green-600 mt-1">
-                        That's {formatPrice(Math.round((getPrice(proPlan, "year")?.unitAmount || 29000) / 12), "usd")}/mo billed annually
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">$29</span>
-                    <span className="text-lg text-muted-foreground">/mo</span>
-                  </div>
-                )}
-                <ul className="space-y-3">
-                  {TIER_FEATURES.pro.map((feature) => (
-                    <li key={feature.name} className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      {feature.name}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter>
-                {currentTier === "pro" ? (
-                  <Button className="w-full" variant="outline" disabled>
-                    Current Plan
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full bg-amber-500 hover:bg-amber-600"
-                    onClick={() => {
-                      const price = getPrice(proPlan!, billingInterval);
-                      if (price) handleCheckout(price.id, "pro");
-                    }}
-                    disabled={!proPlan || checkoutLoading !== null}
-                    data-testid="button-subscribe-pro"
-                  >
-                    {checkoutLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : null}
-                    {currentTier === "basic" ? "Upgrade to Pro" : "Get Started"}
-                  </Button>
-                )}
-              </CardFooter>
-            </Card>
-          </div>
-        )}
-
-=======
 
         <div className="flex justify-center">
           <Tabs
@@ -476,7 +257,6 @@ export default function SubscriptionPage() {
           </div>
         ) : (
           <div className={`grid gap-8 ${proTierEnabled ? "md:grid-cols-2" : "md:grid-cols-1 max-w-lg mx-auto"}`}>
-            {/* Basic Plan */}
             <Card
               className={`relative transition-all border-2 ${
                 currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
@@ -567,7 +347,6 @@ export default function SubscriptionPage() {
               </CardFooter>
             </Card>
 
-            {/* Pro Plan - Only shown when feature flag is enabled */}
             {proTierEnabled && (
               <Card
                 className={`relative transition-all border-2 ${
@@ -650,26 +429,15 @@ export default function SubscriptionPage() {
           </div>
         )}
 
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
-        <div className="text-center space-y-4 pt-4">
+        <div className="text-center space-y-4 pt-8">
           <p className="text-sm text-muted-foreground">
             All plans include a 14-day free trial. Cancel anytime.
           </p>
-          <div className="flex justify-center gap-4">
-            {user ? (
-              <Link href="/dashboard">
-                <Button variant="link" className="text-muted-foreground">
-                  Back to Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <Link href="/auth">
-                <Button variant="link" className="text-muted-foreground">
-                  Return to Login
-                </Button>
-              </Link>
-            )}
-          </div>
+          <Button variant="ghost" asChild>
+            <Link href="/dashboard">
+              ← Back to Dashboard
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

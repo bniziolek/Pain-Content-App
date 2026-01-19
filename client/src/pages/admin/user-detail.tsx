@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { User, AdminNote, LoginHistory } from "@shared/schema";
@@ -45,6 +45,9 @@ export default function UserDetailPage() {
 
   const [newNote, setNewNote] = useState("");
   const [addNoteDialogOpen, setAddNoteDialogOpen] = useState(false);
+
+  const [changeTierDialogOpen, setChangeTierDialogOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<string>("");
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["admin-user", userId],
@@ -147,6 +150,39 @@ export default function UserDetailPage() {
     onError: (error: Error) => {
       toast({
         title: "Extension Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changeTierMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/tier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ tier: selectedTier }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to change tier");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setChangeTierDialogOpen(false);
+      setSelectedTier("");
+      toast({
+        title: "Tier Changed",
+        description: `User tier updated to ${selectedTier}.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Tier Change Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -516,9 +552,23 @@ export default function UserDetailPage() {
                   <div className="space-y-2">
                     <Label>Tier</Label>
                     <div>
-                      <Badge variant="outline" className="capitalize">
-                        {user.subscriptionTier || "basic"}
-                      </Badge>
+                      {(() => {
+                        const tier = user.subscriptionTier || "basic";
+                        const tierConfig: Record<string, { className: string; icon?: typeof Crown }> = {
+                          free: { className: "bg-gray-100 text-gray-600" },
+                          basic: { className: "bg-blue-100 text-blue-600", icon: Sparkles },
+                          pro: { className: "bg-amber-100 text-amber-600", icon: Crown },
+                          enterprise: { className: "bg-purple-100 text-purple-600", icon: Crown },
+                        };
+                        const config = tierConfig[tier] || tierConfig.basic;
+                        const Icon = config.icon;
+                        return (
+                          <Badge variant="outline" className={config.className}>
+                            {Icon && <Icon className="w-3 h-3 mr-1" />}
+                            {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -546,7 +596,7 @@ export default function UserDetailPage() {
 
                 <div className="space-y-4">
                   <h3 className="font-semibold">Subscription Actions</h3>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <Button
                       variant="outline"
                       size="sm"
@@ -556,6 +606,19 @@ export default function UserDetailPage() {
                     >
                       <Clock className="w-4 h-4 mr-2" />
                       Extend Subscription
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTier(user.subscriptionTier || "basic");
+                        setChangeTierDialogOpen(true);
+                      }}
+                      disabled={user.role === "admin"}
+                      data-testid="button-change-tier"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Change Tier
                     </Button>
                   </div>
                 </div>
@@ -854,6 +917,68 @@ export default function UserDetailPage() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 )}
                 Add Note
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={changeTierDialogOpen} onOpenChange={setChangeTierDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change Subscription Tier</DialogTitle>
+              <DialogDescription>
+                Update the subscription tier for {user.name || user.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="tier-select">Select Tier</Label>
+                <Select value={selectedTier} onValueChange={setSelectedTier}>
+                  <SelectTrigger id="tier-select" data-testid="select-tier">
+                    <SelectValue placeholder="Select a tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basic">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-blue-600" />
+                        Basic
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="pro">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-amber-600" />
+                        Pro
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="enterprise">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-purple-600" />
+                        Enterprise
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Current tier: <span className="font-medium capitalize">{user.subscriptionTier || "basic"}</span>
+              </p>
+              <p className="text-xs text-amber-600">
+                Note: Changing a tier manually will override any Stripe subscription tier. The user's billing will not be affected.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChangeTierDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => changeTierMutation.mutate()}
+                disabled={!selectedTier || selectedTier === (user.subscriptionTier || "basic") || changeTierMutation.isPending}
+                data-testid="button-confirm-tier-change"
+              >
+                {changeTierMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Change Tier
               </Button>
             </DialogFooter>
           </DialogContent>
