@@ -56,7 +56,7 @@ import {
 import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, gte, lte, count, sql, isNull } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -305,6 +305,24 @@ export interface IStorage {
     sentAt: Date;
     status: string;
   }>>;
+
+  // Favorites
+  getUserFavorites(userId: string): Promise<Array<{ contentId: string; title: string; createdAt: Date }>>;
+  addFavorite(userId: string, contentId: string): Promise<void>;
+  removeFavorite(userId: string, contentId: string): Promise<void>;
+  isFavorite(userId: string, contentId: string): Promise<boolean>;
+  getFrequentlyUsedContent(userId: string, limit?: number): Promise<Array<{ contentId: string; title: string; sendCount: number }>>;
+
+  // Collections
+  getUserCollections(userId: string): Promise<schema.ContentCollection[]>;
+  getCollectionById(id: string): Promise<schema.ContentCollection | undefined>;
+  createCollection(collection: schema.InsertContentCollection): Promise<schema.ContentCollection>;
+  updateCollection(id: string, updates: { name?: string; description?: string; sortOrder?: number }): Promise<schema.ContentCollection | undefined>;
+  deleteCollection(id: string): Promise<void>;
+  getCollectionItems(collectionId: string): Promise<schema.CollectionItem[]>;
+  addItemToCollection(collectionId: string, contentId: string, sortOrder?: number): Promise<void>;
+  removeItemFromCollection(collectionId: string, contentId: string): Promise<void>;
+  reorderCollectionItems(collectionId: string, items: Array<{ contentId: string; sortOrder: number }>): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -1557,6 +1575,152 @@ export class DatabaseStorage implements IStorage {
     });
 
     return result;
+  }
+
+  // Favorites methods
+  async getUserFavorites(userId: string): Promise<Array<{ contentId: string; title: string; createdAt: Date }>> {
+    const favorites = await db.select({
+      contentId: schema.userFavorites.contentId,
+      title: schema.contentItems.title,
+      createdAt: schema.userFavorites.createdAt,
+    })
+    .from(schema.userFavorites)
+    .leftJoin(schema.contentItems, eq(schema.userFavorites.contentId, schema.contentItems.id))
+    .where(eq(schema.userFavorites.userId, userId))
+    .orderBy(desc(schema.userFavorites.createdAt));
+    return favorites.map(f => ({
+      contentId: f.contentId,
+      title: f.title || 'Unknown Content',
+      createdAt: f.createdAt,
+    }));
+  }
+
+  async addFavorite(userId: string, contentId: string): Promise<void> {
+    await db.insert(schema.userFavorites)
+      .values({ userId, contentId })
+      .onConflictDoNothing();
+  }
+
+  async removeFavorite(userId: string, contentId: string): Promise<void> {
+    await db.delete(schema.userFavorites)
+      .where(and(
+        eq(schema.userFavorites.userId, userId),
+        eq(schema.userFavorites.contentId, contentId)
+      ));
+  }
+
+  async isFavorite(userId: string, contentId: string): Promise<boolean> {
+    const [fav] = await db.select()
+      .from(schema.userFavorites)
+      .where(and(
+        eq(schema.userFavorites.userId, userId),
+        eq(schema.userFavorites.contentId, contentId)
+      ));
+    return !!fav;
+  }
+
+  async getFrequentlyUsedContent(userId: string, limit: number = 10): Promise<Array<{ contentId: string; title: string; sendCount: number }>> {
+    const logs = await db.select({
+      contentIds: schema.emailLogs.contentIds,
+    })
+    .from(schema.emailLogs)
+    .where(eq(schema.emailLogs.clinicianUserId, userId));
+
+    const counts = new Map<string, number>();
+    logs.forEach(log => {
+      (log.contentIds || []).forEach(id => {
+        counts.set(id, (counts.get(id) || 0) + 1);
+      });
+    });
+
+    const sorted = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit);
+
+    if (sorted.length === 0) return [];
+
+    const contentIds = sorted.map(([id]) => id);
+    const contentItems = await db.select({
+      id: schema.contentItems.id,
+      title: schema.contentItems.title,
+    })
+    .from(schema.contentItems)
+    .where(inArray(schema.contentItems.id, contentIds));
+
+    const titleMap = new Map(contentItems.map(c => [c.id, c.title]));
+
+    return sorted.map(([contentId, sendCount]) => ({
+      contentId,
+      title: titleMap.get(contentId) || 'Unknown Content',
+      sendCount,
+    }));
+  }
+
+  // Collections methods
+  async getUserCollections(userId: string): Promise<schema.ContentCollection[]> {
+    return await db.select()
+      .from(schema.contentCollections)
+      .where(eq(schema.contentCollections.userId, userId))
+      .orderBy(schema.contentCollections.sortOrder);
+  }
+
+  async getCollectionById(id: string): Promise<schema.ContentCollection | undefined> {
+    const [collection] = await db.select()
+      .from(schema.contentCollections)
+      .where(eq(schema.contentCollections.id, id));
+    return collection;
+  }
+
+  async createCollection(collection: schema.InsertContentCollection): Promise<schema.ContentCollection> {
+    const [created] = await db.insert(schema.contentCollections)
+      .values(collection)
+      .returning();
+    return created!;
+  }
+
+  async updateCollection(id: string, updates: { name?: string; description?: string; sortOrder?: number }): Promise<schema.ContentCollection | undefined> {
+    const [updated] = await db.update(schema.contentCollections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.contentCollections.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCollection(id: string): Promise<void> {
+    await db.delete(schema.collectionItems).where(eq(schema.collectionItems.collectionId, id));
+    await db.delete(schema.contentCollections).where(eq(schema.contentCollections.id, id));
+  }
+
+  async getCollectionItems(collectionId: string): Promise<schema.CollectionItem[]> {
+    return await db.select()
+      .from(schema.collectionItems)
+      .where(eq(schema.collectionItems.collectionId, collectionId))
+      .orderBy(schema.collectionItems.sortOrder);
+  }
+
+  async addItemToCollection(collectionId: string, contentId: string, sortOrder: number = 0): Promise<void> {
+    await db.insert(schema.collectionItems)
+      .values({ collectionId, contentId, sortOrder })
+      .onConflictDoNothing();
+  }
+
+  async removeItemFromCollection(collectionId: string, contentId: string): Promise<void> {
+    await db.delete(schema.collectionItems)
+      .where(and(
+        eq(schema.collectionItems.collectionId, collectionId),
+        eq(schema.collectionItems.contentId, contentId)
+      ));
+  }
+
+  async reorderCollectionItems(collectionId: string, items: Array<{ contentId: string; sortOrder: number }>): Promise<void> {
+    for (const item of items) {
+      await db.update(schema.collectionItems)
+        .set({ sortOrder: item.sortOrder })
+        .where(and(
+          eq(schema.collectionItems.collectionId, collectionId),
+          eq(schema.collectionItems.contentId, item.contentId)
+        ));
+    }
   }
 }
 

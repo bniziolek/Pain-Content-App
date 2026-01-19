@@ -36,7 +36,7 @@ async function main() {
   const owner = parts[0];
   const repo = parts[1];
   
-  const issue = await octokit.issues.get({ owner, repo, issue_number: 25 });
+  const issue = await octokit.issues.get({ owner, repo, issue_number: 48 });
   console.log(JSON.stringify(issue.data, null, 2));
 }
 
