@@ -28,6 +28,12 @@ async function getAccessToken() {
 }
 
 async function main() {
+  const issueNumber = parseInt(process.argv[2], 10);
+  if (!issueNumber) {
+    console.error('Usage: npx tsx scripts/fetch_issue.ts <issue_number>');
+    process.exit(1);
+  }
+
   const token = await getAccessToken();
   const octokit = new Octokit({ auth: token });
   
@@ -36,7 +42,7 @@ async function main() {
   const owner = parts[0];
   const repo = parts[1];
   
-  const issue = await octokit.issues.get({ owner, repo, issue_number: 48 });
+  const issue = await octokit.issues.get({ owner, repo, issue_number: issueNumber });
   console.log(JSON.stringify(issue.data, null, 2));
 }
 
