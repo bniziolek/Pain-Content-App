@@ -56,6 +56,14 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 
 ## Recent Changes
 
+### Tiered Subscription System (January 2026)
+- **Subscription Tiers**: Basic, Pro, and Enterprise tiers with feature-based entitlements
+- **TierBadge Component**: Dynamic badge in sidebar showing user's current tier with icon (Sparkles for Basic, Crown for Pro/Enterprise)
+- **Tier Entitlement Matrix**: Server-side TIER_ENTITLEMENTS defines feature access by tier (care_pathways, follow_up_automation, etc.)
+- **UpgradePrompt Component**: Three variants (card, inline, dialog) for prompting tier upgrades on locked features
+- **Admin Tier Management**: Filter users by tier, view tier in user table, manually change user tiers
+- **useTierEntitlement Hook**: Client-side hook for checking feature access based on user tier
+
 ### Admin Dashboard Enhancements (January 2026)
 - **Enhanced Dashboard Stats**: Added active user trends (daily/weekly/monthly), subscription tier breakdown, churned user count
 - **Recent Signups List**: Dashboard shows last 10 signups with timestamps

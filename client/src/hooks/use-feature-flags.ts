@@ -1,6 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 
 type FeatureFlagMap = Record<string, { isEnabled: boolean; value: string | null }>;
+
+// Tier entitlement matrix - matches server-side TIER_ENTITLEMENTS
+const TIER_ENTITLEMENTS: Record<string, string[]> = {
+  content_library: ['basic', 'pro', 'enterprise'],
+  content_concierge: ['basic', 'pro', 'enterprise'],
+  content_packets: ['basic', 'pro', 'enterprise'],
+  internal_screenings: ['basic', 'pro', 'enterprise'],
+  assessment_builder: ['basic', 'pro', 'enterprise'],
+  patient_portal: ['pro', 'enterprise'],
+  email_delivery: ['pro', 'enterprise'],
+  care_pathways: ['pro', 'enterprise'],
+  follow_up_automation: ['pro', 'enterprise'],
+  priority_support: ['pro', 'enterprise'],
+  white_label: ['enterprise'],
+  api_access: ['enterprise'],
+  sso: ['enterprise'],
+};
+
+const TIER_LEVELS: Record<string, number> = {
+  free: 0,
+  basic: 1,
+  pro: 2,
+  enterprise: 3,
+};
 
 export function useFeatureFlags() {
   return useQuery({
@@ -62,5 +87,51 @@ export function usePatientFeatures() {
     sendHistoryEnabled: flags["send_history_enabled"]?.isEnabled ?? false,
     assessmentsEnabled: flags["assessments_enabled"]?.isEnabled ?? false,
     isLoading,
+  };
+}
+
+// Hook for checking tier-based feature access
+export function useTierEntitlement(featureKey: string) {
+  const { user } = useAuth();
+  const userTier = user?.subscriptionTier || 'basic';
+  const userTierLevel = TIER_LEVELS[userTier] || 0;
+  const allowedTiers = TIER_ENTITLEMENTS[featureKey] || [];
+  
+  const hasAccess = allowedTiers.includes(userTier);
+  const minRequiredTier = allowedTiers.reduce((min, tier) => {
+    const level = TIER_LEVELS[tier] || 99;
+    return level < (TIER_LEVELS[min] || 99) ? tier : min;
+  }, allowedTiers[0] || 'pro');
+  
+  return {
+    hasAccess,
+    needsUpgrade: !hasAccess,
+    currentTier: userTier,
+    requiredTier: minRequiredTier as "basic" | "pro",
+    isActive: user?.subscriptionStatus === 'active',
+  };
+}
+
+// Hook for checking multiple tier entitlements at once
+export function useTierEntitlements() {
+  const { user } = useAuth();
+  const userTier = user?.subscriptionTier || 'basic';
+  const isActive = user?.subscriptionStatus === 'active';
+  
+  const checkAccess = (featureKey: string): boolean => {
+    const allowedTiers = TIER_ENTITLEMENTS[featureKey] || [];
+    return allowedTiers.includes(userTier);
+  };
+  
+  return {
+    currentTier: userTier,
+    isActive,
+    checkAccess,
+    // Quick access for common Pro features
+    hasPatientPortal: checkAccess('patient_portal'),
+    hasEmailDelivery: checkAccess('email_delivery'),
+    hasCarePathways: checkAccess('care_pathways'),
+    hasFollowUpAutomation: checkAccess('follow_up_automation'),
+    hasPrioritySupport: checkAccess('priority_support'),
   };
 }

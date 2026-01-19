@@ -14,6 +14,8 @@ import { getFollowUpRules, createFollowUpRule, updateFollowUpRule, deleteFollowU
 import { Plus, Bell, Clock, Mail, Trash2, Edit, AlertCircle, CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
+import { useTierEntitlement } from "@/hooks/use-feature-flags";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 const triggerTypeLabels: Record<string, string> = {
   no_view: "Patient hasn't viewed content",
@@ -29,6 +31,23 @@ const actionLabels: Record<string, string> = {
 };
 
 export default function FollowUpsPage() {
+  const { needsUpgrade, currentTier } = useTierEntitlement('follow_up_automation');
+  
+  if (needsUpgrade) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto py-12">
+          <UpgradePrompt
+            feature="Follow-up Automation"
+            requiredTier="pro"
+            currentTier={currentTier}
+            variant="card"
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+  
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newRule, setNewRule] = useState({
     name: "",

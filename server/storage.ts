@@ -66,11 +66,7 @@ const pool = new pg.Pool({
 
 const db = drizzle({ client: pool, schema });
 
-<<<<<<< HEAD
-// Export db for use in routes that need direct database access
-=======
 // Export db for direct database access in routes
->>>>>>> 567cbf3 (Add feature flag to enable or disable the Pro subscription tier)
 export { db };
 
 export interface IStorage {

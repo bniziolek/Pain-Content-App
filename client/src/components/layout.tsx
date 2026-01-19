@@ -14,11 +14,13 @@ import {
   Bell,
   Route,
   Sparkles,
-  ToggleLeft
+  ToggleLeft,
+  Crown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
@@ -27,6 +29,25 @@ import { useFeatureFlags } from "@/hooks/use-feature-flags";
 interface SidebarProps {
   className?: string;
   onNavigate?: () => void;
+}
+
+const TIER_CONFIG: Record<string, { label: string; className: string; icon?: typeof Crown }> = {
+  free: { label: "Free", className: "bg-gray-100 text-gray-600" },
+  basic: { label: "Basic", className: "bg-blue-100 text-blue-600", icon: Sparkles },
+  pro: { label: "Pro", className: "bg-amber-100 text-amber-600", icon: Crown },
+  enterprise: { label: "Enterprise", className: "bg-purple-100 text-purple-600", icon: Crown },
+};
+
+function TierBadge({ tier }: { tier: string }) {
+  const config = TIER_CONFIG[tier] || TIER_CONFIG.basic;
+  const Icon = config.icon;
+  
+  return (
+    <Badge variant="outline" className={cn("text-xs gap-1 font-medium", config.className)} data-testid="tier-badge">
+      {Icon && <Icon className="w-3 h-3" />}
+      {config.label}
+    </Badge>
+  );
 }
 
 function Sidebar({ className, onNavigate }: SidebarProps) {
@@ -114,9 +135,11 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
           </Avatar>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-sidebar-foreground">{user?.name || user?.email}</span>
-            <span className="text-xs text-muted-foreground">
-              {isAdmin ? "Administrator" : "Pro Plan"}
-            </span>
+            {isAdmin ? (
+              <span className="text-xs text-muted-foreground">Administrator</span>
+            ) : (
+              <TierBadge tier={user?.subscriptionTier || 'basic'} />
+            )}
           </div>
         </div>
         <Button 
