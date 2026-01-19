@@ -28,11 +28,11 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        // @replit changed sizes - touch targets min 44px for tablet/mobile accessibility
-        default: "min-h-11 px-4 py-2 touch-manipulation",
-        sm: "min-h-9 rounded-md px-3 text-xs touch-manipulation",
-        lg: "min-h-12 rounded-md px-8 touch-manipulation",
-        icon: "h-11 w-11 touch-manipulation",
+        // @replit changed sizes - touch targets min 48px for mobile accessibility (WCAG)
+        default: "min-h-12 px-4 py-2 touch-manipulation",
+        sm: "min-h-10 rounded-md px-3 text-xs touch-manipulation",
+        lg: "min-h-14 rounded-md px-8 touch-manipulation",
+        icon: "h-12 w-12 touch-manipulation",
       },
     },
     defaultVariants: {

@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./lib/auth";
 import { RequireAuth, RequireSubscription, RequireAdmin } from "@/components/protected-route";
 import { TourProvider } from "@/components/product-tour";
-import { OfflineIndicator } from "@/components/offline-indicator";
+import { OfflineProvider } from "@/contexts/offline-context";
+import { ConnectedOfflineIndicator } from "@/components/connected-offline-indicator";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing";
@@ -205,13 +206,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TourProvider>
-          <TooltipProvider>
-            <OfflineIndicator />
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </TourProvider>
+        <OfflineProvider>
+          <TourProvider>
+            <TooltipProvider>
+              <ConnectedOfflineIndicator />
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </TourProvider>
+        </OfflineProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

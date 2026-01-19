@@ -86,8 +86,21 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 ### Mobile-Friendly Clinician View / Tablet Optimization (January 2026)
 - **Responsive Layout**: Desktop sidebar (lg+), bottom navigation for tablets/mobile (< lg breakpoint)
 - **Bottom Navigation**: Fixed bottom nav with key clinician routes (Dashboard, Library, Assessments, History, Settings)
-- **Touch Targets**: All buttons updated to 44px minimum height with `touch-manipulation` for better tap response
+- **Touch Targets**: All buttons updated to 48px minimum height with `touch-manipulation` for better tap response
 - **Tablet-First Actions**: Preview and favorite buttons on content cards always visible on tablet (lg:opacity-0 lg:group-hover:opacity-100)
 - **Offline Indicator**: Global component shows banner when offline, and "Back online" message when reconnected
 - **Grid Layouts**: Responsive grids adapt to tablet widths (1 col mobile, 2 cols tablet, 3 cols desktop)
-- **Menu Button**: Hamburger menu enlarged to 44px touch target for tablet accessibility
+- **Menu Button**: Hamburger menu enlarged to 48px touch target for tablet/mobile accessibility
+
+### Mobile Optimization (Issue #97) - January 2026
+- **Touch Targets 48px**: Buttons (min-h-12), inputs (min-h-12), and icon buttons (h-12 w-12) all meet 48px minimum
+- **Content Card Buttons**: Preview and favorite icon buttons on content cards updated to w-12 h-12 (48px) touch targets
+- **Pull-to-Refresh**: Custom hook and component for refreshing content on mobile (usePullToRefresh, PullToRefresh)
+- **Mobile Refresh Buttons**: Dashboard and History pages have mobile-only refresh buttons with "Pull down to refresh" hints
+- **Swipe Navigation**: Hook for swiping between pages on mobile (useSwipeNavigation) integrated in DashboardLayout
+- **Offline Caching**: useOfflineCache hook with localStorage caching, action queuing, and sync status
+- **Offline Context**: OfflineProvider wraps App, ConnectedOfflineIndicator shows pending actions and sync status
+- **Enhanced Offline Indicator**: Shows pending action count, sync status, and "back online" messages
+- **Mobile Form Optimizations**: Auth and Settings forms have autocomplete, inputMode, enterKeyHint for mobile keyboards
+- **Mobile-First Padding**: Reduced padding on mobile (p-4), larger on tablet/desktop (sm:p-8, lg:p-8)
+- **Bottom Nav Improvements**: Safe area inset support, backdrop blur, active state indicators, 48px touch targets

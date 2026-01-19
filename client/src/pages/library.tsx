@@ -1,8 +1,9 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles, Star } from "lucide-react";
-import { useState, useMemo, useRef } from "react";
+import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles, Star, RefreshCw } from "lucide-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -44,10 +45,14 @@ export default function LibraryPage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const { data: contentItems = [], isLoading } = useQuery({
+  const { data: contentItems = [], isLoading, refetch } = useQuery({
     queryKey: ["content"],
     queryFn: getContent,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -259,13 +264,28 @@ export default function LibraryPage() {
           )}
         </div>
         
-        {/* Results count */}
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredContent.length} of {contentItems.length} items
+        {/* Results count with manual refresh button for desktop */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>Showing {filteredContent.length} of {contentItems.length} items</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleRefresh()}
+            className="hidden sm:flex"
+            data-testid="button-refresh"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Refresh
+          </Button>
         </div>
 
-        {/* Grid - responsive for tablet (2 cols) and desktop (3 cols) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Mobile pull-to-refresh hint */}
+        <div className="text-xs text-muted-foreground text-center sm:hidden pb-2">
+          Pull down to refresh
+        </div>
+
+        {/* Grid - responsive for mobile (1 col), tablet (2 cols) and desktop (3 cols) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {filteredContent.map((item) => {
             const isSelected = selectedItems.includes(item.id);
             return (
@@ -285,16 +305,16 @@ export default function LibraryPage() {
                   <Check className="w-4 h-4" />
                 </div>
 
-                {/* Preview Button - always visible on tablet, hover on desktop */}
+                {/* Preview Button - always visible on tablet, hover on desktop, 48px touch target */}
                 <button
                   onClick={(e) => openPreview(e, item)}
-                  className="absolute top-3 left-3 z-10 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center transition-all active:bg-black/70 lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70 touch-manipulation"
+                  className="absolute top-3 left-3 z-10 w-12 h-12 rounded-full bg-black/50 text-white flex items-center justify-center transition-all active:bg-black/70 lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70 touch-manipulation"
                   data-testid={`button-preview-${item.id}`}
                 >
                   <Eye className="w-5 h-5" />
                 </button>
 
-                {/* Favorite Button - always visible on tablet, hover on desktop */}
+                {/* Favorite Button - always visible on tablet, hover on desktop, 48px touch target */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -302,7 +322,7 @@ export default function LibraryPage() {
                   }}
                   disabled={isToggling}
                   className={cn(
-                    "absolute top-3 left-16 z-10 w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 touch-manipulation",
+                    "absolute top-3 left-[4.25rem] z-10 w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 touch-manipulation",
                     isFavorite(item.id)
                       ? "bg-yellow-500 text-white"
                       : "bg-black/50 text-white lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70"

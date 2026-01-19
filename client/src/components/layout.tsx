@@ -21,10 +21,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { useSwipeNavigation } from "@/hooks/use-swipe-navigation";
 
 interface SidebarProps {
   className?: string;
@@ -183,21 +184,21 @@ function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-bottom lg:hidden" data-testid="bottom-nav">
-      <div className="flex items-center justify-around h-16">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} data-testid="bottom-nav">
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         {bottomLinks.slice(0, 5).map((link) => {
           const Icon = link.icon;
           const isActive = location === link.href || location.startsWith(link.href + "/");
           return (
             <Link key={link.href} href={link.href}>
               <div className={cn(
-                "flex flex-col items-center justify-center min-w-[64px] min-h-[48px] px-3 py-2 rounded-lg transition-colors touch-manipulation",
+                "flex flex-col items-center justify-center min-w-[56px] min-h-[48px] px-2 py-1.5 rounded-xl transition-all touch-manipulation active:scale-95",
                 isActive 
-                  ? "text-primary" 
+                  ? "text-primary bg-primary/10" 
                   : "text-muted-foreground active:bg-muted"
-              )}>
-                <Icon className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">{link.label}</span>
+              )} data-testid={`nav-${link.label.toLowerCase()}`}>
+                <Icon className={cn("mb-0.5", isActive ? "w-6 h-6" : "w-5 h-5")} />
+                <span className={cn("font-medium", isActive ? "text-[11px]" : "text-[10px]")}>{link.label}</span>
               </div>
             </Link>
           );
@@ -209,6 +210,29 @@ function BottomNav() {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { data: featureFlags = {} } = useFeatureFlags();
+  const { user } = useAuth();
+  
+  const isAdmin = user?.role === "admin";
+  const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
+  
+  const swipeRoutes = isAdmin
+    ? ["/admin/dashboard", "/admin/users", "/library", "/settings"]
+    : [
+        "/dashboard",
+        "/library",
+        ...(isEnabled("assessments_enabled") ? ["/assessments"] : []),
+        "/history",
+        "/settings",
+      ];
+  
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  
+  useSwipeNavigation({
+    routes: swipeRoutes,
+    threshold: 100,
+    enabled: isMobile,
+  });
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -218,22 +242,22 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile/Tablet Sidebar (hamburger menu) */}
-      <div className="lg:hidden absolute top-4 left-4 z-50">
+      <div className="lg:hidden absolute top-3 left-3 z-50">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]" data-testid="button-mobile-menu">
+            <Button variant="outline" size="icon" className="min-w-[48px] min-h-[48px] shadow-sm" data-testid="button-mobile-menu">
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72">
+          <SheetContent side="left" className="p-0 w-[85vw] max-w-[320px]">
             <Sidebar onNavigate={() => setIsMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="container max-w-6xl mx-auto p-4 pt-16 lg:pt-8 lg:p-8 pb-20 lg:pb-8">
+      <main className="flex-1 overflow-auto overflow-x-hidden">
+        <div className="container max-w-6xl mx-auto px-3 sm:px-4 pt-16 lg:pt-8 lg:px-8 pb-24 lg:pb-8">
           {children}
         </div>
       </main>
