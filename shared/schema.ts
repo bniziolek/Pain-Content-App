@@ -733,3 +733,53 @@ export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({
 });
 export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
 export type LoginHistory = typeof loginHistory.$inferSelect;
+
+// User favorites - bookmarked content for quick access
+export const userFavorites = pgTable("user_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserFavoriteSchema = createInsertSchema(userFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
+export type UserFavorite = typeof userFavorites.$inferSelect;
+
+// Content collections - user-created content groups
+export const contentCollections = pgTable("content_collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContentCollectionSchema = createInsertSchema(contentCollections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentCollection = z.infer<typeof insertContentCollectionSchema>;
+export type ContentCollection = typeof contentCollections.$inferSelect;
+
+// Collection items - content within a collection
+export const collectionItems = pgTable("collection_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").references(() => contentCollections.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCollectionItemSchema = createInsertSchema(collectionItems).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollectionItem = z.infer<typeof insertCollectionItemSchema>;
+export type CollectionItem = typeof collectionItems.$inferSelect;

@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles } from "lucide-react";
+import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles, Star } from "lucide-react";
 import { useState, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
+import { useFavorites } from "@/hooks/use-favorites";
 import { Link } from "wouter";
 
 interface ContentItem {
@@ -39,6 +40,8 @@ export default function LibraryPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isPacketMode, isLoading: isLoadingMode } = useContentDeliveryMode();
+  const { isFavorite, toggleFavorite, isToggling } = useFavorites();
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data: contentItems = [], isLoading } = useQuery({
@@ -102,8 +105,10 @@ export default function LibraryPage() {
     
     const matchesTags = selectedTags.length === 0 || 
       selectedTags.every(tag => item.tags?.includes(tag));
+
+    const matchesFavorites = !showFavoritesOnly || isFavorite(item.id);
     
-    return matchesSearch && matchesTags;
+    return matchesSearch && matchesTags && matchesFavorites;
   });
 
   const toggleSelection = (id: string) => {
@@ -183,6 +188,14 @@ export default function LibraryPage() {
               data-testid="input-search"
             />
           </div>
+          <Button
+            variant={showFavoritesOnly ? "default" : "outline"}
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            data-testid="button-favorites-filter"
+          >
+            <Star className={cn("w-4 h-4 mr-2", showFavoritesOnly && "fill-current")} />
+            Favorites
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" data-testid="button-filters">
@@ -279,6 +292,24 @@ export default function LibraryPage() {
                   data-testid={`button-preview-${item.id}`}
                 >
                   <Eye className="w-4 h-4" />
+                </button>
+
+                {/* Favorite Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(item.id);
+                  }}
+                  disabled={isToggling}
+                  className={cn(
+                    "absolute top-3 left-14 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                    isFavorite(item.id)
+                      ? "bg-yellow-500 text-white"
+                      : "bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-black/70"
+                  )}
+                  data-testid={`button-favorite-${item.id}`}
+                >
+                  <Star className={cn("w-4 h-4", isFavorite(item.id) && "fill-current")} />
                 </button>
 
                 {/* Image */}

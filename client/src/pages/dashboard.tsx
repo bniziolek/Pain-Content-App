@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, FileText, TrendingUp, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList, Package, Sparkles } from "lucide-react";
+import { Send, FileText, TrendingUp, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList, Package, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -11,6 +11,7 @@ import { getStats } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTour, shouldShowTour } from "@/components/product-tour";
 import { usePatientFeatures } from "@/hooks/use-feature-flags";
+import { useFavorites, useFrequentlyUsed } from "@/hooks/use-favorites";
 
 function getStatusBadge(status: string) {
   switch(status?.toLowerCase()) {
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { startTour } = useTour();
   const { patientMessagingEnabled, sendHistoryEnabled, assessmentsEnabled, isLoading: featuresLoading } = usePatientFeatures();
+  const { favorites } = useFavorites();
+  const { data: frequentlyUsed = [] } = useFrequentlyUsed(5);
   const { data: stats, isLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: getStats,
@@ -308,6 +311,71 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">Most used content</p>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Quick Access - Favorites and Frequently Used */}
+        {(favorites.length > 0 || frequentlyUsed.length > 0) && (
+          <div className="grid lg:grid-cols-2 gap-6">
+            {favorites.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      Favorite Content
+                    </CardTitle>
+                    <Link href="/library?favorites=true">
+                      <Button variant="ghost" size="sm" data-testid="link-view-all-favorites">
+                        View All <ArrowRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {favorites.slice(0, 5).map((fav) => (
+                      <Link key={fav.contentId} href={`/library`}>
+                        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" data-testid={`favorite-item-${fav.contentId}`}>
+                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                          <span className="text-sm truncate">{fav.title}</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {frequentlyUsed.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      Frequently Used
+                    </CardTitle>
+                    <Link href="/library">
+                      <Button variant="ghost" size="sm" data-testid="link-go-to-library">
+                        Library <ArrowRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {frequentlyUsed.slice(0, 5).map((item) => (
+                      <Link key={item.contentId} href={`/library`}>
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" data-testid={`frequent-item-${item.contentId}`}>
+                          <span className="text-sm truncate">{item.title}</span>
+                          <Badge variant="secondary" className="text-xs">{item.sendCount} sends</Badge>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 

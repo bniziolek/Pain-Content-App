@@ -492,6 +492,150 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Favorites routes
+  app.get("/api/favorites", requireAuth, async (req, res, next) => {
+    try {
+      const favorites = await storage.getUserFavorites(req.user!.id);
+      res.json(favorites);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+    try {
+      await storage.addFavorite(req.user!.id, req.params.contentId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+    try {
+      await storage.removeFavorite(req.user!.id, req.params.contentId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/favorites/check/:contentId", requireAuth, async (req, res, next) => {
+    try {
+      const isFavorite = await storage.isFavorite(req.user!.id, req.params.contentId);
+      res.json({ isFavorite });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/content/frequently-used", requireAuth, async (req, res, next) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const frequentlyUsed = await storage.getFrequentlyUsedContent(req.user!.id, limit);
+      res.json(frequentlyUsed);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Collections routes
+  app.get("/api/collections", requireAuth, async (req, res, next) => {
+    try {
+      const collections = await storage.getUserCollections(req.user!.id);
+      res.json(collections);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/collections", requireAuth, async (req, res, next) => {
+    try {
+      const { name, description } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Collection name is required" });
+      }
+      const collection = await storage.createCollection({
+        userId: req.user!.id,
+        name,
+        description,
+      });
+      res.status(201).json(collection);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/collections/:id", requireAuth, async (req, res, next) => {
+    try {
+      const collection = await storage.getCollectionById(req.params.id);
+      if (!collection || collection.userId !== req.user!.id) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      const items = await storage.getCollectionItems(req.params.id);
+      res.json({ ...collection, items });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/collections/:id", requireAuth, async (req, res, next) => {
+    try {
+      const collection = await storage.getCollectionById(req.params.id);
+      if (!collection || collection.userId !== req.user!.id) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      const { name, description, sortOrder } = req.body;
+      const updated = await storage.updateCollection(req.params.id, { name, description, sortOrder });
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/collections/:id", requireAuth, async (req, res, next) => {
+    try {
+      const collection = await storage.getCollectionById(req.params.id);
+      if (!collection || collection.userId !== req.user!.id) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      await storage.deleteCollection(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/collections/:id/items", requireAuth, async (req, res, next) => {
+    try {
+      const collection = await storage.getCollectionById(req.params.id);
+      if (!collection || collection.userId !== req.user!.id) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      const { contentId, sortOrder } = req.body;
+      if (!contentId) {
+        return res.status(400).json({ error: "Content ID is required" });
+      }
+      await storage.addItemToCollection(req.params.id, contentId, sortOrder);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/collections/:id/items/:contentId", requireAuth, async (req, res, next) => {
+    try {
+      const collection = await storage.getCollectionById(req.params.id);
+      if (!collection || collection.userId !== req.user!.id) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      await storage.removeItemFromCollection(req.params.id, req.params.contentId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Database content management routes (for when Contentful is not used or for local backup)
   app.post("/api/content", requireAuth, async (req, res, next) => {
     try {
