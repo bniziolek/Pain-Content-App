@@ -82,3 +82,12 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Frequently Used Tracking**: Auto-calculated from email send history, showing most-sent content
 - **React Hooks**: `useFavorites` and `useFrequentlyUsed` hooks with TanStack React Query and error handling via toasts
 - **API Endpoints**: RESTful endpoints for favorites CRUD (`/api/favorites/*`) and frequently used (`/api/content/frequently-used`)
+
+### Mobile-Friendly Clinician View / Tablet Optimization (January 2026)
+- **Responsive Layout**: Desktop sidebar (lg+), bottom navigation for tablets/mobile (< lg breakpoint)
+- **Bottom Navigation**: Fixed bottom nav with key clinician routes (Dashboard, Library, Assessments, History, Settings)
+- **Touch Targets**: All buttons updated to 44px minimum height with `touch-manipulation` for better tap response
+- **Tablet-First Actions**: Preview and favorite buttons on content cards always visible on tablet (lg:opacity-0 lg:group-hover:opacity-100)
+- **Offline Indicator**: Global component shows banner when offline, and "Back online" message when reconnected
+- **Grid Layouts**: Responsive grids adapt to tablet widths (1 col mobile, 2 cols tablet, 3 cols desktop)
+- **Menu Button**: Hamburger menu enlarged to 44px touch target for tablet accessibility

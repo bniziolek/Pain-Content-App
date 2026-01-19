@@ -264,8 +264,8 @@ export default function LibraryPage() {
           Showing {filteredContent.length} of {contentItems.length} items
         </div>
 
-        {/* Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Grid - responsive for tablet (2 cols) and desktop (3 cols) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredContent.map((item) => {
             const isSelected = selectedItems.includes(item.id);
             return (
@@ -277,24 +277,24 @@ export default function LibraryPage() {
                   isSelected ? "ring-2 ring-primary border-primary" : "hover:border-primary/50"
                 )}
               >
-                {/* Selection Indicator */}
+                {/* Selection Indicator - always visible on tablet */}
                 <div className={cn(
-                  "absolute top-3 right-3 z-10 w-6 h-6 rounded-full border border-white flex items-center justify-center transition-all",
-                  isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-black/30 text-transparent group-hover:bg-white/80 group-hover:text-muted-foreground"
+                  "absolute top-3 right-3 z-10 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center transition-all touch-manipulation",
+                  isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-black/40 text-white/80 lg:text-transparent lg:group-hover:bg-white/80 lg:group-hover:text-muted-foreground"
                 )}>
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-4 h-4" />
                 </div>
 
-                {/* Preview Button */}
+                {/* Preview Button - always visible on tablet, hover on desktop */}
                 <button
                   onClick={(e) => openPreview(e, item)}
-                  className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-black/70"
+                  className="absolute top-3 left-3 z-10 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center transition-all active:bg-black/70 lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70 touch-manipulation"
                   data-testid={`button-preview-${item.id}`}
                 >
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-5 h-5" />
                 </button>
 
-                {/* Favorite Button */}
+                {/* Favorite Button - always visible on tablet, hover on desktop */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -302,14 +302,14 @@ export default function LibraryPage() {
                   }}
                   disabled={isToggling}
                   className={cn(
-                    "absolute top-3 left-14 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                    "absolute top-3 left-16 z-10 w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 touch-manipulation",
                     isFavorite(item.id)
                       ? "bg-yellow-500 text-white"
-                      : "bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-black/70"
+                      : "bg-black/50 text-white lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70"
                   )}
                   data-testid={`button-favorite-${item.id}`}
                 >
-                  <Star className={cn("w-4 h-4", isFavorite(item.id) && "fill-current")} />
+                  <Star className={cn("w-5 h-5", isFavorite(item.id) && "fill-current")} />
                 </button>
 
                 {/* Image */}
