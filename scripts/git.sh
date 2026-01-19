@@ -5,6 +5,9 @@
 # Usage: ./scripts/git.sh
 # =============================================================================
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo ""
 echo "========================================"
 echo "  Git Helper"
@@ -18,10 +21,10 @@ read -p "Choose an option: " choice
 
 case $choice in
   1)
-    ./scripts/sync-with-dev.sh
+    "$SCRIPT_DIR/sync-with-dev.sh"
     ;;
   2)
-    ./scripts/cleanup-branches.sh
+    "$SCRIPT_DIR/cleanup-branches.sh"
     ;;
   q|Q)
     echo "Goodbye!"
