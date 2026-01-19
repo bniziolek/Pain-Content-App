@@ -73,3 +73,12 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Content Activity**: User detail page shows content sending patterns
 - **Admin Notes**: New `admin_notes` table allows admins to add/view/delete notes on user records
 - **User Data Export**: Compliance-ready JSON export of user data, notes, login history, and activity
+
+### Favorites & Frequently Used Content (January 2026)
+- **User Favorites**: Clinicians can favorite/star content items for quick access
+- **Database Tables**: `user_favorites`, `content_collections`, `collection_items` for organizing favorites
+- **Content Library Integration**: Star icon on content cards, Favorites filter button to show only favorited content
+- **Dashboard Quick Access**: Favorites and Frequently Used sections on dashboard showing content titles
+- **Frequently Used Tracking**: Auto-calculated from email send history, showing most-sent content
+- **React Hooks**: `useFavorites` and `useFrequentlyUsed` hooks with TanStack React Query and error handling via toasts
+- **API Endpoints**: RESTful endpoints for favorites CRUD (`/api/favorites/*`) and frequently used (`/api/content/frequently-used`)
