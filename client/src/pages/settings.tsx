@@ -94,12 +94,25 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Name</Label>
-                    <Input defaultValue={user?.name || ''} data-testid="input-name" />
+                    <Input 
+                      defaultValue={user?.name || ''} 
+                      data-testid="input-name" 
+                      autoComplete="name"
+                      autoCapitalize="words"
+                      enterKeyHint="done"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={user?.email || ''} disabled data-testid="input-email" />
+                  <Input 
+                    value={user?.email || ''} 
+                    disabled 
+                    data-testid="input-email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                  />
                 </div>
               </CardContent>
               <CardFooter>

@@ -21,10 +21,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { useSwipeNavigation } from "@/hooks/use-swipe-navigation";
 
 interface SidebarProps {
   className?: string;
@@ -160,36 +161,109 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   );
 }
 
+function BottomNav() {
+  const [location] = useLocation();
+  const { user } = useAuth();
+  const { data: featureFlags = {} } = useFeatureFlags();
+  
+  const isAdmin = user?.role === "admin";
+  const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
+  
+  // Bottom nav shows only the most essential links for quick access
+  const bottomLinks = isAdmin ? [
+    { href: "/admin/dashboard", label: "Dashboard", icon: ShieldCheck },
+    { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/library", label: "Content", icon: Library },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ] : [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/library", label: "Library", icon: Library },
+    ...(isEnabled("assessments_enabled") ? [{ href: "/assessments", label: "Assess", icon: ClipboardList }] : []),
+    { href: "/history", label: "History", icon: History },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} data-testid="bottom-nav">
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+        {bottomLinks.slice(0, 5).map((link) => {
+          const Icon = link.icon;
+          const isActive = location === link.href || location.startsWith(link.href + "/");
+          return (
+            <Link key={link.href} href={link.href}>
+              <div className={cn(
+                "flex flex-col items-center justify-center min-w-[56px] min-h-[48px] px-2 py-1.5 rounded-xl transition-all touch-manipulation active:scale-95",
+                isActive 
+                  ? "text-primary bg-primary/10" 
+                  : "text-muted-foreground active:bg-muted"
+              )} data-testid={`nav-${link.label.toLowerCase()}`}>
+                <Icon className={cn("mb-0.5", isActive ? "w-6 h-6" : "w-5 h-5")} />
+                <span className={cn("font-medium", isActive ? "text-[11px]" : "text-[10px]")}>{link.label}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { data: featureFlags = {} } = useFeatureFlags();
+  const { user } = useAuth();
+  
+  const isAdmin = user?.role === "admin";
+  const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
+  
+  const swipeRoutes = isAdmin
+    ? ["/admin/dashboard", "/admin/users", "/library", "/settings"]
+    : [
+        "/dashboard",
+        "/library",
+        ...(isEnabled("assessments_enabled") ? ["/assessments"] : []),
+        "/history",
+        "/settings",
+      ];
+  
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  
+  useSwipeNavigation({
+    routes: swipeRoutes,
+    threshold: 100,
+    enabled: isMobile,
+  });
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block w-64 h-full">
+      {/* Desktop Sidebar - only visible on large screens */}
+      <div className="hidden lg:block w-64 h-full flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* Mobile Sidebar */}
-      <div className="md:hidden absolute top-4 left-4 z-50">
+      {/* Mobile/Tablet Sidebar (hamburger menu) */}
+      <div className="lg:hidden absolute top-3 left-3 z-50">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon">
-              <Menu className="w-4 h-4" />
+            <Button variant="outline" size="icon" className="min-w-[48px] min-h-[48px] shadow-sm" data-testid="button-mobile-menu">
+              <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="p-0 w-[85vw] max-w-[320px]">
             <Sidebar onNavigate={() => setIsMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="container max-w-6xl mx-auto p-6 md:p-8">
+      <main className="flex-1 overflow-auto overflow-x-hidden">
+        <div className="container max-w-6xl mx-auto px-3 sm:px-4 pt-16 lg:pt-8 lg:px-8 pb-24 lg:pb-8">
           {children}
         </div>
       </main>
+
+      {/* Bottom Navigation for Mobile/Tablet */}
+      <BottomNav />
     </div>
   );
 }

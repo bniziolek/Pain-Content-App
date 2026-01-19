@@ -175,16 +175,17 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left: Form */}
-      <div className="flex items-center justify-center p-8 bg-background relative">
-        <div className="absolute top-8 left-8">
+      <div className="flex items-center justify-center p-4 sm:p-8 bg-background relative min-h-screen">
+        <div className="absolute top-4 left-4 sm:top-8 sm:left-8">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Back to Home
+              <span className="hidden sm:inline">Back to Home</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </Link>
         </div>
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-6 sm:space-y-8 pt-12 sm:pt-0">
           <div className="flex items-center gap-2 font-serif text-xl font-bold text-primary mb-8">
             <Activity className="w-6 h-6" />
             <span>DriverPath</span>
@@ -217,6 +218,8 @@ export default function AuthPage() {
                       placeholder="Dr. Jane Smith" 
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
+                      enterKeyHint="next"
                       data-testid="input-name"
                     />
                   </div>
@@ -225,13 +228,16 @@ export default function AuthPage() {
                   <Label htmlFor="email">Email</Label>
                   <Input 
                     id="email" 
-                    type="text"
+                    type="email"
+                    inputMode="email"
                     placeholder="email@example.com" 
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
                       if (errors.email) setErrors({ ...errors, email: undefined });
                     }}
+                    autoComplete="email"
+                    enterKeyHint="next"
                     className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
                     data-testid="input-email"
                   />
@@ -256,6 +262,8 @@ export default function AuthPage() {
                       setPassword(e.target.value);
                       if (errors.password) setErrors({ ...errors, password: undefined });
                     }}
+                    autoComplete={isSignup ? "new-password" : "current-password"}
+                    enterKeyHint="done"
                     className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
                     data-testid="input-password"
                   />

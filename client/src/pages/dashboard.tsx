@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Send, FileText, TrendingUp, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList, Package, Sparkles, Star } from "lucide-react";
+import { Send, FileText, TrendingUp, Loader2, ArrowRight, Inbox, Mail, CheckCircle, Eye, ExternalLink, AlertCircle, BookOpen, Download, ClipboardList, Package, Sparkles, Star, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -34,10 +34,14 @@ export default function Dashboard() {
   const { patientMessagingEnabled, sendHistoryEnabled, assessmentsEnabled, isLoading: featuresLoading } = usePatientFeatures();
   const { favorites } = useFavorites();
   const { data: frequentlyUsed = [] } = useFrequentlyUsed(5);
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["stats"],
     queryFn: getStats,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   useEffect(() => {
     if (!isLoading && shouldShowTour()) {
@@ -61,11 +65,27 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
+        {/* Mobile pull-to-refresh hint */}
+        <div className="text-xs text-muted-foreground text-center sm:hidden pb-1">
+          Pull down to refresh
+        </div>
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-tour="dashboard">
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back{user?.name ? `, ${user.name}` : ""}.</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground">Welcome back{user?.name ? `, ${user.name}` : ""}.</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleRefresh()}
+              className="sm:hidden"
+              data-testid="button-refresh-mobile"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </Button>
           </div>
           <div className="flex gap-3">
             {patientMessagingEnabled ? (
