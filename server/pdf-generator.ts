@@ -1,6 +1,19 @@
 import puppeteer from 'puppeteer';
 import { marked } from 'marked';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { ContentItem } from '@shared/schema';
+
+const execAsync = promisify(exec);
+
+async function getChromiumPath(): Promise<string> {
+  try {
+    const { stdout } = await execAsync('which chromium');
+    return stdout.trim();
+  } catch {
+    return '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+  }
+}
 
 export interface PDFGenerationConfig {
   pageSize: 'letter' | 'a4';
@@ -374,9 +387,27 @@ export async function generatePDF(
 ): Promise<Buffer> {
   const finalConfig: PDFGenerationConfig = { ...defaultConfig, ...config };
   
+  const chromiumPath = await getChromiumPath();
+  console.log('Using Chromium at:', chromiumPath);
+  
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    executablePath: chromiumPath,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--single-process',
+      '--no-zygote',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--no-first-run',
+    ],
   });
   
   try {
