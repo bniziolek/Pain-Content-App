@@ -3542,7 +3542,8 @@ export function registerRoutes(app: Express): Server {
         includeTableOfContents = false,
         coverPageMessage,
         clinicianName,
-        patientName
+        patientName,
+        packetTitle
       } = req.body;
 
       if (!contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
@@ -3582,6 +3583,7 @@ export function registerRoutes(app: Express): Server {
         coverPageMessage,
         clinicianName: clinicianName || req.user!.name || undefined,
         patientName,
+        packetTitle,
       };
 
       const pdfBuffer = await generatePDF(contentItems, pdfConfig);
