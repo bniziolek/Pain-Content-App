@@ -3484,7 +3484,7 @@ export function registerRoutes(app: Express): Server {
             }
           }
           // Fall back to database
-          const dbItem = await storage.getContentItem(contentId);
+          const dbItem = await storage.getContentById(contentId);
           if (dbItem) {
             contentItems.push(dbItem);
           }
@@ -3563,7 +3563,7 @@ export function registerRoutes(app: Express): Server {
             }
           }
           // Fall back to database
-          const dbItem = await storage.getContentItem(contentId);
+          const dbItem = await storage.getContentById(contentId);
           if (dbItem) {
             contentItems.push(dbItem);
           }
