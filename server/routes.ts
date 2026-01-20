@@ -15,6 +15,7 @@ import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwa
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
+import { generatePDF, generateFilename, type PDFGenerationConfig } from "./pdf-generator";
 import { 
   getRecommendationsWithFallback, 
   createRecommendationRule, 
@@ -3438,6 +3439,174 @@ export function registerRoutes(app: Express): Server {
 
       res.json({ message: "Permission override removed" });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== PDF Generation Routes ======
+  app.post("/api/packets/:screeningId/generate-pdf", requireSubscription, async (req, res, next) => {
+    try {
+      const { screeningId } = req.params;
+      const { 
+        pageSize = 'letter',
+        includeTableOfContents = false,
+        coverPageMessage,
+        clinicianName
+      } = req.body;
+
+      // Get the screening to verify access and get content IDs
+      const screening = await storage.getInternalScreeningById(screeningId);
+      if (!screening) {
+        return res.status(404).json({ error: "Screening not found" });
+      }
+
+      // Verify the clinician owns this screening
+      if (screening.clinicianUserId !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get the recommended content IDs
+      const contentIds = screening.recommendedContentIds || [];
+      if (contentIds.length === 0) {
+        return res.status(400).json({ error: "No content items in this screening" });
+      }
+
+      // Fetch all content items
+      const contentItems = [];
+      for (const contentId of contentIds) {
+        try {
+          // Try Contentful first if configured
+          if (isContentfulConfigured()) {
+            const contentfulItem = await getContentByIdFromContentful(contentId);
+            if (contentfulItem) {
+              contentItems.push(contentfulItem);
+              continue;
+            }
+          }
+          // Fall back to database
+          const dbItem = await storage.getContentItem(contentId);
+          if (dbItem) {
+            contentItems.push(dbItem);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch content ${contentId}:`, error);
+        }
+      }
+
+      if (contentItems.length === 0) {
+        return res.status(400).json({ error: "Could not load any content items" });
+      }
+
+      // Generate the PDF
+      const pdfConfig: Partial<PDFGenerationConfig> = {
+        pageSize: pageSize as 'letter' | 'a4',
+        includeTableOfContents,
+        coverPageMessage,
+        clinicianName: clinicianName || req.user!.name || undefined,
+        patientName: screening.patientName,
+      };
+
+      const pdfBuffer = await generatePDF(contentItems, pdfConfig);
+      const filename = generateFilename(screening.patientName);
+
+      // Audit log: PDF generated (PHI action)
+      await logClinicianAction(req, req.user!, 'pdf_generate', {
+        resourceType: 'screening',
+        resourceId: screeningId,
+        phiAccessed: true,
+        phiScope: 'patient name, educational content',
+        details: { 
+          patientName: screening.patientName,
+          contentCount: contentItems.length,
+          filename 
+        },
+      });
+
+      // Set headers and send PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      next(error);
+    }
+  });
+
+  // Generate PDF from content IDs directly (without screening)
+  app.post("/api/content/generate-pdf", requireSubscription, async (req, res, next) => {
+    try {
+      const { 
+        contentIds,
+        pageSize = 'letter',
+        includeTableOfContents = false,
+        coverPageMessage,
+        clinicianName,
+        patientName
+      } = req.body;
+
+      if (!contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
+        return res.status(400).json({ error: "contentIds array is required" });
+      }
+
+      // Fetch all content items
+      const contentItems = [];
+      for (const contentId of contentIds) {
+        try {
+          // Try Contentful first if configured
+          if (isContentfulConfigured()) {
+            const contentfulItem = await getContentByIdFromContentful(contentId);
+            if (contentfulItem) {
+              contentItems.push(contentfulItem);
+              continue;
+            }
+          }
+          // Fall back to database
+          const dbItem = await storage.getContentItem(contentId);
+          if (dbItem) {
+            contentItems.push(dbItem);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch content ${contentId}:`, error);
+        }
+      }
+
+      if (contentItems.length === 0) {
+        return res.status(400).json({ error: "Could not load any content items" });
+      }
+
+      // Generate the PDF
+      const pdfConfig: Partial<PDFGenerationConfig> = {
+        pageSize: pageSize as 'letter' | 'a4',
+        includeTableOfContents,
+        coverPageMessage,
+        clinicianName: clinicianName || req.user!.name || undefined,
+        patientName,
+      };
+
+      const pdfBuffer = await generatePDF(contentItems, pdfConfig);
+      const filename = generateFilename(patientName);
+
+      // Audit log: PDF generated
+      await logClinicianAction(req, req.user!, 'pdf_generate', {
+        resourceType: 'content',
+        phiAccessed: !!patientName,
+        phiScope: patientName ? 'patient name, educational content' : 'educational content only',
+        details: { 
+          patientName,
+          contentCount: contentItems.length,
+          contentIds,
+          filename 
+        },
+      });
+
+      // Set headers and send PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('PDF generation error:', error);
       next(error);
     }
   });

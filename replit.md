@@ -56,6 +56,18 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 
 ## Recent Changes
 
+### Content Packet PDF Generation (Issue #35) - January 2026
+- **PDF Generator Service**: `server/pdf-generator.ts` with Puppeteer-based HTML-to-PDF conversion
+- **Dynamic Chromium Path**: Auto-detects system Chromium path for Replit environment compatibility
+- **Professional Templates**: Cover page with patient name, clinician info, and date; optional Table of Contents; styled content sections
+- **Active Links**: Hyperlinks in markdown content preserved as clickable links in generated PDFs
+- **API Endpoints**:
+  - `POST /api/packets/:screeningId/generate-pdf` - Generate PDF from screening's recommended content
+  - `POST /api/content/generate-pdf` - Generate PDF from array of content IDs directly
+- **Configuration Options**: Page size (letter/a4), TOC toggle, cover message, clinician/patient names
+- **Audit Logging**: PDF generation events logged with PHI scope tracking
+- **Storage Method**: Added `getInternalScreeningById` for screening lookup
+
 ### Tiered Subscription System (January 2026)
 - **Subscription Tiers**: Basic, Pro, and Enterprise tiers with feature-based entitlements
 - **TierBadge Component**: Dynamic badge in sidebar showing user's current tier with icon (Sparkles for Basic, Crown for Pro/Enterprise)

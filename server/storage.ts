@@ -133,6 +133,7 @@ export interface IStorage {
 
   // Internal screenings
   createInternalScreening(screening: InsertInternalScreening): Promise<InternalScreening>;
+  getInternalScreeningById(id: string): Promise<InternalScreening | undefined>;
   getInternalScreeningsByClinicianId(clinicianId: string): Promise<InternalScreening[]>;
 
   // Email logs
@@ -624,6 +625,13 @@ export class DatabaseStorage implements IStorage {
   async createInternalScreening(screening: InsertInternalScreening): Promise<InternalScreening> {
     const [created] = await db.insert(schema.internalScreenings).values(screening).returning();
     return created!;
+  }
+
+  async getInternalScreeningById(id: string): Promise<InternalScreening | undefined> {
+    const [screening] = await db.select()
+      .from(schema.internalScreenings)
+      .where(eq(schema.internalScreenings.id, id));
+    return screening;
   }
 
   async getInternalScreeningsByClinicianId(clinicianId: string): Promise<InternalScreening[]> {
