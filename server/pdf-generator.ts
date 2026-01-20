@@ -23,6 +23,7 @@ export interface PDFGenerationConfig {
   coverPageMessage?: string;
   clinicianName?: string;
   patientName?: string;
+  packetTitle?: string;
 }
 
 const defaultConfig: PDFGenerationConfig = {
@@ -57,28 +58,38 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
     day: 'numeric' 
   });
   
+  const title = config.packetTitle || 'Your Personalized Health Education';
+  
   return `
     <div class="cover-page">
-      <div class="cover-content">
+      <header class="cover-header">
         <div class="logo">
           <h1>DriverPath</h1>
           <p class="tagline">Evidence-Based Patient Education</p>
         </div>
+      </header>
+      
+      <main class="cover-main">
+        <h1 class="packet-title">${title}</h1>
         
         <div class="cover-details">
           ${config.patientName ? `<p class="patient-name">Prepared for: <strong>${config.patientName}</strong></p>` : ''}
-          ${config.clinicianName ? `<p class="clinician-name">From: ${config.clinicianName}</p>` : ''}
-          <p class="date">Date: ${date}</p>
+          ${config.clinicianName ? `<p class="clinician-name">Curated by: <strong>${config.clinicianName}</strong></p>` : ''}
+          <p class="date">Generated on: ${date}</p>
           <p class="item-count">${itemCount} educational resource${itemCount !== 1 ? 's' : ''} included</p>
         </div>
         
         ${config.coverPageMessage ? `
           <div class="cover-message">
-            <h3>Note from your provider:</h3>
+            <h3>A note from your provider:</h3>
             <p>${config.coverPageMessage}</p>
           </div>
         ` : ''}
-      </div>
+      </main>
+      
+      <footer class="cover-footer">
+        <p>Powered by DriverPath</p>
+      </footer>
     </div>
     <div class="page-break"></div>
   `;
@@ -152,15 +163,30 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     .cover-page {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
       min-height: 100vh;
       text-align: center;
       padding: 2rem;
     }
     
-    .cover-content {
+    .cover-header {
+      padding-top: 2rem;
+    }
+    
+    .cover-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
       max-width: 600px;
+    }
+    
+    .packet-title {
+      font-size: 2rem;
+      color: #0F766E;
+      margin-bottom: 2rem;
+      font-weight: 600;
     }
     
     .logo h1 {
@@ -172,7 +198,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     .tagline {
       color: #666;
       font-size: 1rem;
-      margin-bottom: 3rem;
+      margin-bottom: 1rem;
     }
     
     .cover-details {
@@ -200,6 +226,15 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     .cover-message h3 {
       color: #0F766E;
       margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+    
+    .cover-footer {
+      padding-bottom: 2rem;
+    }
+    
+    .cover-footer p {
+      color: #999;
       font-size: 0.875rem;
     }
     
