@@ -291,6 +291,7 @@ export default function LibraryPage() {
             return (
               <div 
                 key={item.id}
+                data-testid={`content-card-${item.id}`}
                 onClick={() => toggleSelection(item.id)}
                 className={cn(
                   "group relative overflow-hidden rounded-xl border border-border bg-card transition-all cursor-pointer hover:shadow-md",

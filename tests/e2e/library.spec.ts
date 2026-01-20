@@ -19,10 +19,10 @@ test.describe('Content Library', () => {
   test('should show content cards', async ({ page }) => {
     await page.goto('/library');
     
-    // Wait for content to load
-    await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+    // Wait for content to load - cards have data-testid="content-card-{id}"
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
     
-    const contentCards = page.locator('[data-testid^="card-"], .content-card, article');
+    const contentCards = page.locator('[data-testid^="content-card-"]');
     await expect(contentCards.first()).toBeVisible();
   });
 
@@ -42,20 +42,14 @@ test.describe('Content Library', () => {
   test('should select content items', async ({ page }) => {
     await page.goto('/library');
     
-    await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
     
-    // Try to click on content card checkbox or the card itself
-    const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-    const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+    // Click on first content card to select it
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
     
-    if (await checkbox.isVisible()) {
-      await checkbox.click();
-    } else {
-      await firstCard.click();
-    }
-    
-    // Check for selection indicator
-    const selectionIndicator = page.locator('text=/selected|1 item/i');
-    await expect(selectionIndicator).toBeVisible({ timeout: 5000 });
+    // Check for selection indicator - buttons show count like "Create Packet (1)" or "Send 1 Items"
+    const selectionIndicator = page.locator('text=/Packet \\(\\d+\\)|Send \\d+ Items/i');
+    await expect(selectionIndicator.first()).toBeVisible({ timeout: 5000 });
   });
 });

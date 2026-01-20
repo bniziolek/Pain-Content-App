@@ -119,7 +119,7 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 
 ### Automated Test Suite - January 2026
 - **Hybrid Testing Approach**: Combines Playwright E2E tests with Vitest API tests
-- **E2E Tests (tests/e2e/)**: Browser-based smoke tests for auth, library, and PDF generation
+- **E2E Tests (tests/e2e/)**: Browser-based smoke tests for auth, library, and content packet generation
 - **API Tests (tests/api/)**: Fast integration tests for auth, content, assessments, and health endpoints
 - **Role-Based UI Tests (tests/e2e/roles/)**: Comprehensive tests by user role (clinician, admin, unauthenticated, patient portal)
 - **Test Runner Script**: `./scripts/test.sh` with interactive menu and granular options
@@ -130,3 +130,11 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Configuration Files**: `playwright.config.ts` and `vitest.config.ts` at project root
 - **Test Credentials**: admin@driverpath.com / admin123 (from seed.ts)
 - **Development Workflow**: See `docs/DEVELOPMENT_WORKFLOW.md` for GitHub issue → develop → test pattern
+- **Key Test Selectors**:
+  - Content cards: `[data-testid^="content-card-"]` (e.g., `data-testid="content-card-abc123"`)
+  - Preview buttons: `[data-testid^="button-preview-"]`
+  - Favorite buttons: `[data-testid^="button-favorite-"]`
+  - Packet modal button: `[data-testid="button-download-packet"]`
+  - Print button: `[data-testid="button-print-packet"]`
+  - Download button: `[data-testid="button-download-txt"]`
+  - Close button: `[data-testid="button-close-packet"]`

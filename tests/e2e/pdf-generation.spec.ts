@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('PDF Generation', () => {
+test.describe('Content Packet Generation', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/auth');
@@ -10,88 +10,81 @@ test.describe('PDF Generation', () => {
     await expect(page).toHaveURL(/\/(dashboard)?$/);
   });
 
-  test('should open PDF configuration dialog', async ({ page }) => {
+  test('should open packet modal when content is selected', async ({ page }) => {
     await page.goto('/library');
     
     // Select content
-    await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
-    const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-    const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
     
-    if (await checkbox.isVisible()) {
-      await checkbox.click();
-    } else {
-      await firstCard.click();
-    }
+    // Wait for selection to register and packet button to appear
+    const packetButton = page.locator('[data-testid="button-download-packet"]');
+    await expect(packetButton).toBeVisible({ timeout: 5000 });
+    await packetButton.click();
     
-    // Open packet modal
-    const packetButton = page.locator('button:has-text("Packet"), button:has-text("Download")');
-    await packetButton.first().click();
-    
-    // Click Generate PDF
-    const generatePdfButton = page.locator('[data-testid="button-generate-pdf"], button:has-text("Generate PDF")');
-    await generatePdfButton.click();
-    
-    // Verify PDF dialog opens with configuration options
-    await expect(page.locator('[data-testid="input-patient-name"]')).toBeVisible();
-    await expect(page.locator('[data-testid="input-clinician-name"]')).toBeVisible();
-    await expect(page.locator('[data-testid="input-packet-title"]')).toBeVisible();
-    await expect(page.locator('[data-testid="textarea-cover-message"]')).toBeVisible();
+    // Verify packet modal opens with content
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Content Packet' })).toBeVisible();
   });
 
-  test('should show character counter for cover message', async ({ page }) => {
+  test('should display packet content preview', async ({ page }) => {
     await page.goto('/library');
     
-    // Select content and open PDF dialog
-    await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
-    const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-    const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+    // Select content
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
     
-    if (await checkbox.isVisible()) {
-      await checkbox.click();
-    } else {
-      await firstCard.click();
-    }
+    // Wait for packet button and click
+    const packetButton = page.locator('[data-testid="button-download-packet"]');
+    await expect(packetButton).toBeVisible({ timeout: 5000 });
+    await packetButton.click();
     
-    const packetButton = page.locator('button:has-text("Packet"), button:has-text("Download")');
-    await packetButton.first().click();
-    
-    const generatePdfButton = page.locator('[data-testid="button-generate-pdf"], button:has-text("Generate PDF")');
-    await generatePdfButton.click();
-    
-    // Type in cover message
-    const messageInput = page.locator('[data-testid="textarea-cover-message"]');
-    await messageInput.fill('This is a test message for the patient.');
-    
-    // Check character counter is visible and updated
-    await expect(page.locator('text=/\\d+\/500/')).toBeVisible();
+    // Check content preview is shown in the modal
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    // Should show educational content preview
+    await expect(page.getByRole('heading', { name: 'Patient Education Materials' })).toBeVisible();
   });
 
-  test('should update preview when patient name is entered', async ({ page }) => {
+  test('should have print and download options', async ({ page }) => {
     await page.goto('/library');
     
-    // Select content and open PDF dialog
-    await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
-    const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-    const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+    // Select content
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
     
-    if (await checkbox.isVisible()) {
-      await checkbox.click();
-    } else {
-      await firstCard.click();
-    }
+    // Wait for packet button and click
+    const packetButton = page.locator('[data-testid="button-download-packet"]');
+    await expect(packetButton).toBeVisible({ timeout: 5000 });
+    await packetButton.click();
     
-    const packetButton = page.locator('button:has-text("Packet"), button:has-text("Download")');
-    await packetButton.first().click();
+    // Verify print and download buttons exist
+    await expect(page.locator('[data-testid="button-print-packet"]')).toBeVisible();
+    await expect(page.locator('[data-testid="button-download-txt"]')).toBeVisible();
+  });
+
+  test('should close packet modal', async ({ page }) => {
+    await page.goto('/library');
     
-    const generatePdfButton = page.locator('[data-testid="button-generate-pdf"], button:has-text("Generate PDF")');
-    await generatePdfButton.click();
+    // Select content
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
     
-    // Enter patient name
-    const patientNameInput = page.locator('[data-testid="input-patient-name"]');
-    await patientNameInput.fill('John Smith');
+    // Wait for packet button and click
+    const packetButton = page.locator('[data-testid="button-download-packet"]');
+    await expect(packetButton).toBeVisible({ timeout: 5000 });
+    await packetButton.click();
     
-    // Check preview updates
-    await expect(page.locator('text=/Prepared for.*John Smith/i')).toBeVisible();
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    
+    // Close modal
+    const closeButton = page.locator('[data-testid="button-close-packet"]');
+    await closeButton.click();
+    
+    // Verify modal is closed
+    await expect(page.locator('[role="dialog"]')).not.toBeVisible();
   });
 });

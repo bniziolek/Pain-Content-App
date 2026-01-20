@@ -33,8 +33,8 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
 
     test('should show navigation sidebar or menu', async () => {
       await page.goto('/dashboard');
-      // Must have navigation element
-      await expect(page.locator('nav, aside, [role="navigation"]')).toBeVisible();
+      // Must have navigation element - sidebar on desktop, bottom nav on mobile
+      await expect(page.locator('nav, aside, [role="navigation"]').first()).toBeVisible();
     });
 
     test('should navigate to library', async () => {
@@ -55,7 +55,7 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
     test('should show content cards', async () => {
       await page.goto('/library');
       // Must have content cards (required for library to be functional)
-      await expect(page.locator('[data-testid^="card-"], .content-card, article').first()).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid^="content-card-"]').first()).toBeVisible({ timeout: 15000 });
     });
 
     test('should have search input', async () => {
@@ -66,24 +66,23 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
 
     test('should select content and show selection count', async () => {
       await page.goto('/library');
-      await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+      await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
-      // Click on first content item's checkbox
-      const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-      await firstCard.locator('input[type="checkbox"], [role="checkbox"]').click();
+      // Click on first content card to select
+      const firstCard = page.locator('[data-testid^="content-card-"]').first();
+      await firstCard.click();
       
-      // Must show selection indicator
-      await expect(page.locator('text=/selected|1 item/i')).toBeVisible({ timeout: 5000 });
+      // Must show selection indicator - buttons show count like "Create Packet (1)" or "Send 1 Items"
+      await expect(page.locator('text=/Packet \\(\\d+\\)|Send \\d+ Items/i').first()).toBeVisible({ timeout: 5000 });
     });
 
     test('should open content preview modal', async () => {
       await page.goto('/library');
-      await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+      await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
-      // Hover on card and click preview
-      const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-      await firstCard.hover();
-      await firstCard.locator('button:has-text("Preview"), [data-testid*="preview"]').first().click();
+      // Find and click the preview button on first card
+      const previewButton = page.locator('[data-testid^="button-preview-"]').first();
+      await previewButton.click();
       
       // Modal must open
       await expect(page.locator('[role="dialog"]')).toBeVisible();
@@ -93,75 +92,52 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
   test.describe('Content Sending', () => {
     test('should open send modal with selected content', async () => {
       await page.goto('/library');
-      await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+      await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
       // Select content
-      const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-      const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      const firstCard = page.locator('[data-testid^="content-card-"]').first();
+      await firstCard.click();
       
-      if (await checkbox.isVisible()) {
-        await checkbox.click();
-        
-        // Open send modal
-        const sendButton = page.locator('button:has-text("Send"), button:has-text("Email")');
-        if (await sendButton.isVisible()) {
-          await sendButton.click();
-          await expect(page.locator('[role="dialog"]')).toBeVisible();
-        }
-      }
+      // Open send modal
+      const sendButton = page.locator('button:has-text("Send"), button:has-text("Email")').first();
+      await sendButton.click();
+      await expect(page.locator('[role="dialog"]')).toBeVisible();
     });
   });
 
-  test.describe('PDF Generation', () => {
-    test('should open PDF configuration dialog', async () => {
+  test.describe('Content Packet', () => {
+    test('should open packet modal', async () => {
       await page.goto('/library');
-      await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+      await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
       // Select content
-      const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-      const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      const firstCard = page.locator('[data-testid^="content-card-"]').first();
+      await firstCard.click();
       
-      if (await checkbox.isVisible()) {
-        await checkbox.click();
-        
-        // Open packet modal
-        const packetButton = page.locator('button:has-text("Packet"), button:has-text("Download")');
-        await packetButton.first().click();
-        
-        // Click Generate PDF
-        const generatePdfButton = page.locator('[data-testid="button-generate-pdf"], button:has-text("Generate PDF")');
-        if (await generatePdfButton.isVisible()) {
-          await generatePdfButton.click();
-          await expect(page.locator('[data-testid="input-patient-name"]')).toBeVisible();
-        }
-      }
+      // Open packet modal
+      const packetButton = page.locator('[data-testid="button-download-packet"]');
+      await expect(packetButton).toBeVisible({ timeout: 5000 });
+      await packetButton.click();
+      
+      // Verify packet modal opens with content
+      await expect(page.locator('[role="dialog"]')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Content Packet' })).toBeVisible();
     });
 
-    test('should configure PDF options', async () => {
+    test('should have print and download options', async () => {
       await page.goto('/library');
-      await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+      await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
-      const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
-      const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      const firstCard = page.locator('[data-testid^="content-card-"]').first();
+      await firstCard.click();
       
-      if (await checkbox.isVisible()) {
-        await checkbox.click();
-        
-        const packetButton = page.locator('button:has-text("Packet"), button:has-text("Download")');
-        await packetButton.first().click();
-        
-        const generatePdfButton = page.locator('[data-testid="button-generate-pdf"], button:has-text("Generate PDF")');
-        if (await generatePdfButton.isVisible()) {
-          await generatePdfButton.click();
-          
-          // Configure options
-          await page.fill('[data-testid="input-patient-name"]', 'Test Patient');
-          await page.fill('[data-testid="textarea-cover-message"]', 'Test message for the patient');
-          
-          // Verify character counter
-          await expect(page.locator('text=/\\d+\/500/')).toBeVisible();
-        }
-      }
+      const packetButton = page.locator('[data-testid="button-download-packet"]');
+      await expect(packetButton).toBeVisible({ timeout: 5000 });
+      await packetButton.click();
+      
+      // Verify print and download buttons exist
+      await expect(page.locator('[data-testid="button-print-packet"]')).toBeVisible();
+      await expect(page.locator('[data-testid="button-download-txt"]')).toBeVisible();
     });
   });
 

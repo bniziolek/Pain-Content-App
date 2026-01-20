@@ -1,0 +1,48 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - link "Back to Home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - button "Back to Home" [ref=e7]:
+          - img
+          - generic [ref=e8]: Back to Home
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - img [ref=e11]
+          - generic [ref=e13]: DriverPath
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - generic [ref=e16]: Welcome back
+            - generic [ref=e17]: Enter your email to sign in to your account
+          - generic [ref=e19]:
+            - generic [ref=e20]: Invalid email or password. Need an account? Try signing up below.
+            - generic [ref=e21]:
+              - text: Email
+              - textbox "Email" [ref=e22]:
+                - /placeholder: email@example.com
+                - text: admin@driverpath.com
+            - generic [ref=e23]:
+              - generic [ref=e24]:
+                - generic [ref=e25]: Password
+                - link "Forgot password?" [ref=e26] [cursor=pointer]:
+                  - /url: /forgot-password
+              - textbox "Password" [ref=e27]: admin123
+            - button "Sign In" [ref=e28]
+          - paragraph [ref=e30]:
+            - text: Don't have an account?
+            - link "Sign up" [ref=e31] [cursor=pointer]:
+              - /url: /auth?signup=true
+              - button "Sign up" [ref=e32]
+    - generic [ref=e35]:
+      - blockquote [ref=e36]: "\"DriverPath has completely transformed how I educate my patients. The automated assessments save me hours every week.\""
+      - generic [ref=e37]:
+        - generic [ref=e38]: SM
+        - generic [ref=e39]:
+          - generic [ref=e40]: Dr. Sarah Mitchell
+          - generic [ref=e41]: Physical Therapist, DPT
+```
