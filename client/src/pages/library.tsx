@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Link } from "wouter";
+import { PDFGeneratorDialog } from "@/components/pdf-generator-dialog";
 
 interface ContentItem {
   id: string;
@@ -43,6 +44,7 @@ export default function LibraryPage() {
   const { isPacketMode, isLoading: isLoadingMode } = useContentDeliveryMode();
   const { isFavorite, toggleFavorite, isToggling } = useFavorites();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isPDFDialogOpen, setIsPDFDialogOpen] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data: contentItems = [], isLoading, refetch } = useQuery({
@@ -508,25 +510,13 @@ export default function LibraryPage() {
               </Button>
               <Button 
                 onClick={() => {
-                  const content = document.getElementById('print-content')?.innerText || '';
-                  const blob = new Blob([content], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'patient-education-materials.txt';
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  toast({
-                    title: "Downloaded",
-                    description: "Content packet saved to your device.",
-                  });
+                  setIsPacketModalOpen(false);
+                  setIsPDFDialogOpen(true);
                 }}
-                data-testid="button-download-txt"
+                data-testid="button-generate-pdf"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                Generate PDF
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -617,6 +607,13 @@ export default function LibraryPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* PDF Generator Dialog */}
+        <PDFGeneratorDialog
+          open={isPDFDialogOpen}
+          onOpenChange={setIsPDFDialogOpen}
+          contentItems={contentItems.filter(item => selectedItems.includes(item.id))}
+        />
       </div>
     </DashboardLayout>
   );

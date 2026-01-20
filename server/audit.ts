@@ -32,7 +32,8 @@ export type AuditAction =
   | 'screening_access'
   | 'patient_summary_view'
   | 'content_view'
-  | 'permission_denied';
+  | 'permission_denied'
+  | 'pdf_generate';
 
 export type ActorType = 'clinician' | 'admin' | 'patient' | 'system';
 export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session' | 'screening' | 'settings';
