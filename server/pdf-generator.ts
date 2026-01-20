@@ -23,6 +23,7 @@ export interface PDFGenerationConfig {
   coverPageMessage?: string;
   clinicianName?: string;
   patientName?: string;
+  packetTitle?: string;
 }
 
 const defaultConfig: PDFGenerationConfig = {
