@@ -116,3 +116,11 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Mobile Form Optimizations**: Auth and Settings forms have autocomplete, inputMode, enterKeyHint for mobile keyboards
 - **Mobile-First Padding**: Reduced padding on mobile (p-4), larger on tablet/desktop (sm:p-8, lg:p-8)
 - **Bottom Nav Improvements**: Safe area inset support, backdrop blur, active state indicators, 48px touch targets
+
+### Automated Test Suite - January 2026
+- **Hybrid Testing Approach**: Combines Playwright E2E tests with Vitest API tests
+- **E2E Tests (tests/e2e/)**: Browser-based smoke tests for auth, library, and PDF generation
+- **API Tests (tests/api/)**: Fast integration tests for auth, content, assessments, and health endpoints
+- **Test Runner Script**: `./scripts/test.sh` with options: `e2e`, `api`, `smoke` (all tests)
+- **Configuration Files**: `playwright.config.ts` and `vitest.config.ts` at project root
+- **Test Credentials**: admin@driverpath.com / admin123 (from seed.ts)
