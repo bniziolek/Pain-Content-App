@@ -107,6 +107,10 @@ router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
     const content = await storage.updateContent(req.params.id, req.body);
     
+    if (!content) {
+      return res.status(404).send("Content not found");
+    }
+    
     await logClinicianAction(req, req.user!, 'content_update', {
       resourceType: 'content',
       resourceId: req.params.id,

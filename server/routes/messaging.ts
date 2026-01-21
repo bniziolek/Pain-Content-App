@@ -4,16 +4,7 @@ import { storage } from "../storage";
 import { insertEmailLogSchema } from "@shared/schema";
 import { logClinicianAction, logPatientAction } from "../audit";
 import { sendContentEmail } from "../gmail";
-import crypto from "crypto";
-import { pbkdf2Sync, randomBytes } from "crypto";
-
-function hashAccessCode(code: string, salt: string): string {
-  return pbkdf2Sync(code, salt, 100000, 64, 'sha512').toString('hex');
-}
-
-function generateAccessCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
+import { createSecureAccessCode } from "../domain/messaging";
 
 export function createMessagingRouter(requireFeatureFlag: (key: string) => any) {
   const router = Router();
@@ -23,10 +14,8 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
     try {
       const { patientEmail, subject, contentIds, providerNote, type } = req.body;
       
-      // Generate and hash access code
-      const accessCode = generateAccessCode();
-      const accessCodeSalt = randomBytes(16).toString('hex');
-      const accessCodeHash = hashAccessCode(accessCode, accessCodeSalt);
+      // Generate secure access code
+      const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
       
       const data = insertEmailLogSchema.parse({
         clinicianUserId: req.user!.id,
@@ -47,17 +36,24 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
         contentIds.map((id: string) => storage.getContentById(id))
       )).filter(Boolean);
       
-      // Send the email
-      await sendContentEmail(
-        patientEmail,
-        subject,
-        contentItems,
-        providerNote,
-        emailLog.id,
-        accessCode
-      );
+      // Build view URLs for content items
+      const contentItemsWithUrls = contentItems.map((item: any) => ({
+        title: item.title,
+        summary: item.summary || '',
+        readTime: item.readTime,
+        imageUrl: item.imageUrl,
+        viewUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/view/${emailLog.id}?content=${item.id}`,
+      }));
       
-      await logClinicianAction(req, req.user!, 'email_send', {
+      // Send the email
+      await sendContentEmail({
+        toEmail: patientEmail,
+        subject,
+        contentItems: contentItemsWithUrls,
+        providerNote,
+      });
+      
+      await logClinicianAction(req, req.user!, 'email_sent', {
         resourceType: 'email_log',
         resourceId: emailLog.id,
         phiAccessed: true,
@@ -99,10 +95,8 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
         return res.status(404).send("Email log not found");
       }
       
-      // Generate new access code
-      const accessCode = generateAccessCode();
-      const accessCodeSalt = randomBytes(16).toString('hex');
-      const accessCodeHash = hashAccessCode(accessCode, accessCodeSalt);
+      // Generate secure access code
+      const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
       
       // Create new email log
       const newLog = await storage.createEmailLog({
@@ -120,17 +114,27 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
       });
       
       // Get content and resend
-      const contentItems = await storage.getContentByIds(originalLog.contentIds || []);
-      await sendContentEmail(
-        originalLog.patientEmail,
-        `Re: ${originalLog.subject}`,
-        contentItems,
-        req.body.providerNote || originalLog.providerNote,
-        newLog.id,
-        accessCode
+      const contentItems = await Promise.all(
+        (originalLog.contentIds || []).map((id: string) => storage.getContentById(id))
       );
+      const validContentItems = contentItems.filter(Boolean);
       
-      await logClinicianAction(req, req.user!, 'email_send', {
+      const contentItemsWithUrls = validContentItems.map((item: any) => ({
+        title: item.title,
+        summary: item.summary || '',
+        readTime: item.readTime,
+        imageUrl: item.imageUrl,
+        viewUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/view/${newLog.id}?content=${item.id}`,
+      }));
+      
+      await sendContentEmail({
+        toEmail: originalLog.patientEmail,
+        subject: `Re: ${originalLog.subject}`,
+        contentItems: contentItemsWithUrls,
+        providerNote: req.body.providerNote || originalLog.providerNote,
+      });
+      
+      await logClinicianAction(req, req.user!, 'email_sent', {
         resourceType: 'email_log',
         resourceId: newLog.id,
         phiAccessed: true,
@@ -170,7 +174,7 @@ emailSettingsRouter.patch("/mode", requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: "Invalid mode" });
     }
     
-    await storage.updateUser(req.user!.id, { emailDeliveryMode: mode });
+    await storage.updateEmailDeliveryMode(req.user!.id, mode);
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -179,7 +183,7 @@ emailSettingsRouter.patch("/mode", requireAuth, async (req, res, next) => {
 
 emailSettingsRouter.delete("/connection", requireAuth, async (req, res, next) => {
   try {
-    await storage.deleteUserEmailConnection(req.user!.id);
+    await storage.deleteEmailConnection(req.user!.id);
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -196,15 +200,19 @@ patientSummaryRouter.get("/:email", requireSubscription, async (req, res, next) 
     const patientEmail = decodeURIComponent(req.params.email);
     
     // Get all email logs for this patient
-    const emailLogs = await storage.getEmailLogsByPatient(req.user!.id, patientEmail);
+    const emailLogs = await storage.getEmailLogsByPatientEmail(req.user!.id, patientEmail);
     
-    // Get all content views
-    const contentViews = await storage.getContentViewsByPatient(patientEmail);
+    // Get content views from all email logs
+    const contentViews: any[] = [];
+    for (const log of emailLogs) {
+      const views = await storage.getContentViewsByEmailLogId(log.id);
+      contentViews.push(...views);
+    }
     
-    // Get assessment results
-    const assessmentResults = await storage.getAssessmentResultsByPatient(patientEmail);
+    // Get assessment invites for this patient
+    const assessmentResults = await storage.getAssessmentInvitesByPatientEmail(req.user!.id, patientEmail);
     
-    await logClinicianAction(req, req.user!, 'patient_summary_access', {
+    await logClinicianAction(req, req.user!, 'patient_summary_view', {
       resourceType: 'patient',
       phiAccessed: true,
       phiScope: 'patient summary, email history, content views, assessments',
