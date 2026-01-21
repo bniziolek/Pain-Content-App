@@ -241,7 +241,7 @@ router.get("/invoices", requireAuth, async (req, res, next) => {
 // Get feature flags for subscription
 router.get("/feature-flags", async (_req, res, next) => {
   try {
-    const flags = await storage.getAllFeatureFlags();
+    const flags = await storage.getFeatureFlags();
     res.json(flags.filter(f => f.isEnabled));
   } catch (error) {
     next(error);

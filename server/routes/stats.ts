@@ -16,10 +16,10 @@ router.get("/", requireSubscription, async (req, res, next) => {
       internalScreenings,
       patientPathways,
     ] = await Promise.all([
-      storage.getEmailLogs(userId),
-      storage.getAssessmentInvites(userId),
-      storage.getInternalScreenings(userId),
-      storage.getPatientPathways(userId),
+      storage.getEmailLogsByClinicianId(userId),
+      storage.getAssessmentInvitesByClinicianId(userId),
+      storage.getInternalScreeningsByClinicianId(userId),
+      storage.getPatientPathwaysByClinicianId(userId),
     ]);
     
     // Calculate stats

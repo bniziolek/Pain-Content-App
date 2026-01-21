@@ -11,15 +11,14 @@ const router = Router();
 router.get("/", requireSubscription, async (req, res, next) => {
   try {
     const typeFilter = req.query.type as string | undefined;
-    const assessments = await storage.getAssessments(req.user!.id);
-    const templates = await storage.getAssessmentTemplates();
+    const assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
     
     await logClinicianAction(req, req.user!, 'assessment_access', {
       resourceType: 'assessment',
-      details: { count: assessments.length + templates.length, typeFilter },
+      details: { count: assessments.length, typeFilter },
     });
     
-    res.json([...assessments, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
+    res.json(assessments);
   } catch (error) {
     next(error);
   }
@@ -200,7 +199,7 @@ screeningsRouter.post("/", requireSubscription, async (req, res, next) => {
 // Get internal screenings
 screeningsRouter.get("/", requireSubscription, async (req, res, next) => {
   try {
-    const screenings = await storage.getInternalScreenings(req.user!.id);
+    const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
     
     await logClinicianAction(req, req.user!, 'assessment_access', {
       resourceType: 'screening',

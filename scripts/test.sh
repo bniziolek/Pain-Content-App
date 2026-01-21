@@ -63,6 +63,41 @@ run_api_health_tests() {
     npx vitest run tests/api/health.test.ts --reporter=verbose
 }
 
+run_api_messaging_tests() {
+    print_subheader "API: Messaging Tests"
+    npx vitest run tests/api/messaging.test.ts --reporter=verbose
+}
+
+run_api_pathways_tests() {
+    print_subheader "API: Pathways Tests"
+    npx vitest run tests/api/pathways.test.ts --reporter=verbose
+}
+
+run_api_subscription_tests() {
+    print_subheader "API: Subscription Tests"
+    npx vitest run tests/api/subscription.test.ts --reporter=verbose
+}
+
+run_api_admin_tests() {
+    print_subheader "API: Admin Tests"
+    npx vitest run tests/api/admin.test.ts --reporter=verbose
+}
+
+run_api_feature_flags_tests() {
+    print_subheader "API: Feature Flags Tests"
+    npx vitest run tests/api/feature-flags.test.ts --reporter=verbose
+}
+
+run_api_recommendations_tests() {
+    print_subheader "API: Recommendations Tests"
+    npx vitest run tests/api/recommendations.test.ts --reporter=verbose
+}
+
+run_api_stats_tests() {
+    print_subheader "API: Stats Tests"
+    npx vitest run tests/api/stats.test.ts --reporter=verbose
+}
+
 # E2E Test Functions
 run_e2e_tests() {
     print_header "Running All E2E Tests"
@@ -182,6 +217,13 @@ show_help() {
     echo "  api:auth       Run authentication API tests"
     echo "  api:content    Run content API tests"
     echo "  api:assess     Run assessments API tests"
+    echo "  api:messaging  Run messaging/email API tests"
+    echo "  api:pathways   Run pathways API tests"
+    echo "  api:sub        Run subscription API tests"
+    echo "  api:admin      Run admin API tests"
+    echo "  api:flags      Run feature flags API tests"
+    echo "  api:recommend  Run recommendations API tests"
+    echo "  api:stats      Run stats API tests"
     echo "  api:health     Run health check tests"
     echo ""
     echo -e "${CYAN}E2E Test Commands:${NC}"
@@ -210,18 +252,32 @@ show_api_menu() {
     echo "  2) Authentication"
     echo "  3) Content"
     echo "  4) Assessments"
-    echo "  5) Health Check"
-    echo "  6) Back to Main Menu"
+    echo "  5) Messaging"
+    echo "  6) Pathways"
+    echo "  7) Subscription"
+    echo "  8) Admin"
+    echo "  9) Feature Flags"
+    echo "  10) Recommendations"
+    echo "  11) Stats"
+    echo "  12) Health Check"
+    echo "  13) Back to Main Menu"
     echo ""
-    read -p "Select [1-6]: " choice
+    read -p "Select [1-13]: " choice
     
     case $choice in
         1) run_api_tests ;;
         2) run_api_auth_tests ;;
         3) run_api_content_tests ;;
         4) run_api_assessments_tests ;;
-        5) run_api_health_tests ;;
-        6) return ;;
+        5) run_api_messaging_tests ;;
+        6) run_api_pathways_tests ;;
+        7) run_api_subscription_tests ;;
+        8) run_api_admin_tests ;;
+        9) run_api_feature_flags_tests ;;
+        10) run_api_recommendations_tests ;;
+        11) run_api_stats_tests ;;
+        12) run_api_health_tests ;;
+        13) return ;;
         *) echo "Invalid choice" ;;
     esac
 }
@@ -356,6 +412,27 @@ case "${1:-menu}" in
         ;;
     api:health)
         run_api_health_tests
+        ;;
+    api:messaging|api:email)
+        run_api_messaging_tests
+        ;;
+    api:pathways)
+        run_api_pathways_tests
+        ;;
+    api:sub|api:subscription)
+        run_api_subscription_tests
+        ;;
+    api:admin)
+        run_api_admin_tests
+        ;;
+    api:flags|api:feature-flags)
+        run_api_feature_flags_tests
+        ;;
+    api:recommend|api:recommendations)
+        run_api_recommendations_tests
+        ;;
+    api:stats)
+        run_api_stats_tests
         ;;
     e2e)
         run_e2e_tests

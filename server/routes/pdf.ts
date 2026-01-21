@@ -29,7 +29,10 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       return res.status(400).json({ error: "No content to generate PDF from" });
     }
 
-    const contentItems = await storage.getContentByIds(contentIds);
+    const contentItems = (await Promise.all(
+      contentIds.map((id: string) => storage.getContentById(id))
+    )).filter(Boolean) as any[];
+    
     if (contentItems.length === 0) {
       return res.status(404).json({ error: "Content not found" });
     }
@@ -82,7 +85,10 @@ router.post("/content/generate-pdf", requireSubscription, async (req, res, next)
       return res.status(400).json({ error: "Content IDs required" });
     }
 
-    const contentItems = await storage.getContentByIds(contentIds);
+    const contentItems = (await Promise.all(
+      contentIds.map((id: string) => storage.getContentById(id))
+    )).filter(Boolean) as any[];
+    
     if (contentItems.length === 0) {
       return res.status(404).json({ error: "Content not found" });
     }

@@ -23,8 +23,7 @@ router.get("/", requireSubscription, async (req, res, next) => {
     }
     
     const pathways = await storage.getCarePathways(req.user!.id);
-    const templates = await storage.getCarePathwayTemplates();
-    res.json([...pathways, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
+    res.json(pathways);
   } catch (error) {
     next(error);
   }
@@ -212,9 +211,8 @@ const followUpRouter = Router();
 
 followUpRouter.get("/", requireSubscription, async (req, res, next) => {
   try {
-    const rules = await storage.getFollowUpRules(req.user!.id);
-    const templates = await storage.getFollowUpRuleTemplates();
-    res.json([...rules, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
+    const rules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
+    res.json(rules);
   } catch (error) {
     next(error);
   }

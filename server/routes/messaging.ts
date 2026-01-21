@@ -43,7 +43,9 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
       const emailLog = await storage.createEmailLog(data);
       
       // Get content items for the email
-      const contentItems = await storage.getContentByIds(contentIds);
+      const contentItems = (await Promise.all(
+        contentIds.map((id: string) => storage.getContentById(id))
+      )).filter(Boolean);
       
       // Send the email
       await sendContentEmail(
@@ -72,7 +74,7 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   // Get email logs
   router.get("/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
-      const logs = await storage.getEmailLogs(req.user!.id);
+      const logs = await storage.getEmailLogsByClinicianId(req.user!.id);
       res.json(logs);
     } catch (error) {
       next(error);
@@ -82,7 +84,7 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   // Get content views for email log
   router.get("/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
-      const views = await storage.getContentViewsByEmailLog(req.params.id);
+      const views = await storage.getContentViewsByEmailLogId(req.params.id);
       res.json(views);
     } catch (error) {
       next(error);
@@ -151,15 +153,10 @@ const emailSettingsRouter = Router();
 emailSettingsRouter.get("/", requireAuth, async (req, res, next) => {
   try {
     const user = req.user!;
-    const connection = await storage.getUserEmailConnection(user.id);
     
     res.json({
       emailDeliveryMode: user.emailDeliveryMode || 'central',
-      connection: connection ? {
-        email: connection.email,
-        status: connection.status,
-        lastError: connection.lastError,
-      } : null,
+      connection: null,
     });
   } catch (error) {
     next(error);

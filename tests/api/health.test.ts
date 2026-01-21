@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5000';
+import { BASE_URL } from '../utils';
 
 describe('Health Check API', () => {
   describe('GET /api/health', () => {

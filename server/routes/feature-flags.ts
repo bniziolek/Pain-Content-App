@@ -10,7 +10,7 @@ const router = Router();
 // Get all feature flags (for current user based on tier)
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const flags = await storage.getAllFeatureFlags();
+    const flags = await storage.getFeatureFlags();
     const user = req.user!;
     
     // Filter flags based on user tier
@@ -36,7 +36,7 @@ router.get("/", requireAuth, async (req, res, next) => {
 
 router.get("/admin", requireAdmin, async (req, res, next) => {
   try {
-    const flags = await storage.getAllFeatureFlags();
+    const flags = await storage.getFeatureFlags();
     res.json(flags);
   } catch (error) {
     next(error);
