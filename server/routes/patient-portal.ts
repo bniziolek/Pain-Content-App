@@ -3,6 +3,13 @@ import crypto from "crypto";
 import { storage } from "../storage";
 import { logPatientAction } from "../audit";
 import { getContentByIdFromContentful, isContentfulConfigured } from "../contentful";
+import {
+  checkLockoutStatus,
+  calculateLockoutUpdate,
+  verifyEmailMatch,
+  createSuccessLockoutReset,
+  calculateSessionExpiry,
+} from "../domain/patient";
 
 type FeatureFlagMiddleware = (flagKey: string) => (req: Request, res: Response, next: NextFunction) => void;
 
@@ -38,82 +45,43 @@ export function registerPatientPortalRoutes(app: Express, requireFeatureFlag: Fe
         });
       }
       
-      // Check if permanently locked
-      if (emailLog.permanentlyLocked) {
-        return res.status(403).json({ 
-          error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
-          permanentlyLocked: true,
+      // Check lockout status using domain service
+      const lockoutState = {
+        failedAttempts: emailLog.failedAttempts || 0,
+        lockedUntil: emailLog.lockedUntil,
+        permanentlyLocked: emailLog.permanentlyLocked || false,
+      };
+      
+      const lockoutCheck = checkLockoutStatus(lockoutState);
+      if (lockoutCheck.isLocked) {
+        const statusCode = lockoutCheck.lockType === 'permanent' ? 403 : 403;
+        return res.status(statusCode).json({ 
+          error: lockoutCheck.message,
+          ...(lockoutCheck.lockType === 'permanent' && { permanentlyLocked: true }),
+          ...(lockoutCheck.lockType === 'temporary' && { 
+            lockedUntil: lockoutState.lockedUntil,
+            minutesRemaining: lockoutCheck.minutesRemaining,
+          }),
         });
       }
       
-      // Check if temporarily locked
-      const now = new Date();
-      if (emailLog.lockedUntil && emailLog.lockedUntil > now) {
-        const minutesRemaining = Math.ceil((emailLog.lockedUntil.getTime() - now.getTime()) / 60000);
-        return res.status(403).json({ 
-          error: `Too many failed attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}.`,
-          lockedUntil: emailLog.lockedUntil,
-          minutesRemaining,
-        });
-      }
-      
-      // Verify email matches (case-insensitive)
-      if (emailLog.patientEmail.toLowerCase() !== email.toLowerCase()) {
-        // Increment failed attempts
-        const newAttempts = (emailLog.failedAttempts || 0) + 1;
-        let lockoutUpdate: { failedAttempts: number; lockedUntil?: Date | null; permanentlyLocked?: boolean } = { 
-          failedAttempts: newAttempts,
-        };
+      // Verify email matches using domain service
+      if (!verifyEmailMatch(emailLog.patientEmail, email)) {
+        const lockoutResult = calculateLockoutUpdate(lockoutState.failedAttempts);
+        await storage.updateEmailLogLockout(emailLog.id, lockoutResult.lockoutUpdate);
         
-        // Determine lockout tier
-        if (newAttempts >= 9) {
-          // Permanent lockout after 9 attempts
-          lockoutUpdate.permanentlyLocked = true;
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(403).json({ 
-            error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
-            permanentlyLocked: true,
-          });
-        } else if (newAttempts >= 6) {
-          // 1 hour lockout after 6 attempts
-          lockoutUpdate.lockedUntil = new Date(Date.now() + 60 * 60 * 1000);
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code. You have been locked out for 1 hour. 3 more failed attempts will permanently lock this access code.",
-            attemptsRemaining: 9 - newAttempts,
-            lockedFor: 60,
-          });
-        } else if (newAttempts >= 3) {
-          // 5 minute lockout after 3 attempts
-          lockoutUpdate.lockedUntil = new Date(Date.now() + 5 * 60 * 1000);
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code. You have been locked out for 5 minutes. 3 more failed attempts will result in a 1-hour lockout.",
-            attemptsRemaining: 6 - newAttempts,
-            lockedFor: 5,
-          });
-        } else {
-          // Just increment attempts, warn user
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code.",
-            attemptsRemaining: 3 - newAttempts,
-            warning: newAttempts === 2 ? "Warning: 1 more failed attempt will result in a 5-minute lockout." : undefined,
-          });
-        }
+        const { statusCode, ...responseBody } = lockoutResult.response;
+        return res.status(statusCode).json(responseBody);
       }
       
-      // Success! Reset failed attempts
-      if ((emailLog.failedAttempts || 0) > 0) {
-        await storage.updateEmailLogLockout(emailLog.id, { 
-          failedAttempts: 0, 
-          lockedUntil: null,
-        });
+      // Success! Reset failed attempts using domain service
+      if (lockoutState.failedAttempts > 0) {
+        await storage.updateEmailLogLockout(emailLog.id, createSuccessLockoutReset());
       }
       
       // Generate a secure session token (UUID) 
       const sessionToken = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      const expiresAt = calculateSessionExpiry();
       
       // Store session in database (persistent, trackable)
       await storage.createPatientSession({

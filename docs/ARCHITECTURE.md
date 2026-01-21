@@ -279,14 +279,16 @@ When refactoring existing code:
 - [x] Access code service extraction (`server/domain/messaging/`)
 - [x] Domain folder structure created
 - [x] Scoring service refactored to use domain layer (`server/domain/scoring/`)
-- [x] Infrastructure folder structure created
-
-### In Progress
-- [ ] Move `recommendation.ts` → `server/domain/recommendations/`
-- [ ] Extract patient auth logic → `server/domain/patient/`
-- [ ] Move infrastructure services (gmail, stripe, contentful) to `server/infrastructure/`
+- [x] Recommendation service refactored to use domain layer (`server/domain/recommendations/`)
+- [x] Patient auth/lockout logic extracted (`server/domain/patient/`)
+- [x] Infrastructure folder structure created (`server/infrastructure/`)
+- [x] Email services organized (`server/infrastructure/email/`)
+- [x] Payment services organized (`server/infrastructure/payment/`)
+- [x] CMS services organized (`server/infrastructure/cms/`)
+- [x] Audit services organized (`server/infrastructure/audit/`)
 
 ### Future
 - [ ] Create IStorage interfaces for repository pattern
 - [ ] Add application services layer for complex orchestration
 - [ ] Further decompose large route files
+- [ ] Update remaining imports to use infrastructure barrel exports
