@@ -13,7 +13,7 @@ import { Settings2, Save, RotateCcw, History, CheckCircle2, AlertCircle, Clock, 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import type { FeatureFlag, AuditLog } from "@shared/schema";
+import type { FeatureFlag, AuditLog } from "@shared/api-types";
 import { useLocation } from "wouter";
 import { useEffect, useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";

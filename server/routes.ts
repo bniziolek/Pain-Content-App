@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { requireSuperAdmin } from "./rbac";
@@ -9,13 +8,18 @@ import {
   insertAssessmentSchema,
   insertAssessmentInviteSchema,
   insertInternalScreeningSchema,
-  insertEmailLogSchema 
+  insertEmailLogSchema,
+  type User
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
+import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
 import { generatePDF, generateFilename, type PDFGenerationConfig } from "./pdf-generator";
+import { toPublicUser, toPublicUsers } from "./serializers/user";
+import { registerPasswordResetRoutes } from "./routes/password-reset";
+import { registerPublicContentRoutes } from "./routes/public-content";
+import { registerPatientPortalRoutes } from "./routes/patient-portal";
 import { 
   getRecommendationsWithFallback, 
   createRecommendationRule, 
@@ -33,6 +37,8 @@ import {
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
+  registerPasswordResetRoutes(app);
+  registerPublicContentRoutes(app);
 
   // Feature flag middleware factory - returns 404 if flag is disabled
   const requireFeatureFlag = (flagKey: string) => {
@@ -49,386 +55,7 @@ export function registerRoutes(app: Express): Server {
     };
   };
 
-  // ====== Password Reset Routes ======
-  app.post("/api/forgot-password", async (req, res, next) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-      
-      // Always return success to prevent email enumeration attacks
-      const user = await storage.getUserByEmail(email.toLowerCase());
-      if (user) {
-        // Generate a secure token
-        const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-        
-        // Store the token
-        await storage.createPasswordResetToken(user.id, token, expiresAt);
-        
-        // Send the reset email
-        const baseUrl = req.headers.origin || `https://${req.headers.host}`;
-        const resetLink = `${baseUrl}/forgot-password?token=${token}`;
-        
-        await sendPasswordResetEmail({
-          toEmail: email,
-          resetLink,
-        });
-      }
-      
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/reset-password", async (req, res, next) => {
-    try {
-      const { token, password } = req.body;
-      
-      if (!token || !password) {
-        return res.status(400).json({ error: "Token and password are required" });
-      }
-      
-      // Validate password strength
-      if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters" });
-      }
-      if (!/[A-Z]/.test(password)) {
-        return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
-      }
-      if (!/[a-z]/.test(password)) {
-        return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
-      }
-      if (!/\d/.test(password)) {
-        return res.status(400).json({ error: "Password must contain at least one number" });
-      }
-      
-      // Find the token
-      const resetToken = await storage.getPasswordResetToken(token);
-      
-      if (!resetToken) {
-        return res.status(400).json({ error: "Invalid or expired reset link" });
-      }
-      
-      if (resetToken.usedAt) {
-        return res.status(400).json({ error: "This reset link has already been used" });
-      }
-      
-      if (new Date() > resetToken.expiresAt) {
-        return res.status(400).json({ error: "This reset link has expired" });
-      }
-      
-      // Update the password
-      const hashedPassword = await hashPassword(password);
-      await storage.updateUserPassword(resetToken.userId, hashedPassword);
-      
-      // Mark token as used
-      await storage.markPasswordResetTokenUsed(token);
-      
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // ====== Public Content View Routes (for patient email links) ======
-  app.get("/api/public/content-view/:token", async (req, res, next) => {
-    try {
-      const view = await storage.getContentViewByToken(req.params.token);
-      if (!view) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
-      // Mark as viewed if first time and update email log status to clicked
-      if (!view.viewedAt) {
-        await storage.updateContentView(view.id, { viewedAt: new Date() });
-        await storage.updateEmailLogStatus(view.emailLogId, 'clicked');
-      }
-      
-      // Fetch the content
-      let content = null;
-      if (isContentfulConfigured()) {
-        try {
-          content = await getContentByIdFromContentful(view.contentId);
-        } catch (e) {
-          console.warn("Contentful fetch failed:", e);
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(view.contentId);
-      }
-      
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
-      res.json({
-        ...content,
-        viewToken: view.token,
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-  
-  // Update time spent on content
-  app.post("/api/public/content-view/:token/time", async (req, res, next) => {
-    try {
-      const view = await storage.getContentViewByToken(req.params.token);
-      if (!view) {
-        return res.status(404).json({ error: "View not found" });
-      }
-      
-      const { timeSpentSeconds } = req.body;
-      if (typeof timeSpentSeconds === 'number' && timeSpentSeconds > 0) {
-        await storage.updateContentView(view.id, { timeSpentSeconds });
-      }
-      
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // Clean up expired patient sessions every hour (from database)
-  setInterval(async () => {
-    try {
-      const count = await storage.invalidateExpiredSessions();
-      if (count > 0) {
-        console.log(`[Session cleanup] Invalidated ${count} expired patient sessions`);
-      }
-    } catch (error) {
-      console.error('[Session cleanup] Error:', error);
-    }
-  }, 60 * 60 * 1000);
-
-  // Helper to get client IP
-  const getClientIp = (req: any): string => {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
-    if (Array.isArray(forwarded)) return forwarded[0];
-    return req.socket?.remoteAddress || 'unknown';
-  };
-
-  // ====== Patient Portal Authentication ======
-  app.post("/api/patient-portal/auth", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
-    try {
-      const { email, accessCode } = req.body;
-      
-      if (!email || !accessCode) {
-        return res.status(400).json({ error: "Email and access code are required" });
-      }
-      
-      // First, find email log by access code to check lockout status
-      const emailLog = await storage.getEmailLogByAccessCode(accessCode);
-      
-      // If no email log found with this code, return generic error (don't reveal if code exists)
-      if (!emailLog) {
-        // Audit log: failed auth attempt (code not found)
-        await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth_failed', {
-          details: { reason: 'invalid_code' },
-          outcome: 'failure',
-        });
-        return res.status(401).json({ 
-          error: "Invalid email or access code",
-          attemptsRemaining: null 
-        });
-      }
-      
-      // Check if permanently locked
-      if (emailLog.permanentlyLocked) {
-        return res.status(403).json({ 
-          error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
-          permanentlyLocked: true
-        });
-      }
-      
-      // Check if temporarily locked
-      const now = new Date();
-      if (emailLog.lockedUntil && emailLog.lockedUntil > now) {
-        const minutesRemaining = Math.ceil((emailLog.lockedUntil.getTime() - now.getTime()) / 60000);
-        return res.status(403).json({ 
-          error: `Too many failed attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`,
-          lockedUntil: emailLog.lockedUntil,
-          minutesRemaining
-        });
-      }
-      
-      // Verify email matches (case-insensitive)
-      if (emailLog.patientEmail.toLowerCase() !== email.toLowerCase()) {
-        // Increment failed attempts
-        const newAttempts = (emailLog.failedAttempts || 0) + 1;
-        let lockoutUpdate: { failedAttempts: number; lockedUntil?: Date | null; permanentlyLocked?: boolean } = { 
-          failedAttempts: newAttempts 
-        };
-        
-        // Determine lockout tier
-        if (newAttempts >= 9) {
-          // Permanent lockout after 9 attempts
-          lockoutUpdate.permanentlyLocked = true;
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(403).json({ 
-            error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
-            permanentlyLocked: true
-          });
-        } else if (newAttempts >= 6) {
-          // 1 hour lockout after 6 attempts
-          lockoutUpdate.lockedUntil = new Date(Date.now() + 60 * 60 * 1000);
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code. You have been locked out for 1 hour. 3 more failed attempts will permanently lock this access code.",
-            attemptsRemaining: 9 - newAttempts,
-            lockedFor: 60
-          });
-        } else if (newAttempts >= 3) {
-          // 5 minute lockout after 3 attempts
-          lockoutUpdate.lockedUntil = new Date(Date.now() + 5 * 60 * 1000);
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code. You have been locked out for 5 minutes. 3 more failed attempts will result in a 1-hour lockout.",
-            attemptsRemaining: 6 - newAttempts,
-            lockedFor: 5
-          });
-        } else {
-          // Just increment attempts, warn user
-          await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
-            error: "Invalid email or access code.",
-            attemptsRemaining: 3 - newAttempts,
-            warning: newAttempts === 2 ? "Warning: 1 more failed attempt will result in a 5-minute lockout." : undefined
-          });
-        }
-      }
-      
-      // Success! Reset failed attempts
-      if ((emailLog.failedAttempts || 0) > 0) {
-        await storage.updateEmailLogLockout(emailLog.id, { 
-          failedAttempts: 0, 
-          lockedUntil: null 
-        });
-      }
-      
-      // Generate a secure session token (UUID) 
-      const sessionToken = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-      
-      // Store session in database (persistent, trackable)
-      await storage.createPatientSession({
-        token: sessionToken,
-        patientEmail: email.toLowerCase(),
-        emailLogId: emailLog.id,
-        ipAddress: getClientIp(req),
-        userAgent: req.headers['user-agent'] || 'unknown',
-        expiresAt,
-      });
-      
-      // Audit log: successful patient portal login
-      await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth', {
-        resourceType: 'session',
-        resourceId: emailLog.id,
-        phiAccessed: true,
-        phiScope: 'patient email, session created',
-        sessionId: sessionToken,
-      });
-      
-      res.json({ 
-        success: true, 
-        patientEmail: email.toLowerCase(),
-        sessionToken,
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // Get patient's assigned content and assessments
-  app.get("/api/patient-portal/content", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: "Authorization required" });
-      }
-      
-      const sessionToken = authHeader.slice(7);
-      const session = await storage.getPatientSessionByToken(sessionToken);
-      
-      if (!session) {
-        return res.status(401).json({ error: "Session expired or invalid" });
-      }
-      
-      // Check session expiration
-      if (session.expiresAt < new Date()) {
-        await storage.invalidatePatientSession(sessionToken);
-        return res.status(401).json({ error: "Session expired" });
-      }
-      
-      // Update session activity (sliding window)
-      await storage.updatePatientSessionActivity(sessionToken);
-      
-      // Get email log for this session
-      const emailLog = await storage.getEmailLogById(session.emailLogId);
-      
-      // Get content views from the scoped email log
-      const contentMap: Record<string, any> = {};
-      const views = await storage.getContentViewsByEmailLogId(session.emailLogId);
-      
-      for (const view of views) {
-        let content = null;
-        if (isContentfulConfigured()) {
-          try {
-            content = await getContentByIdFromContentful(view.contentId);
-          } catch (e) {
-            console.warn("Contentful fetch failed:", e);
-          }
-        }
-        if (!content) {
-          content = await storage.getContentById(view.contentId);
-        }
-        
-        if (content && !contentMap[view.contentId]) {
-          contentMap[view.contentId] = {
-            id: content.id,
-            title: content.title,
-            summary: content.summary,
-            readTime: content.readTime,
-            viewToken: view.token,
-            viewedAt: view.viewedAt,
-            assignedAt: emailLog?.sentAt,
-            providerNote: emailLog?.providerNote,
-          };
-        }
-      }
-      
-      // Get assessment invites from the same clinician
-      const clinicianId = emailLog?.clinicianUserId;
-      const assessmentInvites = clinicianId 
-        ? await storage.getAssessmentInvitesByPatientEmail(clinicianId, session.patientEmail)
-        : [];
-      
-      // Audit log: patient viewing content (PHI access)
-      await logPatientAction(req, session.patientEmail, 'content_view', {
-        resourceType: 'content',
-        phiAccessed: true,
-        phiScope: 'patient educational content',
-        sessionId: sessionToken,
-      });
-      
-      res.json({
-        content: Object.values(contentMap),
-        assessments: assessmentInvites.map(invite => ({
-          id: invite.id,
-          token: invite.token,
-          status: invite.status,
-          createdAt: invite.createdAt,
-        })),
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
+  registerPatientPortalRoutes(app, requireFeatureFlag);
 
   // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
@@ -1654,7 +1281,10 @@ export function registerRoutes(app: Express): Server {
       });
       
       const updatedUser = await storage.getUser(req.user!.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1667,7 +1297,10 @@ export function registerRoutes(app: Express): Server {
       });
       
       const updatedUser = await storage.getUser(req.user!.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1711,7 +1344,10 @@ export function registerRoutes(app: Express): Server {
 
       await storage.updateEmailDeliveryMode(req.user!.id, mode);
       const updatedUser = await storage.getUser(req.user!.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1731,7 +1367,10 @@ export function registerRoutes(app: Express): Server {
       }
       await storage.deleteEmailConnection(req.user!.id);
       const updatedUser = await storage.getUser(req.user!.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1773,51 +1412,8 @@ export function registerRoutes(app: Express): Server {
   // Get available products and prices
   app.get("/api/subscription/plans", async (_req, res, next) => {
     try {
-      const { db } = await import("./storage");
-      const { sql } = await import("drizzle-orm");
-      
-      // Query products and prices from stripe schema
-      const result = await db.execute(sql`
-        SELECT 
-          p.id as product_id,
-          p.name as product_name,
-          p.description as product_description,
-          p.metadata as product_metadata,
-          pr.id as price_id,
-          pr.unit_amount,
-          pr.currency,
-          pr.recurring,
-          pr.metadata as price_metadata
-        FROM stripe.products p
-        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-        WHERE p.active = true
-        ORDER BY pr.unit_amount ASC
-      `);
-
-      // Group by product
-      const productsMap = new Map();
-      for (const row of result.rows as any[]) {
-        if (!productsMap.has(row.product_id)) {
-          productsMap.set(row.product_id, {
-            id: row.product_id,
-            name: row.product_name,
-            description: row.product_description,
-            metadata: row.product_metadata,
-            prices: []
-          });
-        }
-        if (row.price_id) {
-          productsMap.get(row.product_id).prices.push({
-            id: row.price_id,
-            unitAmount: row.unit_amount,
-            currency: row.currency,
-            recurring: row.recurring,
-            metadata: row.price_metadata,
-          });
-        }
-      }
-
-      res.json({ plans: Array.from(productsMap.values()) });
+      const plans = await storage.getStripePlans();
+      res.json({ plans });
     } catch (error) {
       // Return empty plans if Stripe schema not ready
       console.error("Error fetching plans:", error);
@@ -1928,7 +1524,10 @@ export function registerRoutes(app: Express): Server {
       }
       
       const updatedUser = await storage.getUser(user.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1947,7 +1546,10 @@ export function registerRoutes(app: Express): Server {
       await stripeService.resumeSubscription(user.stripeSubscriptionId);
       
       const updatedUser = await storage.getUser(user.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -1995,7 +1597,10 @@ export function registerRoutes(app: Express): Server {
       await storage.updateSubscriptionTier(userId, tier);
       
       const updatedUser = await storage.getUser(userId);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -2026,66 +1631,15 @@ export function registerRoutes(app: Express): Server {
       }
       
       const updatedUser = await storage.getUser(userId);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
   });
 
-  // Get available products and prices from Stripe
-  app.get("/api/subscription/plans", async (_req, res, next) => {
-    try {
-      const { db } = await import("./storage");
-      const { sql } = await import("drizzle-orm");
-      
-      // Query products and prices from stripe schema
-      const result = await db.execute(sql`
-        SELECT 
-          p.id as product_id,
-          p.name as product_name,
-          p.description as product_description,
-          p.metadata as product_metadata,
-          pr.id as price_id,
-          pr.unit_amount,
-          pr.currency,
-          pr.recurring,
-          pr.metadata as price_metadata
-        FROM stripe.products p
-        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-        WHERE p.active = true
-        ORDER BY pr.unit_amount ASC
-      `);
-
-      // Group by product
-      const productsMap = new Map();
-      for (const row of result.rows as any[]) {
-        if (!productsMap.has(row.product_id)) {
-          productsMap.set(row.product_id, {
-            id: row.product_id,
-            name: row.product_name,
-            description: row.product_description,
-            metadata: row.product_metadata,
-            prices: []
-          });
-        }
-        if (row.price_id) {
-          productsMap.get(row.product_id).prices.push({
-            id: row.price_id,
-            unitAmount: row.unit_amount,
-            currency: row.currency,
-            recurring: row.recurring,
-            metadata: row.price_metadata,
-          });
-        }
-      }
-
-      res.json({ plans: Array.from(productsMap.values()) });
-    } catch (error) {
-      // Return empty plans if Stripe schema not ready
-      console.error("Error fetching plans:", error);
-      res.json({ plans: [] });
-    }
-  });
 
   // Get feature flags relevant to subscription page (public endpoint)
   app.get("/api/subscription/feature-flags", async (_req, res, next) => {
@@ -2366,7 +1920,7 @@ export function registerRoutes(app: Express): Server {
         details: { targetEmail: email, createdByAdmin: true },
       });
       
-      res.json(user);
+      res.json(toPublicUser(user));
     } catch (error) {
       next(error);
     }
@@ -2386,11 +1940,15 @@ export function registerRoutes(app: Express): Server {
           subscriptionStatus: "active",
           subscriptionPeriodEnd: new Date("9999-12-31"),
         });
-        user = await storage.getUser(user.id);
+        const updatedUser = await storage.getUser(user.id);
+        if (!updatedUser) {
+          return res.status(500).json({ error: "Failed to retrieve updated user" });
+        }
+        res.json(toPublicUser(updatedUser));
       } else {
         // Create new user with trial access
         const hashedPassword = await hashPassword("changeme123"); // Default password
-        user = await storage.createUser({
+        const newUser = await storage.createUser({
           email: normalizedEmail,
           name: name || normalizedEmail.split("@")[0],
           password: hashedPassword,
@@ -2398,9 +1956,8 @@ export function registerRoutes(app: Express): Server {
           subscriptionStatus: "active",
           subscriptionPeriodEnd: new Date("9999-12-31"),
         });
+        res.json(toPublicUser(newUser));
       }
-      
-      res.json(user);
     } catch (error) {
       next(error);
     }
@@ -2409,7 +1966,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users);
+      res.json(toPublicUsers(users));
     } catch (error) {
       next(error);
     }
@@ -2421,7 +1978,7 @@ export function registerRoutes(app: Express): Server {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(user);
+      res.json(toPublicUser(user));
     } catch (error) {
       next(error);
     }
@@ -2440,7 +1997,10 @@ export function registerRoutes(app: Express): Server {
         details: { changes: { name, email, role } },
       });
       
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -2462,7 +2022,10 @@ export function registerRoutes(app: Express): Server {
         details: { subscriptionStatus, subscriptionPeriodEnd },
       });
       
-      res.json(user);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(user));
     } catch (error) {
       next(error);
     }
@@ -2485,7 +2048,10 @@ export function registerRoutes(app: Express): Server {
       });
       
       const updatedUser = await storage.getUser(req.params.id);
-      res.json(updatedUser);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(toPublicUser(updatedUser));
     } catch (error) {
       next(error);
     }
@@ -2534,7 +2100,7 @@ export function registerRoutes(app: Express): Server {
       res.json({
         ...stats,
         totalContent: content.length,
-        recentSignups: users.slice(0, 5),
+        recentSignups: toPublicUsers(users.slice(0, 5)),
       });
     } catch (error) {
       next(error);
@@ -3287,17 +2853,12 @@ export function registerRoutes(app: Express): Server {
 
       const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_switch', toPersona }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { action: 'persona_switch', toPersona },
+        outcome: 'success'
+      });
 
       res.json({ 
         message: `Switched to ${toPersona} persona`,
@@ -3314,17 +2875,12 @@ export function registerRoutes(app: Express): Server {
       const user = req.user as User;
       await storage.clearPersona(user.id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_clear' }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { action: 'persona_clear' },
+        outcome: 'success'
+      });
 
       res.json({ message: "Persona cleared, back to super admin view" });
     } catch (error) {
@@ -3371,17 +2927,12 @@ export function registerRoutes(app: Express): Server {
         expiresAt ? new Date(expiresAt) : undefined
       );
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_grant', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_grant', permissionName, targetUserId: userId },
+        outcome: 'success'
+      });
 
       res.json(grant);
     } catch (error) {
@@ -3401,17 +2952,12 @@ export function registerRoutes(app: Express): Server {
 
       const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_revoke', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_revoke', permissionName, targetUserId: userId },
+        outcome: 'success'
+      });
 
       res.json(revoke);
     } catch (error) {
@@ -3425,17 +2971,12 @@ export function registerRoutes(app: Express): Server {
       const { userId, id } = req.params;
       await storage.removeUserPermission(id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId },
+        outcome: 'success'
+      });
 
       res.json({ message: "Permission override removed" });
     } catch (error) {

@@ -14,7 +14,7 @@ import { getPathways, createPathway, getPatientPathways, createPatientPathway, g
 import { Plus, Route, Users, Calendar, ChevronRight, Loader2, Play, Clock, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
-import type { CarePathway, PatientPathway } from "@shared/schema";
+import type { CarePathway, PatientPathway } from "@shared/api-types";
 import { useTierEntitlement } from "@/hooks/use-feature-flags";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 

@@ -36,7 +36,7 @@ export type AuditAction =
   | 'pdf_generate';
 
 export type ActorType = 'clinician' | 'admin' | 'patient' | 'system';
-export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session' | 'screening' | 'settings';
+export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session' | 'screening' | 'settings' | 'feature_flag';
 export type Outcome = 'success' | 'failure' | 'denied';
 
 export interface AuditContext {

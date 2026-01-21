@@ -412,6 +412,10 @@ export async function createRecommendationConfig(config: {
   priority?: number;
   contentIds: string[];
   rationale?: string;
+  questionName?: string;
+  questionType?: string;
+  matchOperator?: string;
+  matchValues?: unknown;
 }) {
   return storage.createRecommendationConfig({
     clinicianUserId: config.clinicianUserId ?? null,
@@ -425,6 +429,10 @@ export async function createRecommendationConfig(config: {
     priority: config.priority ?? 1,
     contentIds: config.contentIds,
     rationale: config.rationale ?? null,
+    questionName: config.questionName ?? null,
+    questionType: config.questionType ?? null,
+    matchOperator: config.matchOperator ?? 'equals',
+    matchValues: config.matchValues ?? null,
   });
 }
 

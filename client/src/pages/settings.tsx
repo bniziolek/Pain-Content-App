@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useTour, resetTour } from "@/components/product-tour";
 import { useLocation } from "wouter";
+import type { EmailSettings } from "@shared/api-types";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -30,7 +31,7 @@ export default function SettingsPage() {
     }, 300);
   };
 
-  const { data: emailSettings, isLoading: emailLoading } = useQuery({
+  const { data: emailSettings, isLoading: emailLoading } = useQuery<EmailSettings>({
     queryKey: ["/api/email-settings"],
   });
 
