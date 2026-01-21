@@ -67,6 +67,7 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Configuration Options**: Page size (letter/a4), TOC toggle, cover message, clinician/patient names
 - **Audit Logging**: PDF generation events logged with PHI scope tracking
 - **Storage Method**: Added `getInternalScreeningById` for screening lookup
+- **Email Mode Access**: Added "Generate PDF Instead" button to Send Modal (data-testid="button-generate-pdf-from-send") so clinicians in Email Mode can also access the PDF generator with cover sheet options
 
 ### Tiered Subscription System (January 2026)
 - **Subscription Tiers**: Basic, Pro, and Enterprise tiers with feature-based entitlements
