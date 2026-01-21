@@ -154,7 +154,7 @@ router.post("/score", requireSubscription, async (req, res, next) => {
       return res.status(404).send("Assessment not found");
     }
     
-    const result = scoreAssessmentResponse(assessment, answers);
+    const result = await scoreAssessmentResponse(assessmentId, answers);
     
     await logClinicianAction(req, req.user!, 'assessment_score', {
       resourceType: 'assessment',
