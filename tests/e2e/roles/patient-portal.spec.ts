@@ -88,9 +88,8 @@ test.describe('Patient Portal - Patient Access', () => {
   test.describe('Portal Content Access', () => {
     test('should not access content without authentication', async ({ page }) => {
       // Try to access portal content directly
-      const response = await page.request.get('/api/portal/content');
-      
-      // Should be unauthorized
+      const response = await page.request.get('/api/patient-portal/content');
+      // Should be unauthorized or not found - 500 is not acceptable for auth
       expect([401, 403, 404]).toContain(response.status());
     });
   });
