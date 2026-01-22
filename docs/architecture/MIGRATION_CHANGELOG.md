@@ -1,19 +1,27 @@
 # Migration Changelog
 
-## 2026-01-22 (Final Verification)
+## 2026-01-22 (Final Verification & Cleanup)
 
 ### Summary
 - Completed final verification of 5-layer architecture migration
 - Fixed ESM module compatibility issue with TypeScript type exports
+- Cleaned up deprecated files and misleading comments
 - All 41 API tests and key E2E tests passing
 
 ### Fixed
 - server/rbac.ts: Changed `PermissionName` import/export to use `import type` and `export type` syntax for proper ESM module compatibility
 
+### Removed
+- server/webhookHandlers.ts: Unused file - routes/webhooks.ts directly uses application services
+
+### Updated
+- server/routes/index.ts: Cleaned up misleading "legacy" comments, renamed to "Function-based route registrations" and "Backward-compatible alias"
+
 ### Verified
 - All routes use application services (no direct storage/legacy imports)
 - Storage interface properly aligned with application services
 - Infrastructure adapters correctly wired via AppContext
+- No orphaned/unused files remain in server/ directory
 - Application boots and runs successfully
 
 ---
