@@ -173,8 +173,8 @@ export default function SubscriptionPage() {
   const basicPlan = plans.find((p) => p.metadata?.tier === "basic");
   const proPlan = plans.find((p) => p.metadata?.tier === "pro");
 
-  const currentTier = user?.subscriptionTier || "free";
   const isSubscribed = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
+  const currentTier = isSubscribed ? (user?.subscriptionTier || "basic") : "free";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-6">

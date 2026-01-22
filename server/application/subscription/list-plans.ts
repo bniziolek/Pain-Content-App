@@ -2,36 +2,73 @@
  * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
  */
 
-export interface SubscriptionPlan {
+export interface Price {
   id: string;
-  name: string;
-  price: number;
-  interval: string;
-  features: string[];
+  unitAmount: number;
+  currency: string;
+  recurring: { interval: string; interval_count: number } | null;
+  metadata: Record<string, string>;
 }
 
-export async function listPlans(): Promise<SubscriptionPlan[]> {
-  return [
-    {
-      id: "basic",
-      name: "Basic",
-      price: 29,
-      interval: "month",
-      features: ["Content library access", "Patient messaging", "Basic assessments"],
-    },
-    {
-      id: "pro",
-      name: "Pro",
-      price: 79,
-      interval: "month",
-      features: ["Everything in Basic", "Care pathways", "Follow-up automation", "Advanced analytics"],
-    },
-    {
-      id: "enterprise",
-      name: "Enterprise",
-      price: 199,
-      interval: "month",
-      features: ["Everything in Pro", "Custom branding", "API access", "Priority support"],
-    },
-  ];
+export interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  metadata: Record<string, string>;
+  prices: Price[];
+}
+
+export interface ListPlansResult {
+  plans: Plan[];
+}
+
+export async function listPlans(): Promise<ListPlansResult> {
+  return {
+    plans: [
+      {
+        id: "basic",
+        name: "Basic",
+        description: "Essential tools for solo practitioners getting started with evidence-based education.",
+        metadata: { tier: "basic" },
+        prices: [
+          {
+            id: "basic_monthly",
+            unitAmount: 1900,
+            currency: "usd",
+            recurring: { interval: "month", interval_count: 1 },
+            metadata: {},
+          },
+          {
+            id: "basic_yearly",
+            unitAmount: 20000,
+            currency: "usd",
+            recurring: { interval: "year", interval_count: 1 },
+            metadata: {},
+          },
+        ],
+      },
+      {
+        id: "pro",
+        name: "Pro",
+        description: "Complete toolkit for practices ready to scale with full patient engagement features.",
+        metadata: { tier: "pro" },
+        prices: [
+          {
+            id: "pro_monthly",
+            unitAmount: 2900,
+            currency: "usd",
+            recurring: { interval: "month", interval_count: 1 },
+            metadata: {},
+          },
+          {
+            id: "pro_yearly",
+            unitAmount: 30000,
+            currency: "usd",
+            recurring: { interval: "year", interval_count: 1 },
+            metadata: {},
+          },
+        ],
+      },
+    ],
+  };
 }

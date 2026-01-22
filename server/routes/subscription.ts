@@ -46,8 +46,8 @@ router.get("/stripe/config", async (_req, res, next) => {
 // Get subscription plans
 router.get("/plans", async (_req, res, next) => {
   try {
-    const plans = await listPlans();
-    res.json(plans);
+    const result = await listPlans();
+    res.json(result);
   } catch (error) {
     next(error);
   }
