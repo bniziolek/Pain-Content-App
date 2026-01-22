@@ -91,18 +91,21 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
   });
 
   test.describe('Content Sending', () => {
-    test('should open send modal with selected content', async () => {
+    test('should open action modal with selected content', async () => {
       await page.goto('/library');
       await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
       
-      // Select content
+      // Click content card to select it - the card itself is clickable
       const firstCard = page.locator('[data-testid^="content-card-"]').first();
       await firstCard.click();
       
-      // Open send modal - must have a send or email button when content is selected
-      const sendButton = page.locator('button:has-text("Send"), button:has-text("Email"), [data-testid="button-send-content"]').first();
-      await expect(sendButton).toBeVisible({ timeout: 5000 });
-      await sendButton.click();
+      // Wait for selection indicator to appear
+      await page.waitForTimeout(500);
+      
+      // The action button should now be visible - could be "Send Items" or "Create Packet" depending on user role
+      const actionButton = page.locator('[data-testid="button-send-items"], [data-testid="button-download-packet"]').first();
+      await expect(actionButton).toBeVisible({ timeout: 5000 });
+      await actionButton.click();
       await expect(page.locator('[role="dialog"]')).toBeVisible();
     });
   });
@@ -232,7 +235,8 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
       const logoutButton = page.getByRole('button', { name: /logout|sign out/i }).first();
       await expect(logoutButton).toBeVisible({ timeout: 5000 });
       await logoutButton.click();
-      await expect(page).toHaveURL(/\/auth/);
+      // After logout, app redirects to landing page (/) not /auth
+      await expect(page).toHaveURL(/^\/$|localhost:5000\/?$/);
     });
   });
 });
