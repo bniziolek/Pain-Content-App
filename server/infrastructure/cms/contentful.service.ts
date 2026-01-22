@@ -1,3 +1,7 @@
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
 import { createClient, type Entry, type EntrySkeletonType, type Asset } from "contentful";
 import type { ContentItem, CarePathway, PathwayMilestone } from "@shared/schema";
 

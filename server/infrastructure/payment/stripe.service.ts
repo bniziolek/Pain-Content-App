@@ -1,5 +1,8 @@
-import { storage } from './storage';
-import { getUncachableStripeClient } from './stripeClient';
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
+import { getUncachableStripeClient } from './stripe-client';
 import { SUBSCRIPTION_TIERS, type SubscriptionTier } from '@shared/schema';
 
 export class StripeService {

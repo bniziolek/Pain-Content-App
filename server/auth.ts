@@ -1,33 +1,19 @@
+/**
+ * Architecture: Authentication helpers and middleware used by routes.
+ */
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, SubscriptionTier, SUBSCRIPTION_TIERS, TIER_ENTITLEMENTS } from "@shared/schema";
-import { toPublicUser } from "./serializers/user";
-import { logClinicianAction, logAuditEvent } from "./audit";
+import { comparePasswords, hashPassword } from "./domain/password";
 
 declare global {
   namespace Express {
     interface User extends SelectUser {}
   }
-}
-
-const scryptAsync = promisify(scrypt);
-
-export async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
 export function setupAuth(app: Express) {
@@ -80,121 +66,9 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
-    try {
-      const { email, password, name } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).send("Email and password are required");
-      }
-
-      const normalizedEmail = email.toLowerCase();
-      const existingUser = await storage.getUserByEmail(normalizedEmail);
-      if (existingUser) {
-        return res.status(400).send("Email already exists");
-      }
-
-      const user = await storage.createUser({
-        email: normalizedEmail,
-        password: await hashPassword(password),
-        name: name || null,
-      });
-
-      // Audit log: user registration
-      await logClinicianAction(req, user, 'user_create', {
-        resourceType: 'user',
-        resourceId: user.id,
-        details: { method: 'self_registration' },
-      });
-
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json(toPublicUser(user));
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/login", (req, res, next) => {
-    const getClientIp = (request: any): string => {
-      const forwarded = request.headers['x-forwarded-for'];
-      if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
-      if (Array.isArray(forwarded)) return forwarded[0];
-      return request.socket?.remoteAddress || 'unknown';
-    };
-
-    passport.authenticate("local", async (err: any, user: SelectUser | false, info: any) => {
-      if (err) return next(err);
-      if (!user) {
-        // Audit log: failed login attempt
-        await logAuditEvent(req, {
-          actorType: 'clinician',
-          actorEmail: req.body?.email,
-          action: 'login_failed',
-          details: { reason: info?.message || 'invalid_credentials' },
-          outcome: 'failure',
-        });
-        
-        // Try to record failed login if user exists
-        const existingUser = await storage.getUserByEmail(req.body?.email);
-        if (existingUser) {
-          try {
-            await storage.createLoginHistory({
-              userId: existingUser.id,
-              ipAddress: getClientIp(req),
-              userAgent: req.headers['user-agent'] || 'unknown',
-              outcome: 'failure',
-              failureReason: info?.message || 'invalid_credentials',
-            });
-          } catch (e) {
-            console.error('Failed to log login history:', e);
-          }
-        }
-        
-        return res.status(401).send(info?.message || "Authentication failed");
-      }
-      req.login(user, async (err) => {
-        if (err) return next(err);
-        // Audit log: successful login
-        await logClinicianAction(req, user, 'login', {
-          details: { method: 'password' },
-        });
-        
-        // Record successful login in history
-        try {
-          await storage.createLoginHistory({
-            userId: user.id,
-            ipAddress: getClientIp(req),
-            userAgent: req.headers['user-agent'] || 'unknown',
-            outcome: 'success',
-          });
-        } catch (e) {
-          console.error('Failed to log login history:', e);
-        }
-        
-        res.status(200).json(toPublicUser(user));
-      });
-    })(req, res, next);
-  });
-
-  app.post("/api/logout", async (req, res, next) => {
-    const user = req.user;
-    req.logout(async (err) => {
-      if (err) return next(err);
-      // Audit log: logout
-      if (user) {
-        await logClinicianAction(req, user as SelectUser, 'logout', {});
-      }
-      res.sendStatus(200);
-    });
-  });
-
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(toPublicUser(req.user as SelectUser));
-  });
 }
+
+export { hashPassword };
 
 // Middleware to check if user is authenticated
 export function requireAuth(req: any, res: any, next: any) {

@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { User } from "@shared/schema";
 import type { AppContext } from "../context";
 
@@ -7,9 +11,8 @@ export interface GetFrequentlyUsedContentInput {
 }
 
 export async function getFrequentlyUsedContent(
-  _ctx: AppContext,
-  _input: GetFrequentlyUsedContentInput
+  ctx: AppContext,
+  input: GetFrequentlyUsedContentInput
 ): Promise<Array<{ contentId: string; title: string; sendCount: number }>> {
-  // TODO: fetch frequently used content for clinician.
-  throw new Error("getFrequentlyUsedContent not implemented");
+  return ctx.storage.getFrequentlyUsedContent(input.clinician.id, input.limit ?? 5);
 }

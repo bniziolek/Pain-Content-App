@@ -1,13 +1,27 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth } from "../auth";
-import { storage } from "../storage";
+import {
+  addToCollection,
+  createCollection,
+  createMinimalContext,
+  deleteCollection,
+  getCollectionWithItems,
+  listCollections,
+  removeFromCollection,
+  updateCollection,
+} from "../application";
 
 const router = Router();
+const appContext = createMinimalContext();
 
 // Get all collections for user
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const collections = await storage.getUserCollections(req.user!.id);
+    const collections = await listCollections(appContext, { clinician: req.user! });
     res.json(collections);
   } catch (error) {
     next(error);
@@ -21,8 +35,8 @@ router.post("/", requireAuth, async (req, res, next) => {
     if (!name) {
       return res.status(400).json({ error: "Collection name is required" });
     }
-    const collection = await storage.createCollection({
-      userId: req.user!.id,
+    const collection = await createCollection(appContext, {
+      clinician: req.user!,
       name,
       description: description || null,
     });
@@ -35,7 +49,10 @@ router.post("/", requireAuth, async (req, res, next) => {
 // Get single collection with items
 router.get("/:id", requireAuth, async (req, res, next) => {
   try {
-    const collection = await storage.getCollectionWithItems(req.params.id, req.user!.id);
+    const collection = await getCollectionWithItems(appContext, {
+      clinician: req.user!,
+      collectionId: req.params.id,
+    });
     if (!collection) {
       return res.status(404).json({ error: "Collection not found" });
     }
@@ -49,7 +66,12 @@ router.get("/:id", requireAuth, async (req, res, next) => {
 router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
     const { name, description } = req.body;
-    const collection = await storage.updateCollection(req.params.id, req.user!.id, { name, description });
+    const collection = await updateCollection(appContext, {
+      clinician: req.user!,
+      collectionId: req.params.id,
+      name,
+      description,
+    });
     if (!collection) {
       return res.status(404).json({ error: "Collection not found" });
     }
@@ -62,7 +84,10 @@ router.patch("/:id", requireAuth, async (req, res, next) => {
 // Delete collection
 router.delete("/:id", requireAuth, async (req, res, next) => {
   try {
-    const deleted = await storage.deleteCollection(req.params.id, req.user!.id);
+    const deleted = await deleteCollection(appContext, {
+      clinician: req.user!,
+      collectionId: req.params.id,
+    });
     if (!deleted) {
       return res.status(404).json({ error: "Collection not found" });
     }
@@ -79,7 +104,11 @@ router.post("/:id/items", requireAuth, async (req, res, next) => {
     if (!contentId) {
       return res.status(400).json({ error: "Content ID is required" });
     }
-    const item = await storage.addToCollection(req.params.id, contentId, req.user!.id);
+    const item = await addToCollection(appContext, {
+      clinician: req.user!,
+      collectionId: req.params.id,
+      contentId,
+    });
     if (!item) {
       return res.status(404).json({ error: "Collection not found" });
     }
@@ -92,7 +121,11 @@ router.post("/:id/items", requireAuth, async (req, res, next) => {
 // Remove item from collection
 router.delete("/:id/items/:contentId", requireAuth, async (req, res, next) => {
   try {
-    const removed = await storage.removeFromCollection(req.params.id, req.params.contentId, req.user!.id);
+    const removed = await removeFromCollection(appContext, {
+      clinician: req.user!,
+      collectionId: req.params.id,
+      contentId: req.params.contentId,
+    });
     if (!removed) {
       return res.status(404).json({ error: "Item not found in collection" });
     }

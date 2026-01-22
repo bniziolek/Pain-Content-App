@@ -1,3 +1,7 @@
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
 import { google } from 'googleapis';
 
 let connectionSettings: any;
@@ -69,7 +73,7 @@ function createEmail(to: string, subject: string, htmlContent: string): string {
   return Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-interface ContentEmailData {
+export interface ContentEmailData {
   toEmail: string;
   subject: string;
   contentItems: { title: string; summary: string; readTime?: string | null; imageUrl?: string | null; viewUrl: string }[];
@@ -77,7 +81,7 @@ interface ContentEmailData {
   clinicianName?: string;
 }
 
-interface PatientPortalEmailData {
+export interface PatientPortalEmailData {
   toEmail: string;
   subject: string;
   accessCode: string;
@@ -87,7 +91,7 @@ interface PatientPortalEmailData {
   clinicianName?: string;
 }
 
-interface AssessmentInviteEmailData {
+export interface AssessmentInviteEmailData {
   toEmail: string;
   assessmentLink: string;
   clinicianName?: string;
@@ -239,7 +243,7 @@ export async function sendAssessmentInviteEmail(data: AssessmentInviteEmailData)
   }
 }
 
-interface PasswordResetEmailData {
+export interface PasswordResetEmailData {
   toEmail: string;
   resetLink: string;
 }

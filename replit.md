@@ -37,11 +37,12 @@ The application adheres to the **DriverPath Style Guide**, featuring:
     - **Scoring Service**: Processes assessment responses for tag-based scores.
     - **Recommendation Service**: Generates content suggestions based on assessment scores, clinician rules, care pathways, and tag matching.
 - **Modular Architecture**: Server-side and client-side codebases are organized into domain-specific modules (e.g., content, assessments, subscription) to improve maintainability and facilitate AI-assisted development. See `docs/ARCHITECTURE.md` for the comprehensive architecture design document.
-- **Layered Domain-Driven Design**: The backend follows a layered architecture:
+- **Layered Domain-Driven Design**: The backend follows a 5-layer architecture:
     - **Routes Layer** (`server/routes/`): Thin controllers for HTTP handling, validation, and routing.
-    - **Domain Services** (`server/domain/`): Pure business logic with no side effects (scoring algorithms, access code generation).
-    - **Infrastructure Services** (`server/infrastructure/`): External integrations (email, payments, CMS).
-    - **Data Layer** (`server/storage.ts`): Drizzle ORM database access.
+    - **Application Services** (`server/application/`): Orchestration layer that coordinates domain, infrastructure, and storage. Uses AppContext for dependency injection. Domains include: messaging, assessments, assessment-invites, content, patient-portal, recommendations, favorites, collections, stats, password-reset, pathways, subscription, feature-flags, admin, compliance, pdf.
+    - **Domain Services** (`server/domain/`): Pure business logic with no side effects (scoring algorithms, access code generation, password hashing).
+    - **Infrastructure Services** (`server/infrastructure/`): External integrations (email via Gmail/Resend adapter, payments via Stripe, CMS via Contentful, PDF generation via Puppeteer).
+    - **Data Layer** (`server/storage.ts`): Drizzle ORM database access with IStorage interface.
 - **PDF Generation**: Utilizes a Puppeteer-based service (`server/pdf-generator.ts`) to convert HTML to professional, templated PDFs with active links, configurable options, and audit logging.
 - **Subscription Tiers**: Implements Basic, Pro, and Enterprise tiers with feature entitlements controlled by a server-side matrix. Includes UI components for tier display and upgrade prompts.
 - **Admin Dashboard**: Enhanced with detailed analytics (user trends, tier breakdown, churn), recent signups, user search/filters, sortable tables, login history, admin notes, and data export capabilities.

@@ -1,32 +1,36 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth, requireAdmin } from "../auth";
 import { requireSuperAdmin } from "../rbac";
-import { storage } from "../storage";
-import { logClinicianAction } from "../audit";
 import type { User } from "@shared/schema";
+import {
+  clearPersona,
+  createAppContextWithInfrastructure,
+  grantUserPermission,
+  listAccessibleFeatureFlags,
+  listFeatureFlagHistory,
+  listFeatureFlagHistoryByKey,
+  listFeatureFlags,
+  listPersonaHistory,
+  listUserPermissions,
+  removeUserPermission,
+  revokeUserPermission,
+  switchPersona,
+  updateFeatureFlagAdmin,
+} from "../application";
+import { buildAuditRequestContext } from "../http/audit-context";
 
 const router = Router();
+const appContext = createAppContextWithInfrastructure();
 
 // Get all feature flags (for current user based on tier)
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const flags = await storage.getFeatureFlags();
-    const user = req.user!;
-    
-    // Filter flags based on user tier
-    const userTier = user.subscriptionTier || 'basic';
-    const accessibleFlags = flags.filter(flag => {
-      if (!flag.tiersAllowed || flag.tiersAllowed.length === 0) return true;
-      return flag.tiersAllowed.includes(userTier);
-    });
-    
-    res.json(accessibleFlags.reduce((acc, flag) => {
-      acc[flag.key] = {
-        isEnabled: flag.isEnabled,
-        value: flag.value,
-      };
-      return acc;
-    }, {} as Record<string, { isEnabled: boolean; value: string | null }>));
+    const flags = await listAccessibleFeatureFlags(appContext, { user: req.user! });
+    res.json(flags);
   } catch (error) {
     next(error);
   }
@@ -36,7 +40,7 @@ router.get("/", requireAuth, async (req, res, next) => {
 
 router.get("/admin", requireAdmin, async (req, res, next) => {
   try {
-    const flags = await storage.getFeatureFlags();
+    const flags = await listFeatureFlags(appContext);
     res.json(flags);
   } catch (error) {
     next(error);
@@ -47,29 +51,14 @@ router.patch("/admin/:key", requireAdmin, async (req, res, next) => {
   try {
     const { key } = req.params;
     const { isEnabled, value, payload, name, description, category } = req.body;
-    
-    const currentFlag = await storage.getFeatureFlagByKey(key);
-    
-    const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload, name, description, category });
-    
+    const updated = await updateFeatureFlagAdmin(appContext, buildAuditRequestContext(req), {
+      admin: req.user!,
+      key,
+      updates: { isEnabled, value, payload, name, description, category },
+    });
     if (!updated) {
       return res.status(404).json({ error: "Feature flag not found" });
     }
-    
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'feature_flag',
-      resourceId: key,
-      details: { 
-        action: 'updated_feature_flag', 
-        flagKey: key,
-        previousValue: currentFlag?.value,
-        newValue: value !== undefined ? value : currentFlag?.value,
-        previousEnabled: currentFlag?.isEnabled,
-        isEnabled: isEnabled !== undefined ? isEnabled : currentFlag?.isEnabled,
-        changedFields: Object.keys(req.body),
-      },
-    });
-    
     res.json(updated);
   } catch (error) {
     next(error);
@@ -79,7 +68,7 @@ router.patch("/admin/:key", requireAdmin, async (req, res, next) => {
 // Get feature flag history
 router.get("/admin/history/all", requireAdmin, async (req, res, next) => {
   try {
-    const history = await storage.getFeatureFlagHistory();
+    const history = await listFeatureFlagHistory(appContext);
     res.json(history);
   } catch (error) {
     next(error);
@@ -88,7 +77,7 @@ router.get("/admin/history/all", requireAdmin, async (req, res, next) => {
 
 router.get("/admin/:key/history", requireAdmin, async (req, res, next) => {
   try {
-    const history = await storage.getFeatureFlagHistoryByKey(req.params.key);
+    const history = await listFeatureFlagHistoryByKey(appContext, { key: req.params.key });
     res.json(history);
   } catch (error) {
     next(error);
@@ -104,19 +93,7 @@ router.post("/super-admin/switch-persona", requireAuth, requireSuperAdmin(), asy
     if (!['clinician', 'admin'].includes(toPersona)) {
       return res.status(400).json({ message: "Invalid persona" });
     }
-
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
-
-    const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
-
-    await logClinicianAction(req, user, 'settings_change', {
-      resourceType: 'user',
-      resourceId: user.id,
-      details: { action: 'persona_switch', toPersona },
-      outcome: 'success'
-    });
-
+    const switchLog = await switchPersona(appContext, buildAuditRequestContext(req), { admin: user, toPersona });
     res.json({ 
       message: `Switched to ${toPersona} persona`,
       activePersona: toPersona,
@@ -130,15 +107,7 @@ router.post("/super-admin/switch-persona", requireAuth, requireSuperAdmin(), asy
 router.post("/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
   try {
     const user = req.user as User;
-    await storage.clearPersona(user.id);
-
-    await logClinicianAction(req, user, 'settings_change', {
-      resourceType: 'user',
-      resourceId: user.id,
-      details: { action: 'persona_clear' },
-      outcome: 'success'
-    });
-
+    await clearPersona(appContext, buildAuditRequestContext(req), { admin: user });
     res.json({ message: "Persona cleared, back to super admin view" });
   } catch (error) {
     next(error);
@@ -148,7 +117,7 @@ router.post("/super-admin/clear-persona", requireAuth, requireSuperAdmin(), asyn
 router.get("/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
   try {
     const user = req.user as User;
-    const history = await storage.getPersonaSwitchHistory(user.id);
+    const history = await listPersonaHistory(appContext, { admin: user });
     res.json(history);
   } catch (error) {
     next(error);
@@ -158,7 +127,7 @@ router.get("/super-admin/persona-history", requireAuth, requireSuperAdmin(), asy
 // Permission management
 router.get("/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
   try {
-    const permissions = await storage.getUserPermissions(req.params.userId);
+    const permissions = await listUserPermissions(appContext, { userId: req.params.userId });
     res.json(permissions);
   } catch (error) {
     next(error);
@@ -175,21 +144,13 @@ router.post("/super-admin/users/:userId/permissions/grant", requireAuth, require
       return res.status(400).json({ message: "Permission name required" });
     }
 
-    const grant = await storage.grantUserPermission(
-      userId, 
-      permissionName, 
-      user.id, 
+    const grant = await grantUserPermission(appContext, buildAuditRequestContext(req), {
+      admin: user,
+      userId,
+      permissionName,
       reason,
-      expiresAt ? new Date(expiresAt) : undefined
-    );
-
-    await logClinicianAction(req, user, 'settings_change', {
-      resourceType: 'user',
-      resourceId: userId,
-      details: { action: 'permission_grant', permissionName, targetUserId: userId },
-      outcome: 'success'
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
     });
-
     res.json(grant);
   } catch (error) {
     next(error);
@@ -206,15 +167,12 @@ router.post("/super-admin/users/:userId/permissions/revoke", requireAuth, requir
       return res.status(400).json({ message: "Permission name required" });
     }
 
-    const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
-
-    await logClinicianAction(req, user, 'settings_change', {
-      resourceType: 'user',
-      resourceId: userId,
-      details: { action: 'permission_revoke', permissionName, targetUserId: userId },
-      outcome: 'success'
+    const revoke = await revokeUserPermission(appContext, buildAuditRequestContext(req), {
+      admin: user,
+      userId,
+      permissionName,
+      reason,
     });
-
     res.json(revoke);
   } catch (error) {
     next(error);
@@ -225,15 +183,11 @@ router.delete("/super-admin/users/:userId/permissions/:id", requireAuth, require
   try {
     const user = req.user as User;
     const { userId, id } = req.params;
-    await storage.removeUserPermission(id);
-
-    await logClinicianAction(req, user, 'settings_change', {
-      resourceType: 'user',
-      resourceId: userId,
-      details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId },
-      outcome: 'success'
+    await removeUserPermission(appContext, buildAuditRequestContext(req), {
+      admin: user,
+      userId,
+      permissionOverrideId: id,
     });
-
     res.json({ message: "Permission override removed" });
   } catch (error) {
     next(error);

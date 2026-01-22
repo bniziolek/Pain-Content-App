@@ -1,9 +1,12 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import { AppError } from "../errors";
 
 export interface ListPatientContentInput {
-  req: Request;
+  auditContext: AuditRequestContext;
   sessionToken: string;
 }
 
@@ -64,7 +67,7 @@ export async function listPatientContent(
     ? await ctx.storage.getAssessmentInvitesByPatientEmail(clinicianId, session.patientEmail)
     : [];
 
-  await ctx.audit.logPatientAction(input.req, session.patientEmail, "content_view", {
+  await ctx.audit.logPatientAction(input.auditContext, session.patientEmail, "content_view", {
     resourceType: "content",
     phiAccessed: true,
     phiScope: "patient educational content",

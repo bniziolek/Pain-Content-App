@@ -1,6 +1,9 @@
-import type { Request } from "express";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 import { AppError } from "../errors";
 import type { ScoringResult } from "../../domain/scoring";
 import {
@@ -10,10 +13,10 @@ import {
   type ScoringConfig,
   type OutcomeRules,
 } from "../../domain/scoring";
-import { generateRecommendations } from "../../recommendation";
+import { generateRecommendationResults } from "../recommendations";
 
 export interface ScoreAssessmentInput {
-  req: Request;
+  auditContext: AuditRequestContext;
   clinician: User;
   assessmentId: string;
   answers: Record<string, unknown>;
@@ -36,14 +39,14 @@ export async function scoreAssessment(
   const tagScores = calculateTagScores(input.answers, scoringConfig, questionMetadata);
   const primaryOutcome = determinePrimaryOutcome(tagScores, outcomeRules);
 
-  const recommendationResult = await generateRecommendations({
+  const recommendationResult = await generateRecommendationResults(ctx, {
     tagScores,
     rawAnswers: input.answers,
     assessmentId: input.assessmentId,
     clinicianUserId: assessment.clinicianUserId || undefined,
   });
 
-  await ctx.audit.logClinicianAction(input.req, input.clinician, "assessment_score", {
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, "assessment_score", {
     resourceType: "assessment",
     resourceId: input.assessmentId,
     details: { tagCount: tagScores.length },

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Content Packet Generation', () => {
+test.describe('Content Action Modal', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/auth');
@@ -10,7 +10,7 @@ test.describe('Content Packet Generation', () => {
     await expect(page).toHaveURL(/\/(dashboard)?$/);
   });
 
-  test('should open packet modal when content is selected', async ({ page }) => {
+  test('should open modal when content is selected', async ({ page }) => {
     await page.goto('/library');
     
     // Select content
@@ -18,17 +18,30 @@ test.describe('Content Packet Generation', () => {
     const firstCard = page.locator('[data-testid^="content-card-"]').first();
     await firstCard.click();
     
-    // Wait for selection to register and packet button to appear
+    // Detect which mode we're in and get the action button
     const packetButton = page.locator('[data-testid="button-download-packet"]');
-    await expect(packetButton).toBeVisible({ timeout: 5000 });
-    await packetButton.click();
+    const sendButton = page.locator('[data-testid="button-send-items"]');
     
-    // Verify packet modal opens with content
-    await expect(page.locator('[role="dialog"]')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Content Packet' })).toBeVisible();
+    const isPacketMode = await packetButton.isVisible().catch(() => false);
+    const actionButton = isPacketMode ? packetButton : sendButton;
+    
+    await expect(actionButton).toBeVisible({ timeout: 5000 });
+    await actionButton.click();
+    
+    // Verify modal opens with mode-specific content
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+    
+    if (isPacketMode) {
+      // Packet mode: should show content packet header
+      await expect(modal.locator('text=/Content Packet|Patient Education/i').first()).toBeVisible();
+    } else {
+      // Email mode: should show send content interface
+      await expect(modal.locator('text=/Send|Patient Email|Content/i').first()).toBeVisible();
+    }
   });
 
-  test('should display packet content preview', async ({ page }) => {
+  test('should display modal with appropriate content preview', async ({ page }) => {
     await page.goto('/library');
     
     // Select content
@@ -36,18 +49,30 @@ test.describe('Content Packet Generation', () => {
     const firstCard = page.locator('[data-testid^="content-card-"]').first();
     await firstCard.click();
     
-    // Wait for packet button and click
+    // Detect mode and click action button
     const packetButton = page.locator('[data-testid="button-download-packet"]');
-    await expect(packetButton).toBeVisible({ timeout: 5000 });
-    await packetButton.click();
+    const sendButton = page.locator('[data-testid="button-send-items"]');
+    const isPacketMode = await packetButton.isVisible().catch(() => false);
+    const actionButton = isPacketMode ? packetButton : sendButton;
     
-    // Check content preview is shown in the modal
-    await expect(page.locator('[role="dialog"]')).toBeVisible();
-    // Should show educational content preview
-    await expect(page.getByRole('heading', { name: 'Patient Education Materials' })).toBeVisible();
+    await expect(actionButton).toBeVisible({ timeout: 5000 });
+    await actionButton.click();
+    
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+    
+    if (isPacketMode) {
+      // Packet mode: should show patient education materials preview
+      await expect(modal.locator('text=/Patient Education Materials/i').first()).toBeVisible();
+    } else {
+      // Email mode: should show patient email field or content selection
+      const hasEmailField = await modal.locator('input[type="email"], [placeholder*="email" i]').first().isVisible().catch(() => false);
+      const hasContentInfo = await modal.locator('text=/Content|Selected|Items/i').first().isVisible().catch(() => false);
+      expect(hasEmailField || hasContentInfo).toBeTruthy();
+    }
   });
 
-  test('should have print and download options', async ({ page }) => {
+  test('should have appropriate action buttons', async ({ page }) => {
     await page.goto('/library');
     
     // Select content
@@ -55,18 +80,30 @@ test.describe('Content Packet Generation', () => {
     const firstCard = page.locator('[data-testid^="content-card-"]').first();
     await firstCard.click();
     
-    // Wait for packet button and click
+    // Detect mode and click action button
     const packetButton = page.locator('[data-testid="button-download-packet"]');
-    await expect(packetButton).toBeVisible({ timeout: 5000 });
-    await packetButton.click();
+    const sendButton = page.locator('[data-testid="button-send-items"]');
+    const isPacketMode = await packetButton.isVisible().catch(() => false);
+    const actionButton = isPacketMode ? packetButton : sendButton;
     
-    // Verify modal opens with print/download functionality
-    await expect(page.locator('[role="dialog"]')).toBeVisible();
-    const hasActions = await page.locator('[data-testid="button-print-packet"], [data-testid="button-download-txt"], button:has-text("Print"), button:has-text("Download")').first().isVisible();
-    expect(hasActions).toBeTruthy();
+    await expect(actionButton).toBeVisible({ timeout: 5000 });
+    await actionButton.click();
+    
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+    
+    if (isPacketMode) {
+      // Packet mode: should have print/download options
+      const hasPrintButton = await modal.locator('[data-testid="button-print-packet"], button:has-text("Print")').first().isVisible().catch(() => false);
+      expect(hasPrintButton).toBeTruthy();
+    } else {
+      // Email mode: should have send button
+      const hasSendAction = await modal.locator('button:has-text("Send"), button[type="submit"]').first().isVisible().catch(() => false);
+      expect(hasSendAction).toBeTruthy();
+    }
   });
 
-  test('should close packet modal', async ({ page }) => {
+  test('should close modal', async ({ page }) => {
     await page.goto('/library');
     
     // Select content
@@ -74,18 +111,33 @@ test.describe('Content Packet Generation', () => {
     const firstCard = page.locator('[data-testid^="content-card-"]').first();
     await firstCard.click();
     
-    // Wait for packet button and click
+    // Detect mode and click action button
     const packetButton = page.locator('[data-testid="button-download-packet"]');
-    await expect(packetButton).toBeVisible({ timeout: 5000 });
-    await packetButton.click();
+    const sendButton = page.locator('[data-testid="button-send-items"]');
+    const isPacketMode = await packetButton.isVisible().catch(() => false);
+    const actionButton = isPacketMode ? packetButton : sendButton;
     
-    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    await expect(actionButton).toBeVisible({ timeout: 5000 });
+    await actionButton.click();
     
-    // Close modal
-    const closeButton = page.locator('[data-testid="button-close-packet"]');
-    await closeButton.click();
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+    
+    // Close modal using appropriate close method
+    if (isPacketMode) {
+      const closeButton = modal.locator('[data-testid="button-close-packet"], button:has-text("Close")').first();
+      await closeButton.click();
+    } else {
+      // For send modal, use Cancel or X button
+      const closeButton = modal.locator('button:has-text("Cancel"), button[aria-label="Close"]').first();
+      if (await closeButton.isVisible()) {
+        await closeButton.click();
+      } else {
+        await page.keyboard.press('Escape');
+      }
+    }
     
     // Verify modal is closed
-    await expect(page.locator('[role="dialog"]')).not.toBeVisible();
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
   });
 });

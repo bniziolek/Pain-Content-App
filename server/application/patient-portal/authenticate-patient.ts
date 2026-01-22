@@ -1,6 +1,9 @@
-import type { Request } from "express";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import crypto from "crypto";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 import { AppError } from "../errors";
 import {
   calculateLockoutUpdate,
@@ -22,7 +25,7 @@ export interface AuthenticatePatientResult {
 
 export async function authenticatePatient(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: AuthenticatePatientInput
 ): Promise<AuthenticatePatientResult> {
   if (!input.email || !input.accessCode) {
@@ -35,7 +38,7 @@ export async function authenticatePatient(
   const emailLog = await ctx.storage.getEmailLogByAccessCode(input.accessCode);
 
   if (!emailLog) {
-    await ctx.audit.logPatientAction(req, normalizedEmail, "patient_portal_auth_failed", {
+    await ctx.audit.logPatientAction(auditContext, normalizedEmail, "patient_portal_auth_failed", {
       details: { reason: "invalid_code" },
       outcome: "failure",
     });
@@ -87,12 +90,12 @@ export async function authenticatePatient(
     token: sessionToken,
     patientEmail: normalizedEmail,
     emailLogId: emailLog.id,
-    ipAddress: getClientIp(req),
-    userAgent: req.headers["user-agent"] || "unknown",
+    ipAddress: auditContext.ipAddress || "unknown",
+    userAgent: auditContext.userAgent || "unknown",
     expiresAt,
   });
 
-  await ctx.audit.logPatientAction(req, normalizedEmail, "patient_portal_auth", {
+  await ctx.audit.logPatientAction(auditContext, normalizedEmail, "patient_portal_auth", {
     resourceType: "session",
     resourceId: emailLog.id,
     phiAccessed: true,
@@ -101,11 +104,4 @@ export async function authenticatePatient(
   });
 
   return { sessionToken, patientEmail: normalizedEmail };
-}
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  if (Array.isArray(forwarded)) return forwarded[0];
-  return req.socket?.remoteAddress || "unknown";
 }

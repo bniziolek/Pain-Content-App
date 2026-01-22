@@ -1,16 +1,30 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { RecommendationConfig, InsertRecommendationConfig, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface UpdateRecommendationConfigInput {
+  auditContext: AuditRequestContext;
   clinician: User;
   configId: string;
   updates: Partial<InsertRecommendationConfig> & { isActive?: boolean };
 }
 
 export async function updateRecommendationConfig(
-  _ctx: AppContext,
-  _input: UpdateRecommendationConfigInput
+  ctx: AppContext,
+  input: UpdateRecommendationConfigInput
 ): Promise<RecommendationConfig | null> {
-  // TODO: update recommendation config and audit settings change.
-  throw new Error("updateRecommendationConfig not implemented");
+  const config = await ctx.storage.updateRecommendationConfig(input.configId, input.updates);
+  if (!config) {
+    return null;
+  }
+
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'settings_change', {
+    resourceType: 'settings',
+    details: { action: 'update_recommendation_config', configId: input.configId },
+  });
+
+  return config;
 }

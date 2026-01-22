@@ -1,7 +1,11 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "../auth";
-import { storage } from "../storage";
+import { createAppContext, getFeatureFlag } from "../application";
 
 // Domain Routers
 import { contentRouter } from "./content";
@@ -21,17 +25,19 @@ import { complianceRouter } from "./compliance";
 import { onboardingRouter } from "./onboarding";
 import { contentRecommendationsRouter } from "./content-recommendations";
 
-// Legacy route files (already extracted)
+// Function-based route registrations
 import { registerPasswordResetRoutes } from "./password-reset";
 import { registerPublicContentRoutes } from "./public-content";
 import { registerPatientPortalRoutes } from "./patient-portal";
+import { registerAuthRoutes } from "./auth";
 
 // Feature flag middleware factory
 const createFeatureFlagMiddleware = () => {
+  const appContext = createAppContext();
   return (flagKey: string): RequestHandler => {
     return async (req, res, next) => {
       try {
-        const flag = await storage.getFeatureFlagByKey(flagKey);
+        const flag = await getFeatureFlag(appContext, { key: flagKey });
         if (!flag?.isEnabled) {
           return res.status(404).json({ error: "Not found" });
         }
@@ -49,8 +55,9 @@ export function registerRoutes(app: Express): Server {
 
   // Setup authentication routes
   setupAuth(app);
+  registerAuthRoutes(app);
   
-  // Legacy routes (already extracted)
+  // Function-based route registrations
   registerPasswordResetRoutes(app);
   registerPublicContentRoutes(app);
   registerPatientPortalRoutes(app, requireFeatureFlag);
@@ -68,8 +75,8 @@ export function registerRoutes(app: Express): Server {
 
   // ====== Recommendations Domain ======
   app.use("/api/recommendations", recommendationsRouter);
-  app.use("/api/recommendation-rules", recommendationsRouter); // Legacy route alias
-  app.use("/api/recommendation-configs", recommendationsRouter); // Legacy route alias
+  app.use("/api/recommendation-rules", recommendationsRouter); // Backward-compatible alias
+  app.use("/api/recommendation-configs", recommendationsRouter); // Backward-compatible alias
   app.use("/api/patient-recommendations", createPatientRecommendationsRouter(requireFeatureFlag));
 
   // ====== Messaging Domain ======

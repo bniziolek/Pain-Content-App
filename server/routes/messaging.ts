@@ -1,10 +1,22 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth, requireSubscription } from "../auth";
-import { storage } from "../storage";
-import { insertEmailLogSchema } from "@shared/schema";
-import { logClinicianAction, logPatientAction } from "../audit";
-import { sendContentEmail } from "../gmail";
-import { createSecureAccessCode } from "../domain/messaging";
+import {
+  createAppContextWithInfrastructure,
+  deleteEmailConnection,
+  getPatientSummary,
+  listEmailLogContentViews,
+  listEmailLogs,
+  resendContentEmailFlow,
+  sendContentEmailFlow,
+  updateEmailDeliveryMode,
+} from "../application";
+import { buildAuditRequestContext } from "../http/audit-context";
+
+const appContext = createAppContextWithInfrastructure();
 
 export function createMessagingRouter(requireFeatureFlag: (key: string) => any) {
   const router = Router();
@@ -13,55 +25,17 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   router.post("/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const { patientEmail, subject, contentIds, providerNote, type } = req.body;
-      
-      // Generate secure access code
-      const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
-      
-      const data = insertEmailLogSchema.parse({
-        clinicianUserId: req.user!.id,
+
+      const result = await sendContentEmailFlow(appContext, buildAuditRequestContext(req), {
+        clinician: req.user!,
         patientEmail,
         subject,
         contentIds,
         providerNote,
-        type: type || 'content_bundle',
-        accessCodeHash,
-        accessCodeSalt,
-        accessCodeGeneratedAt: new Date(),
+        type,
       });
-      
-      const emailLog = await storage.createEmailLog(data);
-      
-      // Get content items for the email
-      const contentItems = (await Promise.all(
-        contentIds.map((id: string) => storage.getContentById(id))
-      )).filter(Boolean);
-      
-      // Build view URLs for content items
-      const contentItemsWithUrls = contentItems.map((item: any) => ({
-        title: item.title,
-        summary: item.summary || '',
-        readTime: item.readTime,
-        imageUrl: item.imageUrl,
-        viewUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/view/${emailLog.id}?content=${item.id}`,
-      }));
-      
-      // Send the email
-      await sendContentEmail({
-        toEmail: patientEmail,
-        subject,
-        contentItems: contentItemsWithUrls,
-        providerNote,
-      });
-      
-      await logClinicianAction(req, req.user!, 'email_sent', {
-        resourceType: 'email_log',
-        resourceId: emailLog.id,
-        phiAccessed: true,
-        phiScope: 'patient email, content bundle',
-        details: { patientEmail, contentCount: contentIds.length },
-      });
-      
-      res.status(201).json({ ...emailLog, accessCode });
+
+      res.status(201).json({ ...result.emailLog, accessCode: result.accessCode });
     } catch (error) {
       next(error);
     }
@@ -70,7 +44,7 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   // Get email logs
   router.get("/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
-      const logs = await storage.getEmailLogsByClinicianId(req.user!.id);
+      const logs = await listEmailLogs(appContext, { clinician: req.user! });
       res.json(logs);
     } catch (error) {
       next(error);
@@ -80,7 +54,7 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   // Get content views for email log
   router.get("/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
     try {
-      const views = await storage.getContentViewsByEmailLogId(req.params.id);
+      const views = await listEmailLogContentViews(appContext, { emailLogId: req.params.id });
       res.json(views);
     } catch (error) {
       next(error);
@@ -90,60 +64,17 @@ export function createMessagingRouter(requireFeatureFlag: (key: string) => any) 
   // Resend email
   router.post("/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
-      const originalLog = await storage.getEmailLogById(req.params.id);
-      if (!originalLog) {
+      const result = await resendContentEmailFlow(appContext, buildAuditRequestContext(req), {
+        clinician: req.user!,
+        emailLogId: req.params.id,
+        providerNote: req.body.providerNote,
+      });
+
+      res.status(201).json({ ...result.emailLog, accessCode: result.accessCode });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Email log not found") {
         return res.status(404).send("Email log not found");
       }
-      
-      // Generate secure access code
-      const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
-      
-      // Create new email log
-      const newLog = await storage.createEmailLog({
-        clinicianUserId: req.user!.id,
-        patientEmail: originalLog.patientEmail,
-        subject: `Re: ${originalLog.subject}`,
-        contentIds: originalLog.contentIds,
-        providerNote: req.body.providerNote || originalLog.providerNote,
-        type: 'content_bundle',
-        accessCodeHash,
-        accessCodeSalt,
-        accessCodeGeneratedAt: new Date(),
-        isFollowUp: true,
-        parentEmailLogId: originalLog.id,
-      });
-      
-      // Get content and resend
-      const contentItems = await Promise.all(
-        (originalLog.contentIds || []).map((id: string) => storage.getContentById(id))
-      );
-      const validContentItems = contentItems.filter(Boolean);
-      
-      const contentItemsWithUrls = validContentItems.map((item: any) => ({
-        title: item.title,
-        summary: item.summary || '',
-        readTime: item.readTime,
-        imageUrl: item.imageUrl,
-        viewUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/view/${newLog.id}?content=${item.id}`,
-      }));
-      
-      await sendContentEmail({
-        toEmail: originalLog.patientEmail,
-        subject: `Re: ${originalLog.subject}`,
-        contentItems: contentItemsWithUrls,
-        providerNote: req.body.providerNote || originalLog.providerNote,
-      });
-      
-      await logClinicianAction(req, req.user!, 'email_sent', {
-        resourceType: 'email_log',
-        resourceId: newLog.id,
-        phiAccessed: true,
-        phiScope: 'patient email resend',
-        details: { originalId: originalLog.id, patientEmail: originalLog.patientEmail },
-      });
-      
-      res.status(201).json({ ...newLog, accessCode });
-    } catch (error) {
       next(error);
     }
   });
@@ -174,7 +105,10 @@ emailSettingsRouter.patch("/mode", requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: "Invalid mode" });
     }
     
-    await storage.updateEmailDeliveryMode(req.user!.id, mode);
+    await updateEmailDeliveryMode(appContext, buildAuditRequestContext(req), {
+      clinician: req.user!,
+      mode,
+    });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -183,7 +117,7 @@ emailSettingsRouter.patch("/mode", requireAuth, async (req, res, next) => {
 
 emailSettingsRouter.delete("/connection", requireAuth, async (req, res, next) => {
   try {
-    await storage.deleteEmailConnection(req.user!.id);
+    await deleteEmailConnection(appContext, buildAuditRequestContext(req), { clinician: req.user! });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -198,38 +132,13 @@ const patientSummaryRouter = Router();
 patientSummaryRouter.get("/:email", requireSubscription, async (req, res, next) => {
   try {
     const patientEmail = decodeURIComponent(req.params.email);
-    
-    // Get all email logs for this patient
-    const emailLogs = await storage.getEmailLogsByPatientEmail(req.user!.id, patientEmail);
-    
-    // Get content views from all email logs
-    const contentViews: any[] = [];
-    for (const log of emailLogs) {
-      const views = await storage.getContentViewsByEmailLogId(log.id);
-      contentViews.push(...views);
-    }
-    
-    // Get assessment invites for this patient
-    const assessmentResults = await storage.getAssessmentInvitesByPatientEmail(req.user!.id, patientEmail);
-    
-    await logClinicianAction(req, req.user!, 'patient_summary_view', {
-      resourceType: 'patient',
-      phiAccessed: true,
-      phiScope: 'patient summary, email history, content views, assessments',
-      details: { patientEmail },
-    });
-    
-    res.json({
+
+    const summary = await getPatientSummary(appContext, buildAuditRequestContext(req), {
+      clinician: req.user!,
       patientEmail,
-      emailLogs,
-      contentViews,
-      assessmentResults,
-      summary: {
-        totalEmails: emailLogs.length,
-        totalViews: contentViews.length,
-        lastContact: emailLogs[0]?.sentAt || null,
-      },
     });
+    
+    res.json(summary);
   } catch (error) {
     next(error);
   }

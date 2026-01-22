@@ -1,13 +1,24 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth } from "../auth";
-import { storage } from "../storage";
+import {
+  addFavorite,
+  createMinimalContext,
+  isFavorite,
+  listFavorites,
+  removeFavorite,
+} from "../application";
 
 const router = Router();
+const appContext = createMinimalContext();
 
 // Get all favorites for user
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const favorites = await storage.getUserFavorites(req.user!.id);
+    const favorites = await listFavorites(appContext, { clinician: req.user! });
     res.json(favorites);
   } catch (error) {
     next(error);
@@ -17,7 +28,10 @@ router.get("/", requireAuth, async (req, res, next) => {
 // Add content to favorites
 router.post("/:contentId", requireAuth, async (req, res, next) => {
   try {
-    await storage.addFavorite(req.user!.id, req.params.contentId);
+    await addFavorite(appContext, {
+      clinician: req.user!,
+      contentId: req.params.contentId,
+    });
     res.status(201).json({ success: true });
   } catch (error) {
     next(error);
@@ -27,7 +41,10 @@ router.post("/:contentId", requireAuth, async (req, res, next) => {
 // Remove content from favorites
 router.delete("/:contentId", requireAuth, async (req, res, next) => {
   try {
-    await storage.removeFavorite(req.user!.id, req.params.contentId);
+    await removeFavorite(appContext, {
+      clinician: req.user!,
+      contentId: req.params.contentId,
+    });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -37,8 +54,11 @@ router.delete("/:contentId", requireAuth, async (req, res, next) => {
 // Check if content is favorited
 router.get("/check/:contentId", requireAuth, async (req, res, next) => {
   try {
-    const isFavorite = await storage.isFavorite(req.user!.id, req.params.contentId);
-    res.json({ isFavorite });
+    const result = await isFavorite(appContext, {
+      clinician: req.user!,
+      contentId: req.params.contentId,
+    });
+    res.json(result);
   } catch (error) {
     next(error);
   }

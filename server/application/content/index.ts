@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 export * from "./list-content";
 export * from "./get-content";
 export * from "./create-content";

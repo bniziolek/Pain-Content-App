@@ -5,7 +5,9 @@ This directory is the single source of truth for how to evolve the codebase unde
 ## Core Architecture
 
 - `ARCHITECTURE.md`: Layer definitions, responsibilities, and import rules.
+- `ARCHITECTURE_MAP.md`: Non-technical overview and feature tours.
 - `ARCHITECTURE_MIGRATION_TASKS.md`: Concrete migration tasks to reach the target architecture.
+- `adrs/README.md`: Architecture Decision Records index.
 
 ## Supporting Guides (Copies)
 

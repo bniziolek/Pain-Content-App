@@ -1,0 +1,45 @@
+Replit Agent Next Steps (Execution Checklist)
+Use this as the concrete handoff plan for completing the migration.
+
+Route rewiring status
+All routes are now wired to application services; no direct storage/infra imports remain in server/routes/*.
+Remove legacy module usage in routes/services
+Stop importing server/recommendation.ts, server/scoring.ts, server/audit.ts, server/stripeClient.ts, server/gmail.ts, server/contentful.ts in routes or application services. (Done)
+Use infrastructure adapters (email adapter, Stripe service, CMS service, audit service) and application entry points instead.
+Fix storage API mismatches (blockers)
+Verify analytics/storage method outputs and adjust types/shape where needed (getAllRecommendationConfigs).
+Auth/RBAC/background jobs/webhooks status
+Auth routes moved to server/routes/auth.ts with application services.
+RBAC middleware now uses application-backed permission checks.
+Background jobs and webhook processing now route through application services.
+Remaining cleanups
+Validate Stripe payment adapter behavior (ctx.payment.runSync, publishable key resolution) in staging.
+Confirm content recommendation filtering requirements and whether storage should accept filters directly.
+4) Refactor Auth and RBAC to Match Layers
+Split setupAuth in server/auth.ts into an infrastructure-level passport/session initializer and move HTTP endpoints (/api/register, /api/login, /api/logout, /api/user) into server/routes/auth.ts that call application services.
+Move password hashing and comparison utilities out of server/auth.ts into a domain or application module so routes do not depend on infrastructure or storage.
+Refactor server/rbac.ts to separate pure permission logic from storage-backed checks; expose middleware that calls application services instead of reading storage directly.
+5) Align Application Logic in Existing Service Modules
+Move server/scoring.ts into server/application/assessments/ (or a new server/application/scoring/) and update all call sites to use the application layer; keep server/domain/scoring pure. (Done via removal + application engine)
+Move server/recommendation.ts into server/application/recommendations/ and update all call sites; keep server/domain/recommendations pure. (Done via application engine)
+Replace server/audit.ts usage with server/infrastructure/audit and route through application services for consistent audit logging. (Done)
+6) Data Layer API Alignment
+Reconcile server/storage.ts with actual usage and update routes/application services accordingly.
+Fix mismatched method names such as storage.getAssessmentInvites and storage.getAssessmentInvitesByClinicianId used in server/routes/assessment-invites.ts.
+Replace the nonexistent storage.completeAssessmentInvite in server/routes/assessment-invites.ts with a proper flow that writes an AssessmentResponse and updates invite status via storage.updateAssessmentInviteStatus.
+Replace storage.getPathwayMilestones in server/routes/pathways.ts with storage.getMilestonesByPathwayId or add the alias in the interface and implementation.
+Replace storage.getPatientPathways in server/routes/pathways.ts with storage.getPatientPathwaysByClinicianId or add the missing method.
+Update storage.getContentRecommendations usage in server/routes/content-recommendations.ts to match the interface or extend the interface to accept filters.
+Update storage.getPatientRecommendations usage in server/routes/recommendations.ts to pass a filters object as defined in server/storage.ts.
+Add missing methods referenced by routes but not defined in server/storage.ts, including getAllRecommendationConfigs, getFeatureFlagHistory, getFeatureFlagHistoryByKey, getUserActivityAnalytics, getContentUsageAnalytics, and getSubscriptionMetrics, or remove those calls from the routes.
+Fix storage.updateUser return expectations in server/routes/admin.ts and server/routes/onboarding.ts by either returning the updated user from storage or fetching it after update.
+Align storage.updateUserSubscription usage in server/routes/subscription.ts and server/routes/admin.ts with the interface and add a dedicated call to storage.updateSubscriptionTier where needed.
+7) Webhooks and Background Jobs
+Move webhook processing in server/webhookHandlers.ts into an application service that uses payment infrastructure; update server/index.ts to call it from a dedicated webhook route module.
+Move background jobs in server/background-jobs.ts into an application-level scheduler or jobs module that calls application services instead of using storage directly.
+8) Cleanup and Legacy Removal
+Remove or archive server/routes.legacy.ts after confirming all routes have been migrated to server/routes/* with application services. (Done)
+Remove unused exports and duplicated modules once routes and services reference the new layer boundaries. (Done for root legacy modules)
+9) Testing and Verification
+Update unit and API tests to import from application services instead of legacy modules when needed (e.g., tests referencing scoring and recommendation flows).
+Run API and E2E tests to verify route behavior remains unchanged after refactors, focusing on messaging, patient portal, assessments, recommendations, and subscription flows.

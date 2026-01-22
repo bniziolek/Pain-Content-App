@@ -1,3 +1,7 @@
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
 import Stripe from 'stripe';
 
 let connectionSettings: any;

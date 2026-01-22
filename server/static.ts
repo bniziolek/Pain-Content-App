@@ -1,3 +1,7 @@
+/**
+ * Architecture: Static asset handling for the server runtime.
+ */
+
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";

@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { ContentView } from "@shared/schema";
 import type { AppContext } from "../context";
 
@@ -6,9 +10,8 @@ export interface ListEmailLogContentViewsInput {
 }
 
 export async function listEmailLogContentViews(
-  _ctx: AppContext,
-  _input: ListEmailLogContentViewsInput
+  ctx: AppContext,
+  input: ListEmailLogContentViewsInput
 ): Promise<ContentView[]> {
-  // TODO: fetch content views for an email log.
-  throw new Error("listEmailLogContentViews not implemented");
+  return ctx.storage.getContentViewsByEmailLogId(input.emailLogId);
 }

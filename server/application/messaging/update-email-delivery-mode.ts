@@ -1,4 +1,8 @@
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 
 export interface UpdateEmailDeliveryModeInput {
@@ -7,9 +11,13 @@ export interface UpdateEmailDeliveryModeInput {
 }
 
 export async function updateEmailDeliveryMode(
-  _ctx: AppContext,
-  _input: UpdateEmailDeliveryModeInput
+  ctx: AppContext,
+  auditContext: AuditRequestContext,
+  input: UpdateEmailDeliveryModeInput
 ): Promise<void> {
-  // TODO: update delivery mode for clinician.
-  throw new Error("updateEmailDeliveryMode not implemented");
+  await ctx.storage.updateEmailDeliveryMode(input.clinician.id, input.mode);
+  
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'settings_change', {
+    details: { setting: 'emailDeliveryMode', newValue: input.mode },
+  });
 }

@@ -1,28 +1,37 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireSubscription } from "../auth";
-import { storage } from "../storage";
-import { logClinicianAction } from "../audit";
-import { getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "../contentful";
+import {
+  createAppContextWithInfrastructure,
+  createFollowUpRule,
+  createPathway,
+  createPathwayMilestone,
+  createPatientPathway,
+  deleteFollowUpRule,
+  deletePathway,
+  deletePathwayMilestone,
+  getPathway,
+  listFollowUpRules,
+  listPathwayMilestones,
+  listPathways,
+  listPatientPathways,
+  updateFollowUpRule,
+  updatePathway,
+  updatePathwayMilestone,
+  updatePatientPathway,
+} from "../application";
+import { buildAuditRequestContext } from "../http/audit-context";
 
 const router = Router();
+const appContext = createAppContextWithInfrastructure();
 
 // Get all care pathways
 router.get("/", requireSubscription, async (req, res, next) => {
   try {
-    // Try Contentful first
-    if (isContentfulConfigured()) {
-      try {
-        const pathways = await getAllPathwaysFromContentful();
-        res.json(pathways);
-        return;
-      } catch (error) {
-        if (error instanceof ContentfulError) {
-          console.warn("Contentful pathways fetch failed, falling back to database:", error.message);
-        }
-      }
-    }
-    
-    const pathways = await storage.getCarePathways(req.user!.id);
+    const pathways = await listPathways(appContext, { clinician: req.user! });
     res.json(pathways);
   } catch (error) {
     next(error);
@@ -32,30 +41,12 @@ router.get("/", requireSubscription, async (req, res, next) => {
 // Get single pathway
 router.get("/:id", requireSubscription, async (req, res, next) => {
   try {
-    let pathway = null;
-    
-    if (isContentfulConfigured()) {
-      try {
-        pathway = await getPathwayByIdFromContentful(req.params.id);
-      } catch (error) {
-        if (error instanceof ContentfulError) {
-          console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
-        }
-      }
-    }
-    
-    if (!pathway) {
-      pathway = await storage.getCarePathwayById(req.params.id);
-    }
-    
-    if (!pathway) {
+    const result = await getPathway(appContext, { pathwayId: req.params.id });
+    if (!result) {
       return res.status(404).send("Pathway not found");
     }
-    
-    // Get milestones
-    const milestones = await storage.getPathwayMilestones(req.params.id);
-    
-    res.json({ ...pathway, milestones });
+
+    res.json({ ...result.pathway, milestones: result.milestones });
   } catch (error) {
     next(error);
   }
@@ -65,22 +56,17 @@ router.get("/:id", requireSubscription, async (req, res, next) => {
 router.post("/", requireSubscription, async (req, res, next) => {
   try {
     const { name, description, condition, durationWeeks, isTemplate } = req.body;
-    const pathway = await storage.createCarePathway({
-      clinicianUserId: req.user!.id,
-      name,
-      description,
-      condition,
-      durationWeeks,
-      isTemplate: isTemplate || false,
-      isActive: true,
+    const pathway = await createPathway(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      data: {
+        name,
+        description,
+        condition,
+        durationWeeks,
+        isTemplate,
+      },
     });
-    
-    await logClinicianAction(req, req.user!, 'content_create', {
-      resourceType: 'content',
-      resourceId: pathway.id,
-      details: { type: 'care_pathway', name },
-    });
-    
     res.status(201).json(pathway);
   } catch (error) {
     next(error);
@@ -90,7 +76,10 @@ router.post("/", requireSubscription, async (req, res, next) => {
 // Update pathway
 router.patch("/:id", requireSubscription, async (req, res, next) => {
   try {
-    const pathway = await storage.updateCarePathway(req.params.id, req.body);
+    const pathway = await updatePathway(appContext, {
+      pathwayId: req.params.id,
+      updates: req.body,
+    });
     if (!pathway) {
       return res.status(404).send("Pathway not found");
     }
@@ -103,7 +92,7 @@ router.patch("/:id", requireSubscription, async (req, res, next) => {
 // Delete pathway
 router.delete("/:id", requireSubscription, async (req, res, next) => {
   try {
-    await storage.deleteCarePathway(req.params.id);
+    await deletePathway(appContext, { pathwayId: req.params.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -114,7 +103,7 @@ router.delete("/:id", requireSubscription, async (req, res, next) => {
 
 router.get("/:id/milestones", requireSubscription, async (req, res, next) => {
   try {
-    const milestones = await storage.getPathwayMilestones(req.params.id);
+    const milestones = await listPathwayMilestones(appContext, { pathwayId: req.params.id });
     res.json(milestones);
   } catch (error) {
     next(error);
@@ -124,7 +113,7 @@ router.get("/:id/milestones", requireSubscription, async (req, res, next) => {
 router.post("/:id/milestones", requireSubscription, async (req, res, next) => {
   try {
     const { weekNumber, title, description, contentIds, assessmentId } = req.body;
-    const milestone = await storage.createPathwayMilestone({
+    const milestone = await createPathwayMilestone(appContext, {
       pathwayId: req.params.id,
       weekNumber,
       title,
@@ -140,7 +129,10 @@ router.post("/:id/milestones", requireSubscription, async (req, res, next) => {
 
 router.patch("/:pathwayId/milestones/:id", requireSubscription, async (req, res, next) => {
   try {
-    const milestone = await storage.updatePathwayMilestone(req.params.id, req.body);
+    const milestone = await updatePathwayMilestone(appContext, {
+      milestoneId: req.params.id,
+      updates: req.body,
+    });
     res.json(milestone);
   } catch (error) {
     next(error);
@@ -149,7 +141,7 @@ router.patch("/:pathwayId/milestones/:id", requireSubscription, async (req, res,
 
 router.delete("/:pathwayId/milestones/:id", requireSubscription, async (req, res, next) => {
   try {
-    await storage.deletePathwayMilestone(req.params.id);
+    await deletePathwayMilestone(appContext, { milestoneId: req.params.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -160,7 +152,7 @@ router.delete("/:pathwayId/milestones/:id", requireSubscription, async (req, res
 
 router.get("/patients/active", requireSubscription, async (req, res, next) => {
   try {
-    const patientPathways = await storage.getPatientPathways(req.user!.id);
+    const patientPathways = await listPatientPathways(appContext, { clinician: req.user! });
     res.json(patientPathways);
   } catch (error) {
     next(error);
@@ -170,25 +162,18 @@ router.get("/patients/active", requireSubscription, async (req, res, next) => {
 router.post("/patients", requireSubscription, async (req, res, next) => {
   try {
     const { pathwayId, patientEmail, patientName, startDate, notes } = req.body;
-    const patientPathway = await storage.createPatientPathway({
-      clinicianUserId: req.user!.id,
-      pathwayId,
-      patientEmail,
-      patientName,
-      startDate: new Date(startDate),
-      notes,
-      status: 'active',
-      currentWeek: 1,
+    const patientPathway = await createPatientPathway(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      data: {
+        pathwayId,
+        patientEmail,
+        patientName,
+        startDate: new Date(startDate),
+        notes,
+      },
     });
-    
-    await logClinicianAction(req, req.user!, 'content_create', {
-      resourceType: 'patient',
-      resourceId: patientPathway.id,
-      phiAccessed: true,
-      phiScope: 'patient pathway enrollment',
-      details: { patientEmail, pathwayId },
-    });
-    
+
     res.status(201).json(patientPathway);
   } catch (error) {
     next(error);
@@ -197,7 +182,10 @@ router.post("/patients", requireSubscription, async (req, res, next) => {
 
 router.patch("/patients/:id", requireSubscription, async (req, res, next) => {
   try {
-    const patientPathway = await storage.updatePatientPathway(req.params.id, req.body);
+    const patientPathway = await updatePatientPathway(appContext, {
+      patientPathwayId: req.params.id,
+      updates: req.body,
+    });
     res.json(patientPathway);
   } catch (error) {
     next(error);
@@ -211,7 +199,7 @@ const followUpRouter = Router();
 
 followUpRouter.get("/", requireSubscription, async (req, res, next) => {
   try {
-    const rules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
+    const rules = await listFollowUpRules(appContext, { clinician: req.user! });
     res.json(rules);
   } catch (error) {
     next(error);
@@ -221,16 +209,17 @@ followUpRouter.get("/", requireSubscription, async (req, res, next) => {
 followUpRouter.post("/", requireSubscription, async (req, res, next) => {
   try {
     const { name, triggerType, triggerDays, action, contentIds, message, isTemplate } = req.body;
-    const rule = await storage.createFollowUpRule({
-      clinicianUserId: req.user!.id,
-      name,
-      triggerType,
-      triggerDays,
-      action,
-      contentIds,
-      message,
-      isActive: true,
-      isTemplate: isTemplate || false,
+    const rule = await createFollowUpRule(appContext, {
+      clinician: req.user!,
+      data: {
+        name,
+        triggerType,
+        triggerDays,
+        action,
+        contentIds,
+        message,
+        isTemplate,
+      },
     });
     res.status(201).json(rule);
   } catch (error) {
@@ -240,7 +229,10 @@ followUpRouter.post("/", requireSubscription, async (req, res, next) => {
 
 followUpRouter.patch("/:id", requireSubscription, async (req, res, next) => {
   try {
-    const rule = await storage.updateFollowUpRule(req.params.id, req.body);
+    const rule = await updateFollowUpRule(appContext, {
+      ruleId: req.params.id,
+      updates: req.body,
+    });
     res.json(rule);
   } catch (error) {
     next(error);
@@ -249,7 +241,7 @@ followUpRouter.patch("/:id", requireSubscription, async (req, res, next) => {
 
 followUpRouter.delete("/:id", requireSubscription, async (req, res, next) => {
   try {
-    await storage.deleteFollowUpRule(req.params.id);
+    await deleteFollowUpRule(appContext, { ruleId: req.params.id });
     res.status(204).send();
   } catch (error) {
     next(error);
