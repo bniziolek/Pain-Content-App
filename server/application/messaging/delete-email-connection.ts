@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 
 export interface DeleteEmailConnectionInput {
@@ -8,10 +11,11 @@ export interface DeleteEmailConnectionInput {
 
 export async function deleteEmailConnection(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: DeleteEmailConnectionInput
 ): Promise<void> {
-  await ctx.audit.logClinicianAction(req, input.clinician, 'settings_change', {
+  await ctx.storage.deleteEmailConnection(input.clinician.id);
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'settings_change', {
     details: { setting: 'emailConnection', action: 'deleted' },
   });
 }

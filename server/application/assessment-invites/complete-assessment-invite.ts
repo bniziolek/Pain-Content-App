@@ -1,16 +1,20 @@
-import type { AppContext } from "../context";
-import type { AssessmentInvite, AssessmentResponse } from "@shared/schema";
-import { calculateTagScores, type ScoringConfig } from "../../domain/scoring";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
+import type { ScoringResult } from "../../domain/scoring";
+import { AppError } from "../errors";
+import { scoreAssessment } from "../assessments";
 
 export interface CompleteAssessmentInviteInput {
+  auditContext: AuditRequestContext;
   inviteId: string;
   answers: Record<string, unknown>;
 }
 
 export interface CompleteAssessmentInviteResult {
-  invite: AssessmentInvite;
-  response: AssessmentResponse;
-  scores: Record<string, number>;
+  result: ScoringResult;
 }
 
 export async function completeAssessmentInvite(
@@ -19,37 +23,33 @@ export async function completeAssessmentInvite(
 ): Promise<CompleteAssessmentInviteResult> {
   const invite = await ctx.storage.getAssessmentInviteById(input.inviteId);
   if (!invite) {
-    throw new Error("Invite not found");
+    throw new AppError(404, "Invite not found");
   }
   
   const assessment = await ctx.storage.getAssessmentById(invite.assessmentId);
   if (!assessment) {
-    throw new Error("Assessment not found");
+    throw new AppError(404, "Assessment not found");
   }
   
-  const scoringConfig = assessment.scoringConfig as ScoringConfig | null;
-  const tagScores = scoringConfig 
-    ? calculateTagScores(input.answers, scoringConfig)
-    : [];
-  
-  const tagScoresRecord = tagScores.reduce((acc, ts) => {
-    acc[ts.tag] = ts.score;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const response = await ctx.storage.createAssessmentResponse({
+  const clinician = await ctx.storage.getUser(invite.clinicianUserId);
+  if (!clinician) {
+    throw new AppError(404, "Clinician not found");
+  }
+
+  const result = await scoreAssessment(ctx, {
+    auditContext: input.auditContext,
+    clinician,
+    assessmentId: invite.assessmentId,
+    answers: input.answers,
+  });
+
+  await ctx.storage.createAssessmentResponse({
     inviteId: invite.id,
     answers: input.answers,
-    tagScores: tagScores,
+    tagScores: result.tagScores,
+    recommendedContentIds: result.recommendations,
   });
-  
-  await ctx.storage.updateAssessmentInviteStatus(invite.id, 'completed');
-  
-  const updatedInvite = await ctx.storage.getAssessmentInviteById(input.inviteId);
-  
-  return {
-    invite: updatedInvite!,
-    response,
-    scores: tagScoresRecord,
-  };
+  await ctx.storage.updateAssessmentInviteStatus(invite.id, "completed", new Date());
+
+  return { result };
 }

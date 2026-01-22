@@ -1,14 +1,26 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { Assessment, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface ListAssessmentsInput {
+  auditContext: AuditRequestContext;
   clinician: User;
+  typeFilter?: string;
 }
 
 export async function listAssessments(
-  _ctx: AppContext,
-  _input: ListAssessmentsInput
+  ctx: AppContext,
+  input: ListAssessmentsInput
 ): Promise<Assessment[]> {
-  // TODO: fetch assessments and audit access.
-  throw new Error("listAssessments not implemented");
+  const assessments = await ctx.storage.getAssessmentsByClinicianId(input.clinician.id);
+
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'assessment_access', {
+    resourceType: 'assessment',
+    details: { count: assessments.length, typeFilter: input.typeFilter },
+  });
+
+  return assessments;
 }

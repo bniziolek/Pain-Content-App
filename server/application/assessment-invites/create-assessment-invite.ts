@@ -1,6 +1,9 @@
-import type { Request } from "express";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { AssessmentInvite, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 import { insertAssessmentInviteSchema } from "@shared/schema";
 import crypto from "crypto";
 
@@ -17,7 +20,7 @@ export interface CreateAssessmentInviteResult {
 
 export async function createAssessmentInvite(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: CreateAssessmentInviteInput
 ): Promise<CreateAssessmentInviteResult> {
   const token = crypto.randomBytes(32).toString("hex");
@@ -43,7 +46,7 @@ export async function createAssessmentInvite(
     clinicianName: input.clinician.name || undefined,
   });
   
-  await ctx.audit.logClinicianAction(req, input.clinician, 'assessment_create', {
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'assessment_create', {
     resourceType: 'assessment',
     resourceId: invite.id,
     phiAccessed: true,

@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User, FeatureFlag } from "@shared/schema";
 
 export interface UpdateFeatureFlagInput {
@@ -10,7 +13,7 @@ export interface UpdateFeatureFlagInput {
 
 export async function updateFeatureFlag(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: UpdateFeatureFlagInput
 ): Promise<FeatureFlag | null> {
   const flag = await ctx.storage.getFeatureFlagByKey(input.key);
@@ -20,7 +23,7 @@ export async function updateFeatureFlag(
   
   const updated = await ctx.storage.updateFeatureFlag(input.key, { isEnabled: input.isEnabled });
   
-  await ctx.audit.logClinicianAction(req, input.admin, 'feature_flag_update', {
+  await ctx.audit.logClinicianAction(auditContext, input.admin, 'feature_flag_update', {
     details: { key: input.key, isEnabled: input.isEnabled },
   });
   

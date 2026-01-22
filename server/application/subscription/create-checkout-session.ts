@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 
 export interface CreateCheckoutSessionInput {
@@ -10,12 +13,12 @@ export interface CreateCheckoutSessionInput {
 }
 
 export interface CreateCheckoutSessionResult {
-  sessionUrl: string;
+  sessionUrl: string | null;
 }
 
 export async function createCheckoutSession(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: CreateCheckoutSessionInput
 ): Promise<CreateCheckoutSessionResult> {
   if (!ctx.payment) {
@@ -24,12 +27,18 @@ export async function createCheckoutSession(
   
   const session = await ctx.payment.createCheckoutSession({
     userId: input.user.id,
+    userEmail: input.user.email,
+    customerId: input.user.stripeCustomerId,
     priceId: input.priceId,
     successUrl: input.successUrl,
     cancelUrl: input.cancelUrl,
   });
+
+  if (!input.user.stripeCustomerId) {
+    await ctx.storage.updateUserSubscription(input.user.id, { stripeCustomerId: session.customerId });
+  }
   
-  await ctx.audit.logClinicianAction(req, input.user, 'subscription_checkout', {
+  await ctx.audit.logClinicianAction(auditContext, input.user, 'subscription_checkout', {
     details: { priceId: input.priceId },
   });
   

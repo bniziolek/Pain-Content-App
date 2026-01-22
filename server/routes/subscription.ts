@@ -1,21 +1,33 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth, requireAdmin } from "../auth";
-import { storage } from "../storage";
-import { getStripeSync } from "../stripeClient";
-import Stripe from "stripe";
+import {
+  adminUpdateUserSubscription,
+  adminUpdateUserTier,
+  cancelSubscription,
+  changeSubscriptionTier,
+  createAppContextWithInfrastructure,
+  createCheckoutSessionFlow,
+  createPortalSessionFlow,
+  getStripeConfig,
+  getSubscriptionOverview,
+  listEnabledFeatureFlags,
+  listInvoices,
+  listPlans,
+  resumeSubscription,
+} from "../application";
 
 const router = Router();
+const appContext = createAppContextWithInfrastructure();
 
 // Get subscription status
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const user = req.user!;
-    res.json({
-      status: user.subscriptionStatus,
-      tier: user.subscriptionTier,
-      periodEnd: user.subscriptionPeriodEnd,
-      stripeCustomerId: user.stripeCustomerId,
-    });
+    const overview = await getSubscriptionOverview(appContext, { user: req.user! });
+    res.json(overview);
   } catch (error) {
     next(error);
   }
@@ -24,11 +36,8 @@ router.get("/", requireAuth, async (req, res, next) => {
 // Get Stripe config
 router.get("/stripe/config", async (_req, res, next) => {
   try {
-    const stripeSync = await getStripeSync();
-    const config = stripeSync?.getConfig();
-    res.json({
-      publishableKey: config?.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY,
-    });
+    const config = await getStripeConfig(appContext);
+    res.json(config);
   } catch (error) {
     next(error);
   }
@@ -37,30 +46,8 @@ router.get("/stripe/config", async (_req, res, next) => {
 // Get subscription plans
 router.get("/plans", async (_req, res, next) => {
   try {
-    // Return hardcoded plans or fetch from Stripe
-    res.json([
-      {
-        id: 'basic',
-        name: 'Basic',
-        price: 29,
-        interval: 'month',
-        features: ['Content library access', 'Patient messaging', 'Basic assessments'],
-      },
-      {
-        id: 'pro',
-        name: 'Pro',
-        price: 79,
-        interval: 'month',
-        features: ['Everything in Basic', 'Care pathways', 'Follow-up automation', 'Advanced analytics'],
-      },
-      {
-        id: 'enterprise',
-        name: 'Enterprise',
-        price: 199,
-        interval: 'month',
-        features: ['Everything in Pro', 'Custom branding', 'API access', 'Priority support'],
-      },
-    ]);
+    const plans = await listPlans();
+    res.json(plans);
   } catch (error) {
     next(error);
   }
@@ -70,35 +57,17 @@ router.get("/plans", async (_req, res, next) => {
 router.post("/checkout", requireAuth, async (req, res, next) => {
   try {
     const { priceId, successUrl, cancelUrl } = req.body;
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync) {
-      return res.status(503).json({ error: "Stripe not configured" });
-    }
-    
-    const stripe = stripeSync.getStripe();
-    let customerId = req.user!.stripeCustomerId;
-    
-    // Create customer if doesn't exist
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: req.user!.email,
-        metadata: { userId: req.user!.id },
-      });
-      customerId = customer.id;
-      await storage.updateUser(req.user!.id, { stripeCustomerId: customerId });
-    }
-    
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: successUrl || `${process.env.APP_URL}/settings?success=true`,
-      cancel_url: cancelUrl || `${process.env.APP_URL}/settings?canceled=true`,
+    const session = await createCheckoutSessionFlow(appContext, {
+      user: req.user!,
+      priceId,
+      successUrl,
+      cancelUrl,
     });
-    
-    res.json({ sessionId: session.id, url: session.url });
+    res.json(session);
   } catch (error) {
+    if (error instanceof Error && error.message === "Stripe not configured") {
+      return res.status(503).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -106,26 +75,18 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
 // Create portal session
 router.post("/portal", requireAuth, async (req, res, next) => {
   try {
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync) {
-      return res.status(503).json({ error: "Stripe not configured" });
-    }
-    
-    const stripe = stripeSync.getStripe();
-    const customerId = req.user!.stripeCustomerId;
-    
-    if (!customerId) {
-      return res.status(400).json({ error: "No subscription found" });
-    }
-    
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.APP_URL}/settings`,
+    const session = await createPortalSessionFlow(appContext, {
+      user: req.user!,
+      returnUrl: `${process.env.APP_URL}/settings`,
     });
-    
     res.json({ url: session.url });
   } catch (error) {
+    if (error instanceof Error && error.message === "Stripe not configured") {
+      return res.status(503).json({ error: error.message });
+    }
+    if (error instanceof Error && error.message === "No subscription found") {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -134,25 +95,10 @@ router.post("/portal", requireAuth, async (req, res, next) => {
 router.post("/change", requireAuth, async (req, res, next) => {
   try {
     const { newTier } = req.body;
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync) {
-      return res.status(503).json({ error: "Stripe not configured" });
-    }
-    
-    const stripe = stripeSync.getStripe();
-    const subscriptionId = req.user!.stripeSubscriptionId;
-    
-    if (!subscriptionId) {
+    if (!req.user!.stripeSubscriptionId) {
       return res.status(400).json({ error: "No active subscription" });
     }
-    
-    // This would need price IDs mapped to tiers
-    // For now just update local tier
-    await storage.updateUserSubscription(req.user!.id, {
-      subscriptionTier: newTier,
-    });
-    
+    await changeSubscriptionTier(appContext, { user: req.user!, newTier });
     res.json({ success: true, tier: newTier });
   } catch (error) {
     next(error);
@@ -162,25 +108,15 @@ router.post("/change", requireAuth, async (req, res, next) => {
 // Cancel subscription
 router.post("/cancel", requireAuth, async (req, res, next) => {
   try {
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync) {
-      return res.status(503).json({ error: "Stripe not configured" });
-    }
-    
-    const stripe = stripeSync.getStripe();
-    const subscriptionId = req.user!.stripeSubscriptionId;
-    
-    if (!subscriptionId) {
-      return res.status(400).json({ error: "No active subscription" });
-    }
-    
-    await stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: true,
-    });
-    
+    await cancelSubscription(appContext, { user: req.user! });
     res.json({ success: true, message: "Subscription will be canceled at period end" });
   } catch (error) {
+    if (error instanceof Error && error.message === "Stripe not configured") {
+      return res.status(503).json({ error: error.message });
+    }
+    if (error instanceof Error && error.message === "No active subscription") {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -188,25 +124,15 @@ router.post("/cancel", requireAuth, async (req, res, next) => {
 // Resume subscription
 router.post("/resume", requireAuth, async (req, res, next) => {
   try {
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync) {
-      return res.status(503).json({ error: "Stripe not configured" });
-    }
-    
-    const stripe = stripeSync.getStripe();
-    const subscriptionId = req.user!.stripeSubscriptionId;
-    
-    if (!subscriptionId) {
-      return res.status(400).json({ error: "No active subscription" });
-    }
-    
-    await stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: false,
-    });
-    
+    await resumeSubscription(appContext, { user: req.user! });
     res.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "Stripe not configured") {
+      return res.status(503).json({ error: error.message });
+    }
+    if (error instanceof Error && error.message === "No active subscription") {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -214,25 +140,8 @@ router.post("/resume", requireAuth, async (req, res, next) => {
 // Get invoices
 router.get("/invoices", requireAuth, async (req, res, next) => {
   try {
-    const stripeSync = await getStripeSync();
-    
-    if (!stripeSync || !req.user!.stripeCustomerId) {
-      return res.json([]);
-    }
-    
-    const stripe = stripeSync.getStripe();
-    const invoices = await stripe.invoices.list({
-      customer: req.user!.stripeCustomerId,
-      limit: 10,
-    });
-    
-    res.json(invoices.data.map(inv => ({
-      id: inv.id,
-      amount: inv.amount_paid,
-      status: inv.status,
-      date: inv.created,
-      pdfUrl: inv.invoice_pdf,
-    })));
+    const invoices = await listInvoices(appContext, req.user!);
+    res.json(invoices);
   } catch (error) {
     next(error);
   }
@@ -241,8 +150,8 @@ router.get("/invoices", requireAuth, async (req, res, next) => {
 // Get feature flags for subscription
 router.get("/feature-flags", async (_req, res, next) => {
   try {
-    const flags = await storage.getFeatureFlags();
-    res.json(flags.filter(f => f.isEnabled));
+    const flags = await listEnabledFeatureFlags(appContext);
+    res.json(flags);
   } catch (error) {
     next(error);
   }
@@ -252,9 +161,7 @@ router.get("/feature-flags", async (_req, res, next) => {
 router.post("/admin/users/:userId/tier", requireAdmin, async (req, res, next) => {
   try {
     const { tier } = req.body;
-    await storage.updateUserSubscription(req.params.userId, {
-      subscriptionTier: tier,
-    });
+    await adminUpdateUserTier(appContext, { userId: req.params.userId, tier });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -265,9 +172,10 @@ router.post("/admin/users/:userId/tier", requireAdmin, async (req, res, next) =>
 router.post("/admin/users/:userId/subscription", requireAdmin, async (req, res, next) => {
   try {
     const { status, periodEnd } = req.body;
-    await storage.updateUserSubscription(req.params.userId, {
-      subscriptionStatus: status,
-      subscriptionPeriodEnd: periodEnd ? new Date(periodEnd) : undefined,
+    await adminUpdateUserSubscription(appContext, {
+      userId: req.params.userId,
+      status,
+      periodEnd: periodEnd ? new Date(periodEnd) : undefined,
     });
     res.json({ success: true });
   } catch (error) {

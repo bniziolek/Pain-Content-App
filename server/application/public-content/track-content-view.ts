@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface TrackContentViewInput {
   emailLogId: string;
@@ -9,7 +12,7 @@ export interface TrackContentViewInput {
 
 export async function trackContentView(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: TrackContentViewInput
 ): Promise<void> {
   const existingViews = await ctx.storage.getContentViewsByEmailLogId(input.emailLogId);
@@ -22,7 +25,7 @@ export async function trackContentView(
       patientEmail: input.patientEmail,
     });
     
-    await ctx.audit.logPatientAction(req, input.patientEmail, 'content_view', {
+    await ctx.audit.logPatientAction(auditContext, input.patientEmail, 'content_view', {
       resourceType: 'content',
       resourceId: input.contentId,
       phiAccessed: true,

@@ -1,15 +1,24 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface DeleteAssessmentInput {
+  auditContext: AuditRequestContext;
   clinician: User;
   assessmentId: string;
 }
 
 export async function deleteAssessment(
-  _ctx: AppContext,
-  _input: DeleteAssessmentInput
+  ctx: AppContext,
+  input: DeleteAssessmentInput
 ): Promise<void> {
-  // TODO: delete assessment and audit.
-  throw new Error("deleteAssessment not implemented");
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'assessment_delete', {
+    resourceType: 'assessment',
+    resourceId: input.assessmentId,
+  });
+
+  await ctx.storage.deleteAssessment(input.assessmentId);
 }

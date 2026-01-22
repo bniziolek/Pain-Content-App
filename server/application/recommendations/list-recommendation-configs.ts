@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { RecommendationConfig, User } from "@shared/schema";
 import type { AppContext } from "../context";
 
@@ -8,9 +12,12 @@ export interface ListRecommendationConfigsInput {
 }
 
 export async function listRecommendationConfigs(
-  _ctx: AppContext,
-  _input: ListRecommendationConfigsInput
+  ctx: AppContext,
+  input: ListRecommendationConfigsInput
 ): Promise<RecommendationConfig[]> {
-  // TODO: list recommendation configs.
-  throw new Error("listRecommendationConfigs not implemented");
+  return ctx.storage.getRecommendationConfigs({
+    clinicianId: input.clinician.id,
+    assessmentId: input.assessmentId,
+    pathwayId: input.pathwayId,
+  });
 }

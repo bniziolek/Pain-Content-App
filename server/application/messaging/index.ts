@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 export * from "./send-content-email";
 export * from "./resend-content-email";
 export * from "./list-email-logs";

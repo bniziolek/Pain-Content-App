@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { ContentRecommendation, User } from "@shared/schema";
 import type { AppContext } from "../context";
 
@@ -6,9 +10,8 @@ export interface ListRecommendationRulesInput {
 }
 
 export async function listRecommendationRules(
-  _ctx: AppContext,
+  ctx: AppContext,
   _input: ListRecommendationRulesInput
 ): Promise<ContentRecommendation[]> {
-  // TODO: list recommendation rules.
-  throw new Error("listRecommendationRules not implemented");
+  return ctx.storage.getContentRecommendations();
 }

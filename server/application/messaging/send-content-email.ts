@@ -1,6 +1,9 @@
-import type { Request } from "express";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { EmailLog, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 import { createSecureAccessCode } from "../../domain/messaging";
 import { insertEmailLogSchema } from "@shared/schema";
 
@@ -20,7 +23,7 @@ export interface SendContentEmailResult {
 
 export async function sendContentEmailFlow(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: SendContentEmailInput
 ): Promise<SendContentEmailResult> {
   const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
@@ -59,7 +62,7 @@ export async function sendContentEmailFlow(
     providerNote: input.providerNote,
   });
   
-  await ctx.audit.logClinicianAction(req, input.clinician, 'email_sent', {
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'email_sent', {
     resourceType: 'email_log',
     resourceId: emailLog.id,
     phiAccessed: true,

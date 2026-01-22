@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { AppContext } from "../context";
 import type { User } from "@shared/schema";
 
@@ -6,9 +10,12 @@ export interface GetContentStatusInput {
 }
 
 export async function getContentStatus(
-  _ctx: AppContext,
+  ctx: AppContext,
   _input: GetContentStatusInput
 ): Promise<{ source: "contentful" | "database"; isContentfulConfigured: boolean }> {
-  // TODO: report CMS status.
-  throw new Error("getContentStatus not implemented");
+  const isConfigured = ctx.cms.isConfigured();
+  return {
+    source: isConfigured ? "contentful" : "database",
+    isContentfulConfigured: isConfigured,
+  };
 }

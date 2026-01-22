@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User, AssessmentInvite, AssessmentResponse } from "@shared/schema";
 
 export interface GetAssessmentInviteResultsInput {
@@ -15,7 +18,7 @@ export interface AssessmentInviteResults {
 
 export async function getAssessmentInviteResults(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: GetAssessmentInviteResultsInput
 ): Promise<AssessmentInviteResults> {
   const invite = await ctx.storage.getAssessmentInviteById(input.inviteId);
@@ -29,7 +32,7 @@ export async function getAssessmentInviteResults(
   
   const response = await ctx.storage.getAssessmentResponseByInviteId(input.inviteId);
   
-  await ctx.audit.logClinicianAction(req, input.clinician, 'assessment_access', {
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'assessment_access', {
     resourceType: 'assessment',
     resourceId: input.inviteId,
     phiAccessed: true,

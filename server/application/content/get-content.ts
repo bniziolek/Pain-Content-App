@@ -1,15 +1,37 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { ContentItem, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface GetContentInput {
+  auditContext: AuditRequestContext;
   clinician: User;
   contentId: string;
 }
 
 export async function getContent(
-  _ctx: AppContext,
-  _input: GetContentInput
+  ctx: AppContext,
+  input: GetContentInput
 ): Promise<ContentItem | null> {
-  // TODO: fetch content with CMS fallback and audit access.
-  throw new Error("getContent not implemented");
+  let content: ContentItem | null = (await ctx.storage.getContentById(input.contentId)) ?? null;
+
+  if (!content && ctx.cms.isConfigured()) {
+    try {
+      content = (await ctx.cms.getContentById(input.contentId)) as ContentItem | null;
+    } catch (error) {
+      console.warn("CMS fetch failed, falling back to database:", error);
+    }
+  }
+
+  if (content) {
+    await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_access', {
+      resourceType: 'content',
+      resourceId: input.contentId,
+      details: { title: content.title },
+    });
+  }
+
+  return content;
 }

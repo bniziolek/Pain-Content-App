@@ -1,29 +1,34 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireSubscription } from "../auth";
-import { storage } from "../storage";
-import { logClinicianAction } from "../audit";
-import { 
-  getRecommendationsWithFallback, 
-  createRecommendationRule, 
-  getRecommendationRules, 
-  deleteRecommendationRule,
+import {
+  createAppContextWithInfrastructure,
   createRecommendationConfig,
-  getRecommendationConfigs,
-  updateRecommendationConfig,
+  createRecommendationRule,
   deleteRecommendationConfig,
-  previewRecommendations,
+  deleteRecommendationRule,
   generateRecommendations,
-  savePatientRecommendation
-} from "../recommendation";
+  getPatientRecommendation,
+  listPatientRecommendations,
+  listRecommendationConfigs,
+  listRecommendationRules,
+  previewRecommendations,
+  updateRecommendationConfig,
+} from "../application";
+import { buildAuditRequestContext } from "../http/audit-context";
 
 const router = Router();
+const appContext = createAppContextWithInfrastructure();
 
 // ====== Recommendation Rules Routes ======
 
 // Get recommendation rules
 router.get("/rules", requireSubscription, async (req, res, next) => {
   try {
-    const rules = await getRecommendationRules(req.user!.id);
+    const rules = await listRecommendationRules(appContext, { clinician: req.user! });
     res.json(rules);
   } catch (error) {
     next(error);
@@ -34,21 +39,18 @@ router.get("/rules", requireSubscription, async (req, res, next) => {
 router.post("/rules", requireSubscription, async (req, res, next) => {
   try {
     const { tag, minScore, maxScore, contentId, priority, rationale } = req.body;
-    const rule = await createRecommendationRule({
-      clinicianUserId: req.user!.id,
-      tag,
-      minScore,
-      maxScore,
-      priority,
-      contentId,
-      rationale,
+    const rule = await createRecommendationRule(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      data: {
+        tag,
+        minScore,
+        maxScore,
+        priority,
+        contentId,
+        rationale,
+      },
     });
-    
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'settings',
-      details: { action: 'create_recommendation_rule', ruleId: rule.id, tag },
-    });
-    
     res.status(201).json(rule);
   } catch (error) {
     next(error);
@@ -58,12 +60,11 @@ router.post("/rules", requireSubscription, async (req, res, next) => {
 // Delete recommendation rule
 router.delete("/rules/:id", requireSubscription, async (req, res, next) => {
   try {
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'settings',
-      details: { action: 'delete_recommendation_rule', ruleId: req.params.id },
+    await deleteRecommendationRule(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      ruleId: req.params.id,
     });
-    
-    await deleteRecommendationRule(req.params.id);
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -76,12 +77,13 @@ router.delete("/rules/:id", requireSubscription, async (req, res, next) => {
 router.post("/", requireSubscription, async (req, res, next) => {
   try {
     const { tagScores, assessmentId, pathwayId, pathwayWeek } = req.body;
-    const recommendations = await getRecommendationsWithFallback(
+    const recommendations = await generateRecommendations(appContext, {
+      clinician: req.user!,
       tagScores,
       assessmentId,
       pathwayId,
-      pathwayWeek
-    );
+      pathwayWeek,
+    });
     res.json(recommendations);
   } catch (error) {
     next(error);
@@ -92,7 +94,13 @@ router.post("/", requireSubscription, async (req, res, next) => {
 router.post("/preview", requireSubscription, async (req, res, next) => {
   try {
     const { tagScores, assessmentId, pathwayId, pathwayWeek } = req.body;
-    const preview = await previewRecommendations(tagScores, assessmentId, pathwayId, pathwayWeek);
+    const preview = await previewRecommendations(appContext, {
+      clinician: req.user!,
+      tagScores,
+      assessmentId,
+      pathwayId,
+      pathwayWeek,
+    });
     res.json(preview);
   } catch (error) {
     next(error);
@@ -105,8 +113,8 @@ router.post("/preview", requireSubscription, async (req, res, next) => {
 router.get("/configs", requireSubscription, async (req, res, next) => {
   try {
     const { assessmentId, pathwayId } = req.query;
-    const configs = await getRecommendationConfigs({
-      clinicianId: req.user!.id,
+    const configs = await listRecommendationConfigs(appContext, {
+      clinician: req.user!,
       assessmentId: assessmentId as string,
       pathwayId: pathwayId as string,
     });
@@ -125,29 +133,27 @@ router.post("/configs", requireSubscription, async (req, res, next) => {
       questionName, questionType, matchOperator, matchValues
     } = req.body;
     
-    const config = await createRecommendationConfig({
-      clinicianUserId: req.user!.id,
-      name,
-      assessmentId,
-      pathwayId,
-      pathwayWeek,
-      tag: tag || '',
-      minScore: minScore ?? 0,
-      maxScore: maxScore ?? 100,
-      priority: priority ?? 1,
-      contentIds,
-      rationale,
-      questionName,
-      questionType,
-      matchOperator: matchOperator || 'equals',
-      matchValues,
+    const config = await createRecommendationConfig(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      data: {
+        clinicianUserId: req.user!.id,
+        name,
+        assessmentId,
+        pathwayId,
+        pathwayWeek,
+        tag: tag || '',
+        minScore: minScore ?? 0,
+        maxScore: maxScore ?? 100,
+        priority: priority ?? 1,
+        contentIds,
+        rationale,
+        questionName,
+        questionType,
+        matchOperator: matchOperator || 'equals',
+        matchValues,
+      },
     });
-    
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'settings',
-      details: { action: 'create_recommendation_config', configId: config.id, name },
-    });
-    
     res.status(201).json(config);
   } catch (error) {
     next(error);
@@ -158,22 +164,21 @@ router.post("/configs", requireSubscription, async (req, res, next) => {
 router.put("/configs/:id", requireSubscription, async (req, res, next) => {
   try {
     const { name, tag, minScore, maxScore, priority, contentIds, rationale, isActive } = req.body;
-    const config = await updateRecommendationConfig(req.params.id, {
-      name,
-      tag,
-      minScore,
-      maxScore,
-      priority,
-      contentIds,
-      rationale,
-      isActive,
+    const config = await updateRecommendationConfig(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      configId: req.params.id,
+      updates: {
+        name,
+        tag,
+        minScore,
+        maxScore,
+        priority,
+        contentIds,
+        rationale,
+        isActive,
+      },
     });
-    
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'settings',
-      details: { action: 'update_recommendation_config', configId: req.params.id },
-    });
-    
     res.json(config);
   } catch (error) {
     next(error);
@@ -183,12 +188,11 @@ router.put("/configs/:id", requireSubscription, async (req, res, next) => {
 // Delete recommendation config
 router.delete("/configs/:id", requireSubscription, async (req, res, next) => {
   try {
-    await logClinicianAction(req, req.user!, 'settings_change', {
-      resourceType: 'settings',
-      details: { action: 'delete_recommendation_config', configId: req.params.id },
+    await deleteRecommendationConfig(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      configId: req.params.id,
     });
-    
-    await deleteRecommendationConfig(req.params.id);
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -205,11 +209,11 @@ export function createPatientRecommendationsRouter(requireFeatureFlag: (key: str
   patientRouter.get("/", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const { patientEmail, status } = req.query;
-      const recommendations = await storage.getPatientRecommendations(
-        req.user!.id,
-        patientEmail as string,
-        status as string
-      );
+      const recommendations = await listPatientRecommendations(appContext, {
+        clinician: req.user!,
+        patientEmail: patientEmail as string,
+        status: status as string,
+      });
       res.json(recommendations);
     } catch (error) {
       next(error);
@@ -219,7 +223,9 @@ export function createPatientRecommendationsRouter(requireFeatureFlag: (key: str
   // Get single patient recommendation
   patientRouter.get("/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
-      const recommendation = await storage.getPatientRecommendationById(req.params.id);
+      const recommendation = await getPatientRecommendation(appContext, {
+        recommendationId: req.params.id,
+      });
       if (!recommendation) {
         return res.status(404).send("Recommendation not found");
       }

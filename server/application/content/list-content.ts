@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { ContentItem, User } from "@shared/schema";
 import type { AppContext } from "../context";
 
@@ -6,9 +10,16 @@ export interface ListContentInput {
 }
 
 export async function listContent(
-  _ctx: AppContext,
+  ctx: AppContext,
   _input: ListContentInput
 ): Promise<ContentItem[]> {
-  // TODO: fetch content with CMS fallback.
-  throw new Error("listContent not implemented");
+  if (ctx.cms.isConfigured()) {
+    try {
+      return (await ctx.cms.getAllContent()) as ContentItem[];
+    } catch (error) {
+      console.warn("CMS fetch failed, falling back to database:", error);
+    }
+  }
+
+  return ctx.storage.getAllContent();
 }

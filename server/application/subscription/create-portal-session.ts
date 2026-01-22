@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 
 export interface CreatePortalSessionInput {
@@ -13,7 +16,7 @@ export interface CreatePortalSessionResult {
 
 export async function createPortalSession(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: CreatePortalSessionInput
 ): Promise<CreatePortalSessionResult> {
   if (!ctx.payment) {
@@ -29,7 +32,7 @@ export async function createPortalSession(
     returnUrl: input.returnUrl,
   });
   
-  await ctx.audit.logClinicianAction(req, input.user, 'subscription_portal', {
+  await ctx.audit.logClinicianAction(auditContext, input.user, 'subscription_portal', {
     details: {},
   });
   

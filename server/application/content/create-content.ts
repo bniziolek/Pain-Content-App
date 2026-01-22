@@ -1,15 +1,27 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { ContentItem, InsertContentItem, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface CreateContentInput {
+  auditContext: AuditRequestContext;
   clinician: User;
   data: InsertContentItem;
 }
 
 export async function createContent(
-  _ctx: AppContext,
-  _input: CreateContentInput
+  ctx: AppContext,
+  input: CreateContentInput
 ): Promise<ContentItem> {
-  // TODO: create content and audit.
-  throw new Error("createContent not implemented");
+  const content = await ctx.storage.createContent(input.data);
+
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_create', {
+    resourceType: 'content',
+    resourceId: content.id,
+    details: { title: content.title },
+  });
+
+  return content;
 }

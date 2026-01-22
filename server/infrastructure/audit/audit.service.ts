@@ -1,5 +1,8 @@
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
 import { storage } from "../../storage";
-import type { Request } from "express";
 import type { User } from "@shared/schema";
 
 export type AuditAction = 
@@ -53,23 +56,14 @@ export interface AuditContext {
   outcome?: Outcome;
 }
 
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  if (Array.isArray(forwarded)) {
-    return forwarded[0];
-  }
-  return req.socket?.remoteAddress || 'unknown';
-}
-
-function getUserAgent(req: Request): string {
-  return req.headers['user-agent'] || 'unknown';
+export interface AuditRequestContext {
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string | null;
 }
 
 export async function logAuditEvent(
-  req: Request,
+  request: AuditRequestContext,
   context: AuditContext
 ): Promise<void> {
   try {
@@ -83,9 +77,9 @@ export async function logAuditEvent(
       phiAccessed: context.phiAccessed || false,
       phiScope: context.phiScope,
       details: context.details,
-      ipAddress: getClientIp(req),
-      userAgent: getUserAgent(req),
-      sessionId: context.sessionId || req.sessionID,
+      ipAddress: request.ipAddress || 'unknown',
+      userAgent: request.userAgent || 'unknown',
+      sessionId: context.sessionId || request.sessionId || null,
       outcome: context.outcome || 'success',
     });
   } catch (error) {
@@ -94,7 +88,7 @@ export async function logAuditEvent(
 }
 
 export async function logClinicianAction(
-  req: Request,
+  request: AuditRequestContext,
   user: User,
   action: AuditAction,
   options?: {
@@ -106,7 +100,7 @@ export async function logClinicianAction(
     outcome?: Outcome;
   }
 ): Promise<void> {
-  await logAuditEvent(req, {
+  await logAuditEvent(request, {
     userId: user.id,
     actorType: user.role === 'admin' ? 'admin' : 'clinician',
     actorEmail: user.email,
@@ -116,13 +110,13 @@ export async function logClinicianAction(
     phiAccessed: options?.phiAccessed,
     phiScope: options?.phiScope,
     details: options?.details,
-    sessionId: req.sessionID,
+    sessionId: request.sessionId || undefined,
     outcome: options?.outcome || 'success',
   });
 }
 
 export async function logPatientAction(
-  req: Request,
+  request: AuditRequestContext,
   patientEmail: string,
   action: AuditAction,
   options?: {
@@ -135,7 +129,7 @@ export async function logPatientAction(
     outcome?: Outcome;
   }
 ): Promise<void> {
-  await logAuditEvent(req, {
+  await logAuditEvent(request, {
     actorType: 'patient',
     actorEmail: patientEmail,
     action,

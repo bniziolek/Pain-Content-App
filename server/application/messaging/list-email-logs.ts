@@ -1,3 +1,7 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { EmailLog, User } from "@shared/schema";
 import type { AppContext } from "../context";
 

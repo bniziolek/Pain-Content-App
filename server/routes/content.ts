@@ -1,27 +1,29 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import { Router } from "express";
 import { requireAuth, requireSubscription } from "../auth";
-import { storage } from "../storage";
 import { insertContentItemSchema } from "@shared/schema";
-import { getAllContentFromContentful, getContentByIdFromContentful, isContentfulConfigured, ContentfulError } from "../contentful";
-import { logClinicianAction } from "../audit";
+import {
+  createAppContextWithInfrastructure,
+  createContent,
+  deleteContent,
+  getContent,
+  getContentStatus,
+  getFrequentlyUsedContent,
+  listContent,
+  updateContent,
+} from "../application";
+import { buildAuditRequestContext } from "../http/audit-context";
 
 const router = Router();
+const appContext = createAppContextWithInfrastructure();
 
 // Get all content (with Contentful fallback)
 router.get("/", requireSubscription, async (req, res, next) => {
   try {
-    if (isContentfulConfigured()) {
-      try {
-        const content = await getAllContentFromContentful();
-        res.json(content);
-        return;
-      } catch (error) {
-        if (error instanceof ContentfulError) {
-          console.warn("Contentful fetch failed, falling back to database:", error.message);
-        }
-      }
-    }
-    const content = await storage.getAllContent();
+    const content = await listContent(appContext, { clinician: req.user! });
     res.json(content);
   } catch (error) {
     next(error);
@@ -31,29 +33,14 @@ router.get("/", requireSubscription, async (req, res, next) => {
 // Get single content item
 router.get("/:id", requireSubscription, async (req, res, next) => {
   try {
-    let content = null;
-    if (isContentfulConfigured()) {
-      try {
-        content = await getContentByIdFromContentful(req.params.id);
-      } catch (error) {
-        if (error instanceof ContentfulError) {
-          console.warn("Contentful fetch failed, falling back to database:", error.message);
-        }
-      }
-    }
-    if (!content) {
-      content = await storage.getContentById(req.params.id);
-    }
+    const content = await getContent(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      contentId: req.params.id,
+    });
     if (!content) {
       return res.status(404).send("Content not found");
     }
-    
-    await logClinicianAction(req, req.user!, 'content_access', {
-      resourceType: 'content',
-      resourceId: req.params.id,
-      details: { title: content.title },
-    });
-    
     res.json(content);
   } catch (error) {
     next(error);
@@ -63,11 +50,8 @@ router.get("/:id", requireSubscription, async (req, res, next) => {
 // Get content status
 router.get("/status", requireAuth, async (req, res, next) => {
   try {
-    const isConfigured = isContentfulConfigured();
-    res.json({ 
-      source: isConfigured ? 'contentful' : 'database',
-      isContentfulConfigured: isConfigured
-    });
+    const status = await getContentStatus(appContext, { clinician: req.user! });
+    res.json(status);
   } catch (error) {
     next(error);
   }
@@ -77,7 +61,10 @@ router.get("/status", requireAuth, async (req, res, next) => {
 router.get("/frequently-used", requireAuth, async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit as string) || 5;
-    const content = await storage.getFrequentlyUsedContent(req.user!.id, limit);
+    const content = await getFrequentlyUsedContent(appContext, {
+      clinician: req.user!,
+      limit,
+    });
     res.json(content);
   } catch (error) {
     next(error);
@@ -88,14 +75,11 @@ router.get("/frequently-used", requireAuth, async (req, res, next) => {
 router.post("/", requireAuth, async (req, res, next) => {
   try {
     const data = insertContentItemSchema.parse(req.body);
-    const content = await storage.createContent(data);
-    
-    await logClinicianAction(req, req.user!, 'content_create', {
-      resourceType: 'content',
-      resourceId: content.id,
-      details: { title: content.title },
+    const content = await createContent(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      data,
     });
-    
     res.status(201).json(content);
   } catch (error) {
     next(error);
@@ -105,18 +89,16 @@ router.post("/", requireAuth, async (req, res, next) => {
 // Update content
 router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
-    const content = await storage.updateContent(req.params.id, req.body);
+    const content = await updateContent(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      contentId: req.params.id,
+      updates: req.body,
+    });
     
     if (!content) {
       return res.status(404).send("Content not found");
     }
-    
-    await logClinicianAction(req, req.user!, 'content_update', {
-      resourceType: 'content',
-      resourceId: req.params.id,
-      details: { title: content.title },
-    });
-    
     res.json(content);
   } catch (error) {
     next(error);
@@ -126,12 +108,11 @@ router.patch("/:id", requireAuth, async (req, res, next) => {
 // Delete content
 router.delete("/:id", requireAuth, async (req, res, next) => {
   try {
-    await logClinicianAction(req, req.user!, 'content_delete', {
-      resourceType: 'content',
-      resourceId: req.params.id,
+    await deleteContent(appContext, {
+      auditContext: buildAuditRequestContext(req),
+      clinician: req.user!,
+      contentId: req.params.id,
     });
-    
-    await storage.deleteContent(req.params.id);
     res.status(204).send();
   } catch (error) {
     next(error);

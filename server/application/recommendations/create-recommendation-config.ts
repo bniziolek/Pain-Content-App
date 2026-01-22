@@ -1,15 +1,26 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { RecommendationConfig, InsertRecommendationConfig, User } from "@shared/schema";
-import type { AppContext } from "../context";
+import type { AppContext, AuditRequestContext } from "../context";
 
 export interface CreateRecommendationConfigInput {
+  auditContext: AuditRequestContext;
   clinician: User;
   data: InsertRecommendationConfig;
 }
 
 export async function createRecommendationConfig(
-  _ctx: AppContext,
-  _input: CreateRecommendationConfigInput
+  ctx: AppContext,
+  input: CreateRecommendationConfigInput
 ): Promise<RecommendationConfig> {
-  // TODO: create recommendation config and audit settings change.
-  throw new Error("createRecommendationConfig not implemented");
+  const config = await ctx.storage.createRecommendationConfig(input.data);
+
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'settings_change', {
+    resourceType: 'settings',
+    details: { action: 'create_recommendation_config', configId: config.id, name: config.name },
+  });
+
+  return config;
 }

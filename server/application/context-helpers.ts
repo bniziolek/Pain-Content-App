@@ -1,6 +1,35 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import { storage } from "../storage";
-import { logClinicianAction, logPatientAction, logSystemAction } from "../audit";
-import type { AppContext, CmsService, EmailService } from "./context";
+import {
+  logAuditEvent,
+  logClinicianAction,
+  logPatientAction,
+  logSystemAction,
+} from "../infrastructure/audit";
+import {
+  sendAssessmentInviteEmail,
+  sendContentEmail,
+  sendPasswordResetEmail,
+} from "../infrastructure/email/email-adapter";
+import {
+  getAllContentFromContentful,
+  getContentByIdFromContentful,
+  getAllPathwaysFromContentful,
+  getPathwayByIdFromContentful,
+  isContentfulConfigured,
+} from "../infrastructure/cms";
+import { getStripePublishableKey, getStripeSync } from "../infrastructure/payment/stripe-client";
+import { runMigrations } from "stripe-replit-sync";
+import type {
+  AppContext,
+  AuditLogger,
+  CmsService,
+  EmailService,
+  PaymentService,
+} from "./context";
 
 const stubEmailService: EmailService = {
   async sendContentEmail() {
@@ -23,18 +52,185 @@ const stubCmsService: CmsService = {
   },
 };
 
+const infrastructureEmailService: EmailService = {
+  sendContentEmail,
+  sendAssessmentInviteEmail,
+  sendPasswordResetEmail,
+};
+
+const infrastructureCmsService: CmsService = {
+  isConfigured: isContentfulConfigured,
+  getAllContent: getAllContentFromContentful,
+  getContentById: getContentByIdFromContentful,
+  getAllPathways: getAllPathwaysFromContentful,
+  getPathwayById: getPathwayByIdFromContentful,
+};
+
+async function requireStripeSync() {
+  const stripeSync = await getStripeSync();
+  if (!stripeSync) {
+    throw new Error("Stripe not configured");
+  }
+  return stripeSync;
+}
+
+const infrastructurePaymentService: PaymentService = {
+  async createCheckoutSession(params) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    let customerId = params.customerId ?? null;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: params.userEmail,
+        metadata: { userId: params.userId },
+      });
+      customerId = customer.id;
+    }
+
+    if (!customerId) {
+      throw new Error("Stripe customer ID unavailable");
+    }
+    const resolvedCustomerId = customerId;
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [{ price: params.priceId, quantity: 1 }],
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+    });
+
+    return { url: session.url ?? null, customerId: resolvedCustomerId, sessionId: session.id };
+  },
+  async createPortalSession(params) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    const session = await stripe.billingPortal.sessions.create({
+      customer: params.customerId,
+      return_url: params.returnUrl,
+    });
+    return { url: session.url! };
+  },
+  async listInvoices(params) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    const invoices: {
+      data: Array<{
+        id: string;
+        amount_paid: number;
+        status: string | null;
+        created: number;
+        invoice_pdf: string | null;
+      }>;
+    } = await stripe.invoices.list({
+      customer: params.customerId,
+      limit: params.limit ?? 10,
+    });
+    return invoices.data.map((inv) => ({
+      id: inv.id,
+      amount: inv.amount_paid,
+      status: inv.status,
+      date: inv.created,
+      pdfUrl: inv.invoice_pdf,
+    }));
+  },
+  async cancelSubscription(params) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    await stripe.subscriptions.update(params.subscriptionId, {
+      cancel_at_period_end: params.cancelAtPeriodEnd ?? true,
+    });
+  },
+  async resumeSubscription(params) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    await stripe.subscriptions.update(params.subscriptionId, {
+      cancel_at_period_end: false,
+    });
+  },
+  async getPublishableKey() {
+    try {
+      return await getStripePublishableKey();
+    } catch {
+      return process.env.STRIPE_PUBLISHABLE_KEY;
+    }
+  },
+  async processWebhook(payload, signature) {
+    const stripeSync = await requireStripeSync();
+    await stripeSync.processWebhook(payload, signature);
+  },
+  async getSubscriptionStatus(customerId) {
+    const stripeSync = await requireStripeSync();
+    const stripe = stripeSync.getStripe();
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      limit: 1,
+      status: "all",
+    });
+    const subscription = subscriptions.data[0];
+    if (!subscription) {
+      return null;
+    }
+    return {
+      status: subscription.status,
+      currentPeriodEnd: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : undefined,
+    };
+  },
+  async runSync(options) {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL not set");
+    }
+
+    await runMigrations({ databaseUrl });
+
+    const stripeSync = await requireStripeSync();
+
+    if (options?.webhookUrl) {
+      try {
+        await stripeSync.findOrCreateManagedWebhook(options.webhookUrl);
+      } catch (error: any) {
+        console.log("Webhook setup skipped:", error?.message || "Unknown error");
+      }
+    }
+
+    await stripeSync.syncBackfill();
+  },
+};
+
 export function createAppContext(overrides?: Partial<AppContext>): AppContext {
+  const defaultAudit: AuditLogger = {
+    logAuditEvent,
+    logClinicianAction,
+    logPatientAction,
+    logSystemAction,
+  };
+
   return {
     storage: overrides?.storage ?? storage,
-    audit: overrides?.audit ?? {
-      logClinicianAction,
-      logPatientAction,
-      logSystemAction,
+    audit: {
+      ...defaultAudit,
+      ...(overrides?.audit ?? {}),
     },
     email: overrides?.email ?? stubEmailService,
     cms: overrides?.cms ?? stubCmsService,
+    payment: overrides?.payment,
     now: overrides?.now ?? (() => new Date()),
   };
+}
+
+export function createAppContextWithInfrastructure(
+  overrides?: Partial<AppContext>
+): AppContext {
+  return createAppContext({
+    email: infrastructureEmailService,
+    cms: infrastructureCmsService,
+    payment: infrastructurePaymentService,
+    ...overrides,
+  });
 }
 
 export function createMinimalContext(): AppContext {

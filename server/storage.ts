@@ -1,3 +1,7 @@
+/**
+ * Architecture: Data layer. Implements database access used by application services.
+ */
+
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
@@ -65,6 +69,30 @@ const pool = new pg.Pool({
 });
 
 const db = drizzle({ client: pool, schema });
+
+export type FeatureFlagHistoryEntry = AuditLog;
+
+export interface UserActivityAnalytics {
+  windowDays: number;
+  startDate: Date;
+  endDate: Date;
+  logins: number;
+  uniqueUsers: number;
+  emailsSent: number;
+  assessmentsSent: number;
+}
+
+export interface ContentUsageAnalytics {
+  totalViews: number;
+  totalTimeSeconds: number;
+  averageTimeSeconds: number;
+  topContent: Array<{ contentId: string; title: string; views: number }>;
+}
+
+export interface SubscriptionMetrics {
+  statusCounts: Array<{ status: string; count: number }>;
+  tierCounts: Array<{ tier: string; count: number }>;
+}
 
 export interface IStorage {
   // Auth
@@ -194,26 +222,27 @@ export interface IStorage {
 
   // Content recommendations (legacy simple rules)
   createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation>;
-  getContentRecommendations(): Promise<ContentRecommendation[]>;
+  getContentRecommendations(filters?: { tag?: string; minScore?: number; maxScore?: number }): Promise<ContentRecommendation[]>;
   getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]>;
   deleteContentRecommendation(id: string): Promise<void>;
 
   // Recommendation configs (advanced rules with pathway support)
   createRecommendationConfig(config: InsertRecommendationConfig): Promise<RecommendationConfig>;
   getRecommendationConfigs(filters?: { clinicianId?: string; assessmentId?: string; pathwayId?: string; isActive?: boolean }): Promise<RecommendationConfig[]>;
+  getAllRecommendationConfigs(): Promise<RecommendationConfig[]>;
   getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined>;
   updateRecommendationConfig(id: string, updates: Partial<InsertRecommendationConfig> & { isActive?: boolean }): Promise<RecommendationConfig | undefined>;
   deleteRecommendationConfig(id: string): Promise<void>;
 
   // Patient recommendations (tracking what was recommended)
   createPatientRecommendation(rec: InsertPatientRecommendation): Promise<PatientRecommendation>;
-  getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string }): Promise<PatientRecommendation[]>;
+  getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string; status?: string }): Promise<PatientRecommendation[]>;
   getPatientRecommendationById(id: string): Promise<PatientRecommendation | undefined>;
   updatePatientRecommendationStatus(id: string, status: string, emailLogId?: string): Promise<void>;
 
   // Audit logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
-  getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]>;
+  getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; resourceType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]>;
 
   // Patient sessions (persistent)
   createPatientSession(session: InsertPatientSession): Promise<PatientSession>;
@@ -265,6 +294,8 @@ export interface IStorage {
   getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined>;
   createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag>;
   updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
+  getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]>;
+  getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -304,6 +335,9 @@ export interface IStorage {
     sentAt: Date;
     status: string;
   }>>;
+  getUserActivityAnalytics(days: number): Promise<UserActivityAnalytics>;
+  getContentUsageAnalytics(): Promise<ContentUsageAnalytics>;
+  getSubscriptionMetrics(): Promise<SubscriptionMetrics>;
 
   // Favorites
   getUserFavorites(userId: string): Promise<Array<{ contentId: string; title: string; createdAt: Date }>>;
@@ -983,8 +1017,28 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async getContentRecommendations(): Promise<ContentRecommendation[]> {
-    return await db.select()
+  async getContentRecommendations(filters?: { tag?: string; minScore?: number; maxScore?: number }): Promise<ContentRecommendation[]> {
+    const conditions = [];
+    if (filters?.tag) {
+      conditions.push(eq(schema.contentRecommendations.tag, filters.tag));
+    }
+    if (filters?.minScore !== undefined) {
+      conditions.push(gte(schema.contentRecommendations.minScore, filters.minScore));
+    }
+    if (filters?.maxScore !== undefined) {
+      conditions.push(lte(schema.contentRecommendations.maxScore, filters.maxScore));
+    }
+
+    if (conditions.length > 0) {
+      return db
+        .select()
+        .from(schema.contentRecommendations)
+        .where(and(...conditions))
+        .orderBy(schema.contentRecommendations.priority);
+    }
+
+    return db
+      .select()
       .from(schema.contentRecommendations)
       .orderBy(schema.contentRecommendations.priority);
   }
@@ -1029,6 +1083,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(schema.recommendationConfigs).orderBy(schema.recommendationConfigs.priority);
   }
 
+  async getAllRecommendationConfigs(): Promise<RecommendationConfig[]> {
+    return db.select().from(schema.recommendationConfigs).orderBy(schema.recommendationConfigs.priority);
+  }
+
   async getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined> {
     const [config] = await db.select().from(schema.recommendationConfigs).where(eq(schema.recommendationConfigs.id, id));
     return config;
@@ -1052,7 +1110,7 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string }): Promise<PatientRecommendation[]> {
+  async getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string; status?: string }): Promise<PatientRecommendation[]> {
     const conditions = [];
     if (filters.clinicianId) {
       conditions.push(eq(schema.patientRecommendations.clinicianUserId, filters.clinicianId));
@@ -1062,6 +1120,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters.source) {
       conditions.push(eq(schema.patientRecommendations.source, filters.source));
+    }
+    if (filters.status) {
+      conditions.push(eq(schema.patientRecommendations.status, filters.status));
     }
     
     if (conditions.length > 0) {
@@ -1089,7 +1150,7 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]> {
+  async getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; resourceType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]> {
     let query = db.select().from(schema.auditLogs);
     
     const conditions = [];
@@ -1101,6 +1162,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.actorType) {
       conditions.push(eq(schema.auditLogs.actorType, filters.actorType));
+    }
+    if (filters?.resourceType) {
+      conditions.push(eq(schema.auditLogs.resourceType, filters.resourceType));
     }
     if (filters?.startDate) {
       conditions.push(gte(schema.auditLogs.createdAt, filters.startDate));
@@ -1472,6 +1536,24 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]> {
+    return db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.resourceType, "feature_flag"))
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(200);
+  }
+
+  async getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]> {
+    return db
+      .select()
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.resourceType, "feature_flag"), eq(schema.auditLogs.resourceId, key)))
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(200);
+  }
+
   // Enhanced admin analytics
   async getEnhancedAdminStats(): Promise<{
     activeUsersDaily: number;
@@ -1624,6 +1706,111 @@ export class DatabaseStorage implements IStorage {
     });
 
     return result;
+  }
+
+  async getUserActivityAnalytics(_days: number): Promise<UserActivityAnalytics> {
+    const since = new Date(Date.now() - _days * 24 * 60 * 60 * 1000);
+    const [loginCount] = await db
+      .select({ count: count() })
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.action, "login"), gte(schema.auditLogs.createdAt, since)));
+
+    const [uniqueUsers] = await db
+      .select({ count: sql<number>`count(distinct ${schema.auditLogs.userId})` })
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.action, "login"), gte(schema.auditLogs.createdAt, since)));
+
+    const [emailsSent] = await db
+      .select({ count: count() })
+      .from(schema.emailLogs)
+      .where(gte(schema.emailLogs.sentAt, since));
+
+    const [assessmentsSent] = await db
+      .select({ count: count() })
+      .from(schema.assessmentInvites)
+      .where(gte(schema.assessmentInvites.createdAt, since));
+
+    return {
+      windowDays: _days,
+      startDate: since,
+      endDate: new Date(),
+      logins: loginCount?.count ?? 0,
+      uniqueUsers: uniqueUsers?.count ?? 0,
+      emailsSent: emailsSent?.count ?? 0,
+      assessmentsSent: assessmentsSent?.count ?? 0,
+    };
+  }
+
+  async getContentUsageAnalytics(): Promise<ContentUsageAnalytics> {
+    const [viewStats] = await db
+      .select({
+        totalViews: count(),
+        totalTimeSeconds: sql<number>`coalesce(sum(${schema.contentViews.timeSpentSeconds}), 0)`,
+      })
+      .from(schema.contentViews);
+
+    const viewsCount = count();
+    const topContentRows = await db
+      .select({
+        contentId: schema.contentViews.contentId,
+        views: viewsCount,
+      })
+      .from(schema.contentViews)
+      .groupBy(schema.contentViews.contentId)
+      .orderBy(desc(viewsCount))
+      .limit(10);
+
+    const contentIds = topContentRows.map((row) => row.contentId);
+    const contentItems = contentIds.length
+      ? await db
+          .select({ id: schema.contentItems.id, title: schema.contentItems.title })
+          .from(schema.contentItems)
+          .where(inArray(schema.contentItems.id, contentIds))
+      : [];
+    const titleMap = new Map(contentItems.map((item) => [item.id, item.title]));
+
+    return {
+      totalViews: viewStats?.totalViews ?? 0,
+      totalTimeSeconds: viewStats?.totalTimeSeconds ?? 0,
+      averageTimeSeconds:
+        viewStats && viewStats.totalViews
+          ? Math.round((viewStats.totalTimeSeconds ?? 0) / Number(viewStats.totalViews))
+          : 0,
+      topContent: topContentRows.map((row) => ({
+        contentId: row.contentId,
+        title: titleMap.get(row.contentId) || "Unknown Content",
+        views: row.views,
+      })),
+    };
+  }
+
+  async getSubscriptionMetrics(): Promise<SubscriptionMetrics> {
+    const statusCounts = await db
+      .select({
+        status: schema.users.subscriptionStatus,
+        count: count(),
+      })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionStatus);
+
+    const tierCounts = await db
+      .select({
+        tier: schema.users.subscriptionTier,
+        count: count(),
+      })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionTier);
+
+    return {
+      statusCounts: statusCounts.map((row) => ({
+        status: row.status || "unknown",
+        count: row.count,
+      })),
+      tierCounts: tierCounts.map((row) => ({
+        tier: row.tier || "unknown",
+        count: row.count,
+      })),
+    };
   }
 
   // Favorites methods

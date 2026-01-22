@@ -1,6 +1,11 @@
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
 import type { User } from "@shared/schema";
 import type { AppContext } from "../context";
 import type { RecommendationResult } from "../../domain/recommendations";
+import { getRecommendationsWithFallback } from "./recommendation-engine";
 
 export interface GenerateRecommendationsInput {
   clinician: User;
@@ -11,9 +16,14 @@ export interface GenerateRecommendationsInput {
 }
 
 export async function generateRecommendations(
-  _ctx: AppContext,
-  _input: GenerateRecommendationsInput
+  ctx: AppContext,
+  input: GenerateRecommendationsInput
 ): Promise<RecommendationResult[]> {
-  // TODO: call domain recommendation engine with storage-backed content.
-  throw new Error("generateRecommendations not implemented");
+  return getRecommendationsWithFallback(
+    ctx,
+    input.tagScores as any,
+    input.assessmentId,
+    input.pathwayId,
+    input.pathwayWeek
+  );
 }

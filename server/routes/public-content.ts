@@ -1,41 +1,27 @@
+/**
+ * Architecture: Routes layer (HTTP adapter). Validates requests, calls application services, returns responses.
+ */
+
 import type { Express } from "express";
-import { storage } from "../storage";
-import { getContentByIdFromContentful, isContentfulConfigured } from "../contentful";
+import {
+  createAppContextWithInfrastructure,
+  getPublicContentByToken,
+  trackContentTimeByToken,
+} from "../application";
 
 export function registerPublicContentRoutes(app: Express) {
+  const appContext = createAppContextWithInfrastructure();
+
   app.get("/api/public/content-view/:token", async (req, res, next) => {
     try {
-      const view = await storage.getContentViewByToken(req.params.token);
-      if (!view) {
+      const result = await getPublicContentByToken(appContext, { token: req.params.token });
+      if (!result.content) {
         return res.status(404).json({ error: "Content not found" });
       }
-      
-      // Mark as viewed if first time and update email log status to clicked
-      if (!view.viewedAt) {
-        await storage.updateContentView(view.id, { viewedAt: new Date() });
-        await storage.updateEmailLogStatus(view.emailLogId, "clicked");
-      }
-      
-      // Fetch the content
-      let content = null;
-      if (isContentfulConfigured()) {
-        try {
-          content = await getContentByIdFromContentful(view.contentId);
-        } catch (e) {
-          console.warn("Contentful fetch failed:", e);
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(view.contentId);
-      }
-      
-      if (!content) {
-        return res.status(404).json({ error: "Content not found" });
-      }
-      
+
       res.json({
-        ...content,
-        viewToken: view.token,
+        ...result.content,
+        viewToken: result.viewToken,
       });
     } catch (error) {
       next(error);
@@ -44,16 +30,15 @@ export function registerPublicContentRoutes(app: Express) {
   
   app.post("/api/public/content-view/:token/time", async (req, res, next) => {
     try {
-      const view = await storage.getContentViewByToken(req.params.token);
-      if (!view) {
+      const { timeSpentSeconds } = req.body;
+      const updated = await trackContentTimeByToken(appContext, {
+        token: req.params.token,
+        timeSpentSeconds,
+      });
+      if (!updated) {
         return res.status(404).json({ error: "View not found" });
       }
-      
-      const { timeSpentSeconds } = req.body;
-      if (typeof timeSpentSeconds === "number" && timeSpentSeconds > 0) {
-        await storage.updateContentView(view.id, { timeSpentSeconds });
-      }
-      
+
       res.json({ success: true });
     } catch (error) {
       next(error);

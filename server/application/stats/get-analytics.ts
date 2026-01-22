@@ -1,5 +1,8 @@
-import type { Request } from "express";
-import type { AppContext } from "../context";
+/**
+ * Architecture: Application service layer. Orchestrates a use-case using domain, storage, and infrastructure.
+ */
+
+import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 
 export interface GetAnalyticsInput {
@@ -15,7 +18,7 @@ export interface ClinicianAnalytics {
 
 export async function getAnalytics(
   ctx: AppContext,
-  req: Request,
+  auditContext: AuditRequestContext,
   input: GetAnalyticsInput
 ): Promise<ClinicianAnalytics> {
   const emailLogs = await ctx.storage.getEmailLogsByClinicianId(input.clinician.id);
@@ -30,7 +33,7 @@ export async function getAnalytics(
     totalTime += views.reduce((sum, v) => sum + (v.timeSpentSeconds || 0), 0);
   }
   
-  await ctx.audit.logClinicianAction(req, input.clinician, 'phi_view', {
+  await ctx.audit.logClinicianAction(auditContext, input.clinician, 'phi_view', {
     details: { action: 'viewed_analytics' },
   });
   
