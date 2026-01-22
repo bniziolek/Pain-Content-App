@@ -1,5 +1,3 @@
-// Password Reset Application Services
-// Services to be implemented:
-// - createResetToken
-// - validateResetToken
-// - resetPassword
+export * from "./create-reset-token";
+export * from "./validate-reset-token";
+export * from "./reset-password";

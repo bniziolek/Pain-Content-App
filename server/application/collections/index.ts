@@ -1,7 +1,4 @@
-// Collections Application Services
-// Services to be implemented:
-// - listCollections
-// - getCollection
-// - createCollection
-// - updateCollection
-// - deleteCollection
+export * from "./list-collections";
+export * from "./create-collection";
+export * from "./update-collection";
+export * from "./delete-collection";

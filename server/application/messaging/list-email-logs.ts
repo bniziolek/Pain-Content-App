@@ -6,9 +6,8 @@ export interface ListEmailLogsInput {
 }
 
 export async function listEmailLogs(
-  _ctx: AppContext,
-  _input: ListEmailLogsInput
+  ctx: AppContext,
+  input: ListEmailLogsInput
 ): Promise<EmailLog[]> {
-  // TODO: list email logs for clinician.
-  throw new Error("listEmailLogs not implemented");
+  return ctx.storage.getEmailLogsByClinicianId(input.clinician.id);
 }

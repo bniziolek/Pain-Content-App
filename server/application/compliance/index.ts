@@ -1,6 +1,2 @@
-// Compliance Application Services
-// Services to be implemented:
-// - listAuditLogs
-// - getAuditLog
-// - manageDataInventory
-// - getComplianceAnalytics
+export * from "./list-audit-logs";
+export * from "./get-data-inventory";

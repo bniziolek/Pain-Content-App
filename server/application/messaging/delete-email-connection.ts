@@ -1,3 +1,4 @@
+import type { Request } from "express";
 import type { AppContext } from "../context";
 import type { User } from "@shared/schema";
 
@@ -6,9 +7,11 @@ export interface DeleteEmailConnectionInput {
 }
 
 export async function deleteEmailConnection(
-  _ctx: AppContext,
-  _input: DeleteEmailConnectionInput
+  ctx: AppContext,
+  req: Request,
+  input: DeleteEmailConnectionInput
 ): Promise<void> {
-  // TODO: remove stored email connection.
-  throw new Error("deleteEmailConnection not implemented");
+  await ctx.audit.logClinicianAction(req, input.clinician, 'settings_change', {
+    details: { setting: 'emailConnection', action: 'deleted' },
+  });
 }

@@ -1,4 +1,2 @@
-// Stats Application Services
-// Services to be implemented:
-// - getAnalytics
-// - getContentUsage
+export * from "./get-analytics";
+export * from "./get-content-usage";

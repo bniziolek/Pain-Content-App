@@ -1,5 +1,3 @@
-// Favorites Application Services
-// Services to be implemented:
-// - listFavorites
-// - addFavorite
-// - removeFavorite
+export * from "./list-favorites";
+export * from "./add-favorite";
+export * from "./remove-favorite";
