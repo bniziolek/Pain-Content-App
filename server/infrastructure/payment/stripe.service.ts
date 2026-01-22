@@ -1,5 +1,4 @@
-import { storage } from './storage';
-import { getUncachableStripeClient } from './stripeClient';
+import { getUncachableStripeClient } from './stripe-client';
 import { SUBSCRIPTION_TIERS, type SubscriptionTier } from '@shared/schema';
 
 export class StripeService {

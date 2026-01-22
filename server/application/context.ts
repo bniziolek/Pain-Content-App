@@ -30,10 +30,28 @@ export interface CmsService {
   getContentById(id: string): Promise<unknown | null>;
 }
 
+export interface PaymentService {
+  createCheckoutSession(params: {
+    userId: string;
+    priceId: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<{ url: string }>;
+  createPortalSession(params: {
+    customerId: string;
+    returnUrl: string;
+  }): Promise<{ url: string }>;
+  getSubscriptionStatus(customerId: string): Promise<{
+    status: string;
+    currentPeriodEnd?: Date;
+  } | null>;
+}
+
 export interface AppContext {
   storage: IStorage;
   audit: AuditLogger;
   email: EmailService;
   cms: CmsService;
+  payment?: PaymentService;
   now: () => Date;
 }

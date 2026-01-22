@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { storage } from "../../storage";
 import type { Request } from "express";
 import type { User } from "@shared/schema";
 
