@@ -3,9 +3,10 @@ import { requireSubscription } from "../auth";
 import { storage } from "../storage";
 import { insertAssessmentSchema, insertInternalScreeningSchema } from "@shared/schema";
 import { logClinicianAction } from "../audit";
-import { scoreAssessmentResponse } from "../scoring";
+import { AppError, createMinimalContext, scoreAssessment } from "../application";
 
 const router = Router();
+const appContext = createMinimalContext();
 
 // Get all assessments
 router.get("/", requireSubscription, async (req, res, next) => {
@@ -149,21 +150,22 @@ router.delete("/:id", requireSubscription, async (req, res, next) => {
 router.post("/score", requireSubscription, async (req, res, next) => {
   try {
     const { assessmentId, answers } = req.body;
-    const assessment = await storage.getAssessmentById(assessmentId);
-    if (!assessment) {
-      return res.status(404).send("Assessment not found");
-    }
-    
-    const result = await scoreAssessmentResponse(assessmentId, answers);
-    
-    await logClinicianAction(req, req.user!, 'assessment_score', {
-      resourceType: 'assessment',
-      resourceId: assessmentId,
-      details: { tagCount: result.tagScores.length },
+
+    const result = await scoreAssessment(appContext, {
+      req,
+      clinician: req.user!,
+      assessmentId,
+      answers,
     });
-    
+
     res.json(result);
   } catch (error) {
+    if (error instanceof AppError) {
+      if (typeof error.body === "string") {
+        return res.status(error.status).send(error.body);
+      }
+      return res.status(error.status).json(error.body ?? { error: error.message });
+    }
     next(error);
   }
 });

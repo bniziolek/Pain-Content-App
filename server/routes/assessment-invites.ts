@@ -4,12 +4,13 @@ import { storage } from "../storage";
 import { insertAssessmentInviteSchema } from "@shared/schema";
 import { logClinicianAction } from "../audit";
 import { sendAssessmentInviteEmail } from "../gmail";
-import { scoreAssessmentResponse } from "../scoring";
+import { AppError, createAppContext, scoreAssessment } from "../application";
 import { getRecommendationsWithFallback } from "../recommendation";
 import crypto from "crypto";
 
 export function createAssessmentInvitesRouter(requireFeatureFlag: (key: string) => any) {
   const router = Router();
+  const appContext = createAppContext();
 
   // Create assessment invite
   router.post("/", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
@@ -25,11 +26,16 @@ export function createAssessmentInvitesRouter(requireFeatureFlag: (key: string) 
       const assessment = await storage.getAssessmentById(invite.assessmentId);
       
       // Send email to patient
-      await sendAssessmentInviteEmail(
-        invite.patientEmail,
-        invite.token,
-        assessment?.name || "Assessment"
-      );
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : "http://localhost:5000";
+      const assessmentLink = `${baseUrl}/assessment/${invite.token}`;
+
+      await sendAssessmentInviteEmail({
+        toEmail: invite.patientEmail,
+        assessmentLink,
+        clinicianName: req.user?.name || undefined,
+      });
       
       await logClinicianAction(req, req.user!, 'assessment_create', {
         resourceType: 'assessment',
@@ -48,7 +54,7 @@ export function createAssessmentInvitesRouter(requireFeatureFlag: (key: string) 
   // Get all invites for clinician
   router.get("/", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
-      const invites = await storage.getAssessmentInvites(req.user!.id);
+      const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
       
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
@@ -91,19 +97,37 @@ export function createAssessmentInvitesRouter(requireFeatureFlag: (key: string) 
       if (!assessment) {
         return res.status(404).send("Assessment not found");
       }
+
+      const clinician = await storage.getUser(invite.clinicianUserId);
+      if (!clinician) {
+        return res.status(404).send("Clinician not found");
+      }
       
       // Score the response
-      const result = scoreAssessmentResponse(assessment, answers);
+      const result = await scoreAssessment(appContext, {
+        req,
+        clinician,
+        assessmentId: invite.assessmentId,
+        answers,
+      });
       
-      // Update the invite with responses
-      await storage.completeAssessmentInvite(req.params.inviteId, {
+      // Store assessment response and mark invite complete
+      await storage.createAssessmentResponse({
+        inviteId: invite.id,
         answers,
         tagScores: result.tagScores,
-        primaryOutcome: result.primaryOutcome,
+        recommendedContentIds: result.recommendations,
       });
+      await storage.updateAssessmentInviteStatus(invite.id, "completed", new Date());
       
       res.json({ success: true, result });
     } catch (error) {
+      if (error instanceof AppError) {
+        if (typeof error.body === "string") {
+          return res.status(error.status).send(error.body);
+        }
+        return res.status(error.status).json(error.body ?? { error: error.message });
+      }
       next(error);
     }
   });
@@ -129,13 +153,16 @@ export function createAssessmentInvitesRouter(requireFeatureFlag: (key: string) 
       
       // Get recommendations if assessment is complete
       let recommendations: any[] = [];
-      if (invite.status === 'completed' && invite.tagScores) {
-        recommendations = await getRecommendationsWithFallback(
-          invite.tagScores as any[],
-          invite.assessmentId,
-          null,
-          null
-        );
+      if (invite.status === "completed") {
+        const response = await storage.getAssessmentResponseByInviteId(invite.id);
+        if (response?.tagScores) {
+          recommendations = await getRecommendationsWithFallback(
+            response.tagScores as any[],
+            invite.assessmentId,
+            null,
+            null
+          );
+        }
       }
       
       res.json({
