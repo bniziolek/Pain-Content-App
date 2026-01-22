@@ -57,6 +57,11 @@ router.get("/plans", async (_req, res, next) => {
 router.post("/checkout", requireAuth, async (req, res, next) => {
   try {
     const { priceId, successUrl, cancelUrl } = req.body;
+    
+    if (!priceId) {
+      return res.status(400).json({ error: "Price ID is required" });
+    }
+    
     const session = await createCheckoutSessionFlow(appContext, {
       user: req.user!,
       priceId,
@@ -65,8 +70,15 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
     });
     res.json(session);
   } catch (error) {
-    if (error instanceof Error && error.message === "Stripe not configured") {
-      return res.status(503).json({ error: error.message });
+    console.error("Checkout error:", error);
+    if (error instanceof Error) {
+      if (error.message === "Stripe not configured") {
+        return res.status(503).json({ error: "Stripe is not configured. Please contact support." });
+      }
+      if (error.message.includes("No such price")) {
+        return res.status(400).json({ error: "Invalid price ID. Stripe products may need to be configured." });
+      }
+      return res.status(500).json({ error: error.message || "Failed to create checkout session" });
     }
     next(error);
   }

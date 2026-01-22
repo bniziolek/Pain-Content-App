@@ -10,11 +10,22 @@ export interface CreateCheckoutSessionFlowInput {
   priceId: string;
   successUrl?: string;
   cancelUrl?: string;
+  baseUrl?: string;
 }
 
 export interface CreateCheckoutSessionFlowResult {
   sessionId: string;
   url: string | null;
+}
+
+function getBaseUrl(inputBaseUrl?: string): string {
+  if (inputBaseUrl) return inputBaseUrl;
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  }
+  return "https://localhost:5000";
 }
 
 export async function createCheckoutSessionFlow(
@@ -25,8 +36,9 @@ export async function createCheckoutSessionFlow(
     throw new Error("Stripe not configured");
   }
 
-  const successUrl = input.successUrl || `${process.env.APP_URL}/settings?success=true`;
-  const cancelUrl = input.cancelUrl || `${process.env.APP_URL}/settings?canceled=true`;
+  const baseUrl = getBaseUrl(input.baseUrl);
+  const successUrl = input.successUrl || `${baseUrl}/dashboard?subscription=success`;
+  const cancelUrl = input.cancelUrl || `${baseUrl}/subscription?canceled=true`;
   const session = await ctx.payment.createCheckoutSession({
     userId: input.user.id,
     userEmail: input.user.email,

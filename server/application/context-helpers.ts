@@ -21,7 +21,7 @@ import {
   getPathwayByIdFromContentful,
   isContentfulConfigured,
 } from "../infrastructure/cms";
-import { getStripePublishableKey, getStripeSync } from "../infrastructure/payment/stripe-client";
+import { getStripePublishableKey, getStripeSync, getUncachableStripeClient } from "../infrastructure/payment/stripe-client";
 import { runMigrations } from "stripe-replit-sync";
 import type {
   AppContext,
@@ -74,10 +74,14 @@ async function requireStripeSync() {
   return stripeSync;
 }
 
+async function getStripeClient() {
+  return getUncachableStripeClient();
+}
+
 const infrastructurePaymentService: PaymentService = {
   async createCheckoutSession(params) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     let customerId = params.customerId ?? null;
 
     if (!customerId) {
@@ -104,8 +108,8 @@ const infrastructurePaymentService: PaymentService = {
     return { url: session.url ?? null, customerId: resolvedCustomerId, sessionId: session.id };
   },
   async createPortalSession(params) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     const session = await stripe.billingPortal.sessions.create({
       customer: params.customerId,
       return_url: params.returnUrl,
@@ -113,8 +117,8 @@ const infrastructurePaymentService: PaymentService = {
     return { url: session.url! };
   },
   async listInvoices(params) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     const invoices: {
       data: Array<{
         id: string;
@@ -136,15 +140,15 @@ const infrastructurePaymentService: PaymentService = {
     }));
   },
   async cancelSubscription(params) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     await stripe.subscriptions.update(params.subscriptionId, {
       cancel_at_period_end: params.cancelAtPeriodEnd ?? true,
     });
   },
   async resumeSubscription(params) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     await stripe.subscriptions.update(params.subscriptionId, {
       cancel_at_period_end: false,
     });
@@ -161,8 +165,8 @@ const infrastructurePaymentService: PaymentService = {
     await stripeSync.processWebhook(payload, signature);
   },
   async getSubscriptionStatus(customerId) {
-    const stripeSync = await requireStripeSync();
-    const stripe = stripeSync.getStripe();
+    await requireStripeSync();
+    const stripe = await getStripeClient();
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       limit: 1,
