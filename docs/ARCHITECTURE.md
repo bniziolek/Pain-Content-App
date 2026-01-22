@@ -35,6 +35,15 @@ server/
 │   ├── assessments.ts        # Assessment endpoints
 │   └── ...
 │
+├── application/              # Use-case orchestration and transactions
+│   ├── messaging/
+│   │   ├── send-content-email.ts   # Orchestrates messaging flow
+│   │   └── index.ts
+│   ├── assessments/
+│   │   ├── score-assessment.ts     # Orchestrates scoring + persistence
+│   │   └── index.ts
+│   └── ...
+│
 ├── domain/                    # Core business logic (pure functions when possible)
 │   ├── messaging/
 │   │   ├── access-code.service.ts    # Access code generation/hashing
@@ -77,7 +86,7 @@ server/
 **Guidelines**:
 - Keep routes as thin as possible
 - Validate request data using Zod schemas
-- Call domain or application services for business logic
+- Call application services for orchestration and domain services for pure logic
 - Handle authentication/authorization via middleware
 - Return appropriate HTTP status codes
 - Log actions via audit service
@@ -89,19 +98,14 @@ router.post("/email-logs", requireSubscription, async (req, res, next) => {
     // 1. Validate input
     const data = insertEmailLogSchema.parse(req.body);
     
-    // 2. Call domain service for business logic
-    const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
-    
-    // 3. Persist via storage
-    const emailLog = await storage.createEmailLog({ ...data, accessCodeHash, accessCodeSalt });
-    
-    // 4. Call infrastructure service
-    await sendContentEmail({ toEmail, subject, contentItems, providerNote });
-    
-    // 5. Audit
-    await logClinicianAction(req, req.user!, 'email_sent', { resourceId: emailLog.id });
-    
-    // 6. Return response
+    // 2. Delegate orchestration to an application service
+    const emailLog = await sendContentEmailFlow({
+      storage,
+      audit: { req, clinicianId: req.user!.id },
+      data,
+    });
+
+    // 3. Return response
     res.json(emailLog);
   } catch (error) {
     next(error);
@@ -179,10 +183,51 @@ export async function sendContentEmail(params: EmailParams): Promise<void> {
 
 **Guidelines**:
 - Use Drizzle ORM for all database operations
-- Implement IStorage interface for all CRUD operations
+- Implement `IStorage` (defined in `server/storage.ts`) for all CRUD operations
 - Use transactions for multi-table operations
 - Return typed entities from `@shared/schema`
 - Handle database errors and provide meaningful messages
+
+### 5. Application Services Layer (`server/application/`)
+
+**Purpose**: Orchestrate use cases and coordinate domain, data, and infrastructure layers.
+
+**Guidelines**:
+- Encapsulate multi-step workflows (validation should already be done in routes)
+- Manage transactions and retries where needed
+- Call domain services for business rules and infrastructure services for IO
+- Accept dependencies via parameters for testability
+- Return domain entities or DTOs for the routes to serialize
+
+**Example Pattern**:
+```typescript
+// server/application/messaging/send-content-email.ts
+export async function sendContentEmailFlow(params: {
+  storage: IStorage;
+  audit: { req: Request; clinicianId: string };
+  data: InsertEmailLog;
+}) {
+  const { accessCode, accessCodeHash, accessCodeSalt } = createSecureAccessCode();
+  const emailLog = await params.storage.createEmailLog({
+    ...params.data,
+    accessCodeHash,
+    accessCodeSalt,
+  });
+  await sendContentEmail({
+    toEmail: params.data.toEmail,
+    subject: params.data.subject,
+    contentItems: params.data.contentItems,
+    providerNote: params.data.providerNote,
+  });
+  await logClinicianAction(
+    params.audit.req,
+    { id: params.audit.clinicianId },
+    "email_sent",
+    { resourceId: emailLog.id }
+  );
+  return emailLog;
+}
+```
 
 ## Naming Conventions
 
@@ -212,6 +257,12 @@ import { createSecureAccessCode, verifyAccessCode } from "../domain/messaging";
 
 // Avoid - importing from specific file (unless necessary)
 import { createSecureAccessCode } from "../domain/messaging/access-code.service";
+```
+
+Apply the same pattern for application and infrastructure services:
+```typescript
+import { sendContentEmailFlow } from "../application/messaging";
+import { sendContentEmail } from "../infrastructure/email";
 ```
 
 ## Testing Strategy
