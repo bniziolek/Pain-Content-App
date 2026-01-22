@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5000';
+import { BASE_URL, TEST_ADMIN } from '../utils';
 
 describe('Authentication API', () => {
   let agent: ReturnType<typeof request.agent>;

@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getEmailLogs, getContent, getContentViewsByEmailLog, resendEmailContent, getInternalScreenings } from "@/lib/api";
 import { useState, useMemo, Fragment, useCallback } from "react";
 import { Link } from "wouter";
-import type { ContentView, InternalScreening } from "@shared/schema";
+import type { ContentView, InternalScreening } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
 

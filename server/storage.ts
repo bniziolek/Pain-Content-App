@@ -66,9 +66,6 @@ const pool = new pg.Pool({
 
 const db = drizzle({ client: pool, schema });
 
-// Export db for direct database access in routes
-export { db };
-
 export interface IStorage {
   // Auth
   getUser(id: string): Promise<User | undefined>;
@@ -94,6 +91,7 @@ export interface IStorage {
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   getTierFromPriceId(priceId: string): Promise<string | null>;
   updateSubscriptionTier(userId: string, tier: string): Promise<void>;
+  getStripePlans(): Promise<Array<{ id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>>;
 
   // Email connections
   getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined>;
@@ -452,6 +450,49 @@ export class DatabaseStorage implements IStorage {
     await db.update(schema.users)
       .set({ subscriptionTier: tier, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
+  }
+
+  async getStripePlans(): Promise<Array<{ id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        p.id as product_id,
+        p.name as product_name,
+        p.description as product_description,
+        p.metadata as product_metadata,
+        pr.id as price_id,
+        pr.unit_amount,
+        pr.currency,
+        pr.recurring,
+        pr.metadata as price_metadata
+      FROM stripe.products p
+      LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+      WHERE p.active = true
+      ORDER BY pr.unit_amount ASC
+    `);
+
+    const productsMap = new Map<string, { id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>();
+    for (const row of result.rows as any[]) {
+      if (!productsMap.has(row.product_id)) {
+        productsMap.set(row.product_id, {
+          id: row.product_id,
+          name: row.product_name,
+          description: row.product_description,
+          metadata: row.product_metadata,
+          prices: [],
+        });
+      }
+      if (row.price_id) {
+        productsMap.get(row.product_id)!.prices.push({
+          id: row.price_id,
+          unitAmount: row.unit_amount,
+          currency: row.currency,
+          recurring: row.recurring,
+          metadata: row.price_metadata,
+        });
+      }
+    }
+
+    return Array.from(productsMap.values());
   }
 
   // Email connection methods

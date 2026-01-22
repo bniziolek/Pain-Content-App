@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserPlus, Loader2, Filter, Crown, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { PublicUser as User } from "@shared/api-types";
 
 const TIER_BADGE_CONFIG: Record<string, { className: string; icon?: typeof Crown }> = {
   free: { className: "bg-gray-100 text-gray-600" },

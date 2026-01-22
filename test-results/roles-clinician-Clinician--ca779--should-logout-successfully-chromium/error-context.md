@@ -1,0 +1,83 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e9]: DriverPath
+        - generic [ref=e10]:
+          - link "Log In" [ref=e11] [cursor=pointer]:
+            - /url: /auth
+            - button "Log In" [ref=e12]
+          - link "Get Started" [ref=e13] [cursor=pointer]:
+            - /url: /auth?signup=true
+            - button "Get Started" [ref=e14]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - heading "Patient education that actually connects." [level=1] [ref=e19]
+        - paragraph [ref=e20]: Empower your patients with evidence-based content and automated assessments. Move beyond "where it hurts" to "why it hurts."
+        - generic [ref=e21]:
+          - link "Start Free Trial" [ref=e22] [cursor=pointer]:
+            - /url: /auth?signup=true
+            - button "Start Free Trial" [ref=e23]:
+              - text: Start Free Trial
+              - img
+          - link "Provider Login" [ref=e24] [cursor=pointer]:
+            - /url: /auth
+            - button "Provider Login" [ref=e25]
+        - generic [ref=e31]: Trusted by 500+ Clinicians
+      - generic [ref=e32]:
+        - img "Clinician with patient" [ref=e34]
+        - generic [ref=e35]:
+          - img [ref=e37]
+          - generic [ref=e39]:
+            - generic [ref=e40]: Patient Adherence
+            - generic [ref=e41]: Up 45% this month
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - heading "The modern toolkit for recovery" [level=2] [ref=e45]
+        - paragraph [ref=e46]: Combine clinical expertise with automated education to deliver better outcomes at scale.
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - img [ref=e50]
+          - heading "Pain Neuroscience" [level=3] [ref=e58]
+          - paragraph [ref=e59]: Curated content library focused on biopsychosocial factors and central sensitization.
+        - generic [ref=e60]:
+          - img [ref=e62]
+          - heading "Automated Assessments" [level=3] [ref=e64]
+          - paragraph [ref=e65]: Screen for yellow flags and fear-avoidance behaviors before the patient walks in.
+        - generic [ref=e66]:
+          - img [ref=e68]
+          - heading "Better Engagement" [level=3] [ref=e73]
+          - paragraph [ref=e74]: Send personalized education plans directly to your patient's inbox.
+    - generic [ref=e77]:
+      - heading "Start your 14-day free trial" [level=2] [ref=e79]
+      - generic [ref=e80]: $29/mo
+      - paragraph [ref=e81]: Cancel anytime. No hidden fees.
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - generic [ref=e86]: Unlimited Patients
+        - generic [ref=e87]:
+          - img [ref=e88]
+          - generic [ref=e90]: Full Content Library
+        - generic [ref=e91]:
+          - img [ref=e92]
+          - generic [ref=e94]: Custom Branding
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - generic [ref=e98]: Email Support
+      - link "Get Started Now" [ref=e99] [cursor=pointer]:
+        - /url: /auth?signup=true
+        - button "Get Started Now" [ref=e100]
+    - contentinfo [ref=e101]:
+      - generic [ref=e102]:
+        - paragraph [ref=e103]: © 2025 DriverPath. All rights reserved.
+        - link "Admin Access" [ref=e105] [cursor=pointer]:
+          - /url: /admin/login
+```

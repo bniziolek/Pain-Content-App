@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, SubscriptionTier, SUBSCRIPTION_TIERS, TIER_ENTITLEMENTS } from "@shared/schema";
+import { toPublicUser } from "./serializers/user";
 import { logClinicianAction, logAuditEvent } from "./audit";
 
 declare global {
@@ -108,7 +109,7 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json(toPublicUser(user));
       });
     } catch (error) {
       next(error);
@@ -172,7 +173,7 @@ export function setupAuth(app: Express) {
           console.error('Failed to log login history:', e);
         }
         
-        res.status(200).json(user);
+        res.status(200).json(toPublicUser(user));
       });
     })(req, res, next);
   });
@@ -191,7 +192,7 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    res.json(toPublicUser(req.user as SelectUser));
   });
 }
 

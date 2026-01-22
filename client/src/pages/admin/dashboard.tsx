@@ -10,7 +10,7 @@ import { Users, DollarSign, FileText, TrendingUp, Trash2, CheckCircle2, XCircle,
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { PublicUser as User } from "@shared/api-types";
 import { useLocation, Link } from "wouter";
 import { useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";

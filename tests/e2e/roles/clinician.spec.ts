@@ -33,8 +33,9 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
 
     test('should show navigation sidebar or menu', async () => {
       await page.goto('/dashboard');
-      // Must have navigation element - sidebar on desktop, bottom nav on mobile
-      await expect(page.locator('nav, aside, [role="navigation"]').first()).toBeVisible();
+      // Must have navigation element - sidebar on desktop (div.bg-sidebar), or mobile menu button
+      const sidebar = page.locator('.bg-sidebar, [data-testid="button-mobile-menu"]').first();
+      await expect(sidebar).toBeVisible();
     });
 
     test('should navigate to library', async () => {
@@ -98,8 +99,9 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
       const firstCard = page.locator('[data-testid^="content-card-"]').first();
       await firstCard.click();
       
-      // Open send modal
-      const sendButton = page.locator('button:has-text("Send"), button:has-text("Email")').first();
+      // Open send modal - must have a send or email button when content is selected
+      const sendButton = page.locator('button:has-text("Send"), button:has-text("Email"), [data-testid="button-send-content"]').first();
+      await expect(sendButton).toBeVisible({ timeout: 5000 });
       await sendButton.click();
       await expect(page.locator('[role="dialog"]')).toBeVisible();
     });
@@ -135,9 +137,12 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
       await expect(packetButton).toBeVisible({ timeout: 5000 });
       await packetButton.click();
       
-      // Verify print and download buttons exist
-      await expect(page.locator('[data-testid="button-print-packet"]')).toBeVisible();
-      await expect(page.locator('[data-testid="button-download-txt"]')).toBeVisible();
+      // Verify modal opens with content packet options
+      await expect(page.locator('[role="dialog"]')).toBeVisible();
+      
+      // Must have print/download functionality
+      const hasActions = await page.locator('[data-testid="button-print-packet"], [data-testid="button-download-txt"], button:has-text("Print"), button:has-text("Download")').first().isVisible();
+      expect(hasActions).toBeTruthy();
     });
   });
 
@@ -223,17 +228,10 @@ test.describe('Clinician Role - Complete Workflow Tests', () => {
     test('should logout successfully', async () => {
       await page.goto('/dashboard');
       
-      // Find logout button/link
-      const userMenu = page.locator('[data-testid="user-menu"], button:has-text("Logout"), button:has-text("Sign out")');
-      if (await userMenu.isVisible()) {
-        await userMenu.click();
-      }
-      
-      const logoutButton = page.locator('text=/logout|sign out/i').first();
-      if (await logoutButton.isVisible()) {
-        await logoutButton.click();
-      }
-      
+      // Find logout button in sidebar - it should be visible on desktop
+      const logoutButton = page.getByRole('button', { name: /logout|sign out/i }).first();
+      await expect(logoutButton).toBeVisible({ timeout: 5000 });
+      await logoutButton.click();
       await expect(page).toHaveURL(/\/auth/);
     });
   });

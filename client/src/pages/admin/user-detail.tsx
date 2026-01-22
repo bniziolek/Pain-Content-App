@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { User, AdminNote, LoginHistory } from "@shared/schema";
+import type { PublicUser as User, AdminNote, LoginHistory } from "@shared/api-types";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
