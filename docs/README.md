@@ -30,7 +30,9 @@ This directory contains operational, architectural, and product documentation fo
 - `docs/api-reference.md`: API overview.
 - `docs/API_EXAMPLES.md`: Example requests and responses.
 - `docs/FEATURE_CATALOG.md`: Feature-to-code mapping.
+- `docs/FEATURE_WALKTHROUGHS.md`: Non-technical, step-by-step feature tours.
 - `docs/test-plan.md`: Manual test plan.
+- `docs/SCREENSHOT_GUIDE.md`: Production screenshot capture checklist.
 
 ## Data and Integrations
 
@@ -38,3 +40,7 @@ This directory contains operational, architectural, and product documentation fo
 - `docs/environment-variables.md`: Existing environment variable guide.
 - `docs/ENVIRONMENT_REFERENCE.md`: Consolidated env var reference with where used.
 - `docs/INTEGRATIONS.md`: External integrations.
+
+## Support and Troubleshooting
+
+- `docs/KNOWN_ISSUES.md`: Current issues and workarounds.
