@@ -167,3 +167,38 @@ Use this as the concrete handoff plan for completing the migration.
 
 - Update unit and API tests to import from application services instead of legacy modules when needed (e.g., tests referencing scoring and recommendation flows).
 - Run API and E2E tests to verify route behavior remains unchanged after refactors, focusing on messaging, patient portal, assessments, recommendations, and subscription flows.
+
+---
+
+## Migration Completion Status
+
+**Status: COMPLETE** (Verified 2026-01-22)
+
+### Final Verification Results
+
+1. **Route Imports**: All routes use application services. No direct storage/audit/legacy module imports found in `server/routes/*.ts`.
+
+2. **Storage Alignment**: Application services properly use `ctx.storage` via AppContext pattern. Type imports used correctly for storage types.
+
+3. **Infrastructure Adapters**: All adapters (payment, email, CMS, audit) are wired through `context-helpers.ts` and accessible via AppContext.
+
+4. **ESM Module Fix**: Fixed `PermissionName` type import/export in `server/rbac.ts` to use proper `import type` and `export type` syntax for ESM compatibility.
+
+5. **Test Results**:
+   - All 41 API tests passing
+   - E2E tests for dashboard and content flows passing
+   - Application boots and runs successfully
+
+### Architecture Layers Verified
+
+```
+Routes (thin controllers)
+    ↓
+Application Services (orchestration via AppContext)
+    ↓
+Domain Services (pure business logic)
+    ↓
+Infrastructure Services (external integrations)
+    ↓
+Data Layer (storage abstraction)
+```

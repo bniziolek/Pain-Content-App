@@ -1,5 +1,23 @@
 # Migration Changelog
 
+## 2026-01-22 (Final Verification)
+
+### Summary
+- Completed final verification of 5-layer architecture migration
+- Fixed ESM module compatibility issue with TypeScript type exports
+- All 41 API tests and key E2E tests passing
+
+### Fixed
+- server/rbac.ts: Changed `PermissionName` import/export to use `import type` and `export type` syntax for proper ESM module compatibility
+
+### Verified
+- All routes use application services (no direct storage/legacy imports)
+- Storage interface properly aligned with application services
+- Infrastructure adapters correctly wired via AppContext
+- Application boots and runs successfully
+
+---
+
 ## 2026-01-22
 
 ### Summary

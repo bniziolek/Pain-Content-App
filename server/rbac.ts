@@ -14,16 +14,17 @@ import { buildAuditRequestContext } from "./http/audit-context";
 import {
   DEFAULT_PERMISSIONS,
   ROLE_PERMISSIONS,
-  PermissionName,
   getEffectiveRole,
   isSuperAdmin,
 } from "./rbac-policy";
+import type { PermissionName } from "./rbac-policy";
 
 const appContext = createAppContext({
   audit: { logAuditEvent, logClinicianAction, logPatientAction, logSystemAction },
 });
 
-export { DEFAULT_PERMISSIONS, ROLE_PERMISSIONS, isSuperAdmin, getEffectiveRole, PermissionName };
+export { DEFAULT_PERMISSIONS, ROLE_PERMISSIONS, isSuperAdmin, getEffectiveRole };
+export type { PermissionName };
 
 export function requirePermission(permissionName: PermissionName) {
   return async (req: Request, res: Response, next: NextFunction) => {
