@@ -73,12 +73,23 @@ function createEmail(to: string, subject: string, htmlContent: string): string {
   return Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+export interface EmailBrandingConfig {
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  footerText?: string | null;
+  showPoweredBy?: boolean;
+}
+
 export interface ContentEmailData {
   toEmail: string;
   subject: string;
   contentItems: { title: string; summary: string; readTime?: string | null; imageUrl?: string | null; viewUrl: string }[];
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface PatientPortalEmailData {
@@ -108,15 +119,23 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
       console.log(`      View URL: ${item.viewUrl}`);
     });
     if (data.providerNote) console.log('Provider Note:', data.providerNote);
+    if (data.branding) console.log('Branding:', data.branding.clinicName || 'Default');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
   try {
     const gmail = await getUncachableGmailClient();
     
+    const branding = data.branding;
+    const primaryColor = branding?.primaryColor || '#0F766E';
+    const accentColor = branding?.accentColor || '#14B8A6';
+    const headerName = branding?.clinicName || 'DriverPath';
+    const tagline = branding?.tagline || 'Patient Education Resources';
+    const showPoweredBy = branding?.showPoweredBy !== false;
+    
     const contentHtml = data.contentItems.map(item => `
       <div style="margin-bottom: 16px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-        <a href="${item.viewUrl}" style="color: #1a5653; text-decoration: none; font-size: 18px; font-weight: 600; display: block; margin-bottom: 8px;">
+        <a href="${item.viewUrl}" style="color: ${accentColor}; text-decoration: none; font-size: 18px; font-weight: 600; display: block; margin-bottom: 8px;">
           ${item.title}
         </a>
         <p style="color: #666; margin: 0 0 12px 0; font-size: 14px; line-height: 1.5;">
@@ -124,12 +143,24 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
         </p>
         <div style="display: flex; align-items: center; gap: 16px;">
           <span style="color: #888; font-size: 12px;">${item.readTime || '5 min'} read</span>
-          <a href="${item.viewUrl}" style="color: #1a5653; font-size: 13px; font-weight: 500; text-decoration: underline;">
+          <a href="${item.viewUrl}" style="color: ${accentColor}; font-size: 13px; font-weight: 500; text-decoration: underline;">
             Read Now &rarr;
           </a>
         </div>
       </div>
     `).join('');
+
+    const headerHtml = branding?.logoUrl 
+      ? `<img src="${branding.logoUrl}" alt="${headerName}" style="max-height: 60px; max-width: 200px; margin-bottom: 8px;" />`
+      : `<h1 style="color: ${primaryColor}; margin: 0;">${headerName}</h1>`;
+    
+    const footerHtml = branding?.footerText 
+      ? branding.footerText 
+      : (showPoweredBy 
+          ? (branding?.clinicName 
+              ? `Powered by DriverPath` 
+              : 'This email was sent via DriverPath, a patient education platform for healthcare providers.')
+          : '');
 
     const html = `
       <!DOCTYPE html>
@@ -140,14 +171,14 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a5653; margin: 0;">DriverPath</h1>
-          <p style="color: #666; margin: 4px 0 0 0;">Patient Education Resources</p>
+          ${headerHtml}
+          <p style="color: #666; margin: 4px 0 0 0;">${tagline}</p>
         </div>
         
         ${data.clinicianName ? `<p style="margin-bottom: 20px;">Your healthcare provider <strong>${data.clinicianName}</strong> has shared the following educational content with you:</p>` : '<p style="margin-bottom: 20px;">Your healthcare provider has shared the following educational content with you:</p>'}
         
         ${data.providerNote ? `
-          <div style="background: #e8f5f3; border-left: 4px solid #1a5653; padding: 12px 16px; margin-bottom: 24px; border-radius: 0 4px 4px 0;">
+          <div style="background: #e8f5f3; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin-bottom: 24px; border-radius: 0 4px 4px 0;">
             <strong>Note from your provider:</strong><br/>
             ${data.providerNote}
           </div>
@@ -155,10 +186,12 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
         
         ${contentHtml}
         
-        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-        <p style="color: #888; font-size: 12px; text-align: center;">
-          This email was sent via DriverPath, a patient education platform for healthcare providers.
-        </p>
+        ${footerHtml ? `
+          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+          <p style="color: #888; font-size: 12px; text-align: center;">
+            ${footerHtml}
+          </p>
+        ` : ''}
       </body>
       </html>
     `;

@@ -49,6 +49,16 @@ async function getResendClient() {
   };
 }
 
+export interface EmailBrandingConfig {
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  footerText?: string | null;
+  showPoweredBy?: boolean;
+}
+
 export interface ContentEmailData {
   toEmail: string;
   subject: string;
@@ -61,6 +71,7 @@ export interface ContentEmailData {
   }>;
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailData {
@@ -81,20 +92,40 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
       console.log(`  ${i + 1}. ${item.title} (${item.readTime || '5 min'} read)`);
     });
     if (data.providerNote) console.log('Provider Note:', data.providerNote);
+    if (data.branding) console.log('Branding:', data.branding.clinicName || 'Default');
     return { success: true, messageId: 'dev-mode-' + Date.now() };
   }
 
   try {
     const { client, fromEmail } = await getResendClient();
     
+    const branding = data.branding;
+    const primaryColor = branding?.primaryColor || '#0f766e';
+    const accentColor = branding?.accentColor || '#14B8A6';
+    const headerName = branding?.clinicName || 'DriverPath';
+    const tagline = branding?.tagline || 'Educational Content for Your Recovery';
+    const showPoweredBy = branding?.showPoweredBy !== false;
+    
     const contentHtml = data.contentItems.map(item => `
       <div style="margin-bottom: 24px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
         ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.title}" style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 4px; margin-bottom: 12px;" />` : ''}
-        <h2 style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 20px;">${item.title}</h2>
+        <h2 style="margin: 0 0 8px 0; color: ${primaryColor}; font-size: 20px;">${item.title}</h2>
         <p style="margin: 0 0 12px 0; color: #666; font-size: 14px;">${item.readTime || '5 min'} read</p>
         <p style="margin: 0; color: #333; line-height: 1.6;">${item.summary}</p>
       </div>
     `).join('');
+
+    const headerHtml = branding?.logoUrl 
+      ? `<img src="${branding.logoUrl}" alt="${headerName}" style="max-height: 60px; max-width: 200px; margin-bottom: 8px;" />`
+      : `<h1 style="color: ${primaryColor}; font-size: 24px; margin: 0;">${headerName}</h1>`;
+    
+    const footerHtml = branding?.footerText 
+      ? branding.footerText 
+      : (showPoweredBy 
+          ? (branding?.clinicName 
+              ? `Powered by DriverPath` 
+              : 'This content was shared with you by your healthcare provider through DriverPath.')
+          : '');
 
     const html = `
       <!DOCTYPE html>
@@ -105,26 +136,27 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
           <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #0f766e; font-size: 24px; margin: 0;">DriverPath</h1>
-            <p style="color: #666; margin: 8px 0 0 0;">Educational Content for Your Recovery</p>
+            ${headerHtml}
+            <p style="color: #666; margin: 8px 0 0 0;">${tagline}</p>
           </div>
           
           ${data.providerNote ? `
-            <div style="background: #e0f2fe; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+            <div style="background: #e0f2fe; padding: 16px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid ${primaryColor};">
               <p style="margin: 0; color: #0369a1; font-style: italic;">"${data.providerNote}"</p>
               ${data.clinicianName ? `<p style="margin: 8px 0 0 0; color: #0369a1; font-size: 14px;">— ${data.clinicianName}</p>` : ''}
             </div>
           ` : ''}
           
-          <h2 style="color: #1a1a1a; font-size: 18px; margin-bottom: 16px;">Your Educational Materials</h2>
+          <h2 style="color: ${primaryColor}; font-size: 18px; margin-bottom: 16px;">Your Educational Materials</h2>
           
           ${contentHtml}
           
-          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
-          
-          <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
-            This content was shared with you by your healthcare provider through DriverPath.
-          </p>
+          ${footerHtml ? `
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
+            <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
+              ${footerHtml}
+            </p>
+          ` : ''}
         </body>
       </html>
     `;

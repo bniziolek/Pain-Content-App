@@ -17,6 +17,16 @@ import {
 
 export type EmailProvider = 'gmail' | 'resend' | 'auto';
 
+export interface EmailBrandingConfig {
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  footerText?: string | null;
+  showPoweredBy?: boolean;
+}
+
 export interface ContentEmailData {
   toEmail: string;
   subject: string;
@@ -30,6 +40,7 @@ export interface ContentEmailData {
   }[];
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailData {
