@@ -15,17 +15,9 @@ import {
   isResendConfigured,
 } from './resend.service';
 
-export type EmailProvider = 'gmail' | 'resend' | 'auto';
+import type { EmailBrandingConfig } from '../../application/context';
 
-export interface EmailBrandingConfig {
-  logoUrl?: string | null;
-  clinicName?: string | null;
-  tagline?: string | null;
-  primaryColor?: string | null;
-  accentColor?: string | null;
-  footerText?: string | null;
-  showPoweredBy?: boolean;
-}
+export type EmailProvider = 'gmail' | 'resend' | 'auto';
 
 export interface ContentEmailData {
   toEmail: string;
