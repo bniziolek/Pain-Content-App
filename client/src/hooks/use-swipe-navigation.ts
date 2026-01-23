@@ -11,7 +11,7 @@ const INTERACTIVE_SELECTORS = [
   'a', 'button', 'input', 'textarea', 'select',
   '[role="button"]', '[role="link"]', '[onclick]',
   '[data-testid*="card"]', '[data-testid*="button"]', '[data-testid*="link"]',
-  '.card', '.btn', '[tabindex]'
+  '.card', '.btn', '[tabindex]:not([tabindex="-1"])'
 ].join(',');
 
 function isInteractiveElement(element: EventTarget | null): boolean {
@@ -58,6 +58,7 @@ export function useSwipeNavigation({
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
+      // Initialize touchEndX to touchStartX so that taps without touchmove events result in diffX = 0
       touchEndX.current = e.touches[0].clientX;
       touchStartTime.current = Date.now();
       touchStartTarget.current = e.target;
@@ -74,14 +75,14 @@ export function useSwipeNavigation({
       
       // Don't trigger swipe navigation if:
       // 1. Touch started on an interactive element (links, buttons, cards, etc.)
-      // 2. Touch was too short (likely a tap, not a swipe) - require at least 150ms
+      // 2. Touch was too short (likely a tap, not a swipe) - require at least 200ms for better accessibility
       // 3. Horizontal movement isn't significantly greater than vertical
       // 4. Horizontal movement doesn't exceed the threshold
       if (isInteractiveElement(touchStartTarget.current)) {
         return;
       }
       
-      if (touchDuration < 150) {
+      if (touchDuration < 200) {
         return;
       }
       
