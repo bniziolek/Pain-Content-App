@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -6,13 +6,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2, HelpCircle, Play } from "lucide-react";
+import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2, HelpCircle, Play, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useTour, resetTour } from "@/components/product-tour";
 import { useLocation } from "wouter";
+import type { EmailSettings } from "@shared/api-types";
+
+interface ProfileFormData {
+  name: string;
+  email: string;
+  phone: string;
+  clinicName: string;
+  credentials: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -22,6 +35,57 @@ export default function SettingsPage() {
   const [, navigate] = useLocation();
   const isSubscriptionActive = user?.subscriptionStatus === 'active';
 
+  const [profileForm, setProfileForm] = useState<ProfileFormData>({
+    name: '',
+    email: '',
+    phone: '',
+    clinicName: '',
+    credentials: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        clinicName: user.clinicName || '',
+        credentials: user.credentials || '',
+        address: user.address || '',
+        city: user.city || '',
+        state: user.state || '',
+        zipCode: user.zipCode || '',
+      });
+    }
+  }, [user]);
+
+  const updateProfile = useMutation({
+    mutationFn: async (updates: Partial<ProfileFormData>) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      refreshUser();
+      toast({ title: "Profile updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update profile",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile.mutate(profileForm);
+  };
+
   const handleReplayTour = () => {
     resetTour();
     navigate("/dashboard");
@@ -30,7 +94,7 @@ export default function SettingsPage() {
     }, 300);
   };
 
-  const { data: emailSettings, isLoading: emailLoading } = useQuery({
+  const { data: emailSettings, isLoading: emailLoading } = useQuery<EmailSettings>({
     queryKey: ["/api/email-settings"],
   });
 
@@ -85,40 +149,140 @@ export default function SettingsPage() {
           </TabsList>
 
           <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Update your personal details.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input 
-                      defaultValue={user?.name || ''} 
-                      data-testid="input-name" 
-                      autoComplete="name"
-                      autoCapitalize="words"
-                      enterKeyHint="done"
-                    />
+            <form onSubmit={handleProfileSubmit}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Update your personal and practice details. This information may appear on content packets sent to patients.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input 
+                          id="name"
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                          data-testid="input-name" 
+                          autoComplete="name"
+                          placeholder="Dr. Jane Smith"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="credentials">Credentials</Label>
+                        <Input 
+                          id="credentials"
+                          value={profileForm.credentials}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, credentials: e.target.value }))}
+                          data-testid="input-credentials" 
+                          placeholder="DPT, OCS"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input 
+                          id="email"
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                          data-testid="input-email"
+                          autoComplete="email"
+                          placeholder="jane.smith@example.com"
+                        />
+                        <p className="text-xs text-muted-foreground">This is used for login. Changing it will update your login credentials.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input 
+                          id="phone"
+                          type="tel"
+                          value={profileForm.phone}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                          data-testid="input-phone"
+                          autoComplete="tel"
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input 
-                    value={user?.email || ''} 
-                    disabled 
-                    data-testid="input-email"
-                    type="email"
-                    autoComplete="email"
-                    inputMode="email"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button data-testid="button-save-profile">Save Changes</Button>
-              </CardFooter>
-            </Card>
+
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Practice Information</h3>
+                    <div className="space-y-2">
+                      <Label htmlFor="clinicName">Clinic / Practice Name</Label>
+                      <Input 
+                        id="clinicName"
+                        value={profileForm.clinicName}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, clinicName: e.target.value }))}
+                        data-testid="input-clinic-name"
+                        autoComplete="organization"
+                        placeholder="Summit Physical Therapy"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Street Address</Label>
+                      <Input 
+                        id="address"
+                        value={profileForm.address}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
+                        data-testid="input-address"
+                        autoComplete="street-address"
+                        placeholder="123 Main Street, Suite 100"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="city">City</Label>
+                        <Input 
+                          id="city"
+                          value={profileForm.city}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, city: e.target.value }))}
+                          data-testid="input-city"
+                          autoComplete="address-level2"
+                          placeholder="Denver"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="state">State</Label>
+                        <Input 
+                          id="state"
+                          value={profileForm.state}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, state: e.target.value }))}
+                          data-testid="input-state"
+                          autoComplete="address-level1"
+                          placeholder="CO"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="zipCode">ZIP Code</Label>
+                        <Input 
+                          id="zipCode"
+                          value={profileForm.zipCode}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, zipCode: e.target.value }))}
+                          data-testid="input-zip-code"
+                          autoComplete="postal-code"
+                          placeholder="80202"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" disabled={updateProfile.isPending} data-testid="button-save-profile">
+                    {updateProfile.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save Changes
+                  </Button>
+                </CardFooter>
+              </Card>
+            </form>
           </TabsContent>
 
           <TabsContent value="email">
@@ -288,15 +452,27 @@ export default function SettingsPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold mb-1">Professional Plan</div>
+                  <div className="text-2xl font-bold mb-1">
+                    {user?.subscriptionTier === 'pro' ? 'Professional Plan' : 
+                     user?.subscriptionTier === 'enterprise' ? 'Enterprise Plan' : 'Basic Plan'}
+                  </div>
                   <p className="text-muted-foreground text-sm">
                     {isSubscriptionActive 
                       ? `Next billing date: ${user?.subscriptionPeriodEnd ? new Date(user.subscriptionPeriodEnd).toLocaleDateString() : 'N/A'}` 
                       : "Your subscription has lapsed. Please update your payment method to restore access."}
                   </p>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex gap-2">
                   {!isSubscriptionActive && <Button variant="destructive" data-testid="button-pay-now">Pay Now</Button>}
+                  {isSubscriptionActive && user?.subscriptionTier === 'basic' && (
+                    <Button 
+                      onClick={() => navigate('/subscription?upgrade=true')} 
+                      className="bg-amber-500 hover:bg-amber-600"
+                      data-testid="button-upgrade-to-pro"
+                    >
+                      Upgrade to Pro
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
 

@@ -1,0 +1,174 @@
+/**
+ * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
+ */
+
+import { storage } from "../../storage";
+import type { User } from "@shared/schema";
+
+export type AuditAction = 
+  | 'login' 
+  | 'logout' 
+  | 'login_failed' 
+  | 'content_access' 
+  | 'content_create'
+  | 'content_update'
+  | 'content_delete'
+  | 'phi_view' 
+  | 'phi_export' 
+  | 'email_sent' 
+  | 'settings_change' 
+  | 'user_create' 
+  | 'user_update' 
+  | 'user_delete'
+  | 'password_change' 
+  | 'session_timeout'
+  | 'patient_portal_access'
+  | 'patient_portal_auth'
+  | 'patient_portal_auth_failed'
+  | 'assessment_create'
+  | 'assessment_access'
+  | 'assessment_update'
+  | 'assessment_delete'
+  | 'assessment_submit'
+  | 'assessment_score'
+  | 'screening_create'
+  | 'screening_access'
+  | 'patient_summary_view'
+  | 'content_view'
+  | 'permission_denied'
+  | 'pdf_generate';
+
+export type ActorType = 'clinician' | 'admin' | 'patient' | 'system';
+export type ResourceType = 'patient' | 'content' | 'assessment' | 'email_log' | 'user' | 'session' | 'screening' | 'settings' | 'feature_flag';
+export type Outcome = 'success' | 'failure' | 'denied';
+
+export interface AuditContext {
+  userId?: string;
+  actorType: ActorType;
+  actorEmail?: string;
+  action: AuditAction;
+  resourceType?: ResourceType;
+  resourceId?: string;
+  phiAccessed?: boolean;
+  phiScope?: string;
+  details?: Record<string, unknown>;
+  sessionId?: string;
+  outcome?: Outcome;
+}
+
+export interface AuditRequestContext {
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string | null;
+}
+
+export async function logAuditEvent(
+  request: AuditRequestContext,
+  context: AuditContext
+): Promise<void> {
+  try {
+    await storage.createAuditLog({
+      userId: context.userId || null,
+      actorType: context.actorType,
+      actorEmail: context.actorEmail,
+      action: context.action,
+      resourceType: context.resourceType,
+      resourceId: context.resourceId,
+      phiAccessed: context.phiAccessed || false,
+      phiScope: context.phiScope,
+      details: context.details,
+      ipAddress: request.ipAddress || 'unknown',
+      userAgent: request.userAgent || 'unknown',
+      sessionId: context.sessionId || request.sessionId || null,
+      outcome: context.outcome || 'success',
+    });
+  } catch (error) {
+    console.error('[Audit] Failed to create audit log:', error);
+  }
+}
+
+export async function logClinicianAction(
+  request: AuditRequestContext,
+  user: User,
+  action: AuditAction,
+  options?: {
+    resourceType?: ResourceType;
+    resourceId?: string;
+    phiAccessed?: boolean;
+    phiScope?: string;
+    details?: Record<string, unknown>;
+    outcome?: Outcome;
+  }
+): Promise<void> {
+  await logAuditEvent(request, {
+    userId: user.id,
+    actorType: user.role === 'admin' ? 'admin' : 'clinician',
+    actorEmail: user.email,
+    action,
+    resourceType: options?.resourceType,
+    resourceId: options?.resourceId,
+    phiAccessed: options?.phiAccessed,
+    phiScope: options?.phiScope,
+    details: options?.details,
+    sessionId: request.sessionId || undefined,
+    outcome: options?.outcome || 'success',
+  });
+}
+
+export async function logPatientAction(
+  request: AuditRequestContext,
+  patientEmail: string,
+  action: AuditAction,
+  options?: {
+    resourceType?: ResourceType;
+    resourceId?: string;
+    phiAccessed?: boolean;
+    phiScope?: string;
+    details?: Record<string, unknown>;
+    sessionId?: string;
+    outcome?: Outcome;
+  }
+): Promise<void> {
+  await logAuditEvent(request, {
+    actorType: 'patient',
+    actorEmail: patientEmail,
+    action,
+    resourceType: options?.resourceType,
+    resourceId: options?.resourceId,
+    phiAccessed: options?.phiAccessed,
+    phiScope: options?.phiScope,
+    details: options?.details,
+    sessionId: options?.sessionId,
+    outcome: options?.outcome || 'success',
+  });
+}
+
+export async function logSystemAction(
+  action: AuditAction,
+  options?: {
+    resourceType?: ResourceType;
+    resourceId?: string;
+    details?: Record<string, unknown>;
+    outcome?: Outcome;
+  }
+): Promise<void> {
+  try {
+    await storage.createAuditLog({
+      userId: null,
+      actorType: 'system',
+      actorEmail: null,
+      action,
+      resourceType: options?.resourceType,
+      resourceId: options?.resourceId,
+      phiAccessed: false,
+      phiScope: null,
+      details: options?.details,
+      ipAddress: 'system',
+      userAgent: 'system',
+      sessionId: null,
+      outcome: options?.outcome || 'success',
+    });
+  } catch (error) {
+    console.error('[Audit] Failed to create system audit log:', error);
+  }
+}

@@ -293,6 +293,7 @@ export default function LibraryPage() {
             return (
               <div 
                 key={item.id}
+                data-testid={`content-card-${item.id}`}
                 onClick={() => toggleSelection(item.id)}
                 className={cn(
                   "group relative overflow-hidden rounded-xl border border-border bg-card transition-all cursor-pointer hover:shadow-md",
@@ -398,8 +399,19 @@ export default function LibraryPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={() => setIsSendModalOpen(false)} data-testid="button-cancel">Cancel</Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setIsSendModalOpen(false);
+                  setIsPDFDialogOpen(true);
+                }}
+                data-testid="button-generate-pdf-from-send"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Generate PDF Instead
+              </Button>
               <Button onClick={handleSend} disabled={!patientEmail || sendMutation.isPending} data-testid="button-send">
                 {sendMutation.isPending ? "Sending..." : "Send Email"}
               </Button>

@@ -129,6 +129,21 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
         })}
       </div>
 
+      {!isAdmin && user?.subscriptionTier === 'basic' && (
+        <div className="mx-4 mb-4 p-3 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Crown className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-900">Upgrade to Pro</span>
+          </div>
+          <p className="text-xs text-amber-700 mb-3">Unlock Care Pathways, Email Delivery & more</p>
+          <Link href="/subscription?upgrade=true">
+            <Button size="sm" className="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs" data-testid="button-upgrade-sidebar">
+              View Plans
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2 mb-2">
           <Avatar className="w-8 h-8">

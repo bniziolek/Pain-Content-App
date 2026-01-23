@@ -1,0 +1,70 @@
+  Scope and Goal
+
+  - Break the app into isolated, domain-owned modules so future agent tasks can target a single area (routes, service, storage,
+  DTOs, UI).
+  - Keep behavior unchanged; focus on structure and boundaries.
+
+  Target Architecture
+
+  - Server
+      - Routes: server/routes/<domain>.ts (Express router only)
+      - Services: server/services/<domain>.ts (business workflows)
+      - Storage: server/storage/<domain>.ts (Drizzle access)
+      - DTOs: server/dto/<domain>.ts (request/response schemas + serializers)
+      - Middleware: server/middleware/* (auth, feature flags, rate limits)
+      - Integrations: server/integrations/* (Stripe, Contentful, Gmail/Resend)
+  - Client
+      - API calls: client/src/api/<domain>.ts
+      - UI types: client/src/types/<domain>.ts
+      - Pages: client/src/pages/<domain>/*
+
+  Immediate Refactor Plan (Minimal, Safe)
+
+  1. Split server/routes.ts into domain routers:
+      - server/routes/auth.ts
+      - server/routes/content.ts
+      - server/routes/assessments.ts
+      - server/routes/patient-portal.ts (already exists)
+      - server/routes/messaging.ts (email logs, patient portal email sending)
+      - server/routes/pathways.ts
+      - server/routes/admin.ts
+  2. Introduce services for complex flows:
+      - server/services/content.ts (Contentful fallback logic)
+      - server/services/assessments.ts (invite flow + scoring)
+      - server/services/recommendations.ts (rule resolution + preview)
+      - server/services/messaging.ts (send/resend content, audit logging)
+  3. Split storage by domain:
+      - server/storage/users.ts
+      - server/storage/content.ts
+      - server/storage/assessments.ts
+      - server/storage/messaging.ts
+      - server/storage/pathways.ts
+      - server/storage/admin.ts
+      - Export in server/storage/index.ts to preserve existing interface.
+  4. Introduce DTO modules per domain:
+      - server/dto/users.ts, server/dto/assessments.ts, etc.
+      - Move all request body validation into DTOs; routes should call DTO parse + service.
+
+  Implementation Notes for Agent
+
+  - Keep routes thin: parse DTO -> call service -> return serialized response.
+  - Keep storage pure: only DB operations and small helpers, no business rules.
+  - Maintain existing API endpoints and response shapes to avoid client breakage.
+  - Preserve shared/api-types.ts for client-facing DTOs; don’t import DB schema types in client.
+
+  Acceptance Criteria
+
+  - server/routes.ts is reduced to a router registrar (no domain logic).
+  - Each domain has a router + service + storage module.
+  - No direct DB access outside server/storage/*.
+  - Client API calls moved into client/src/api/* with domain-specific modules.
+  - All tests/linters pass (or no regressions reported).
+
+  Suggested Starting Slice (lowest risk)
+
+  - Extract content routes and storage first:
+      - server/routes/content.ts
+      - server/services/content.ts
+      - server/storage/content.ts
+      - Update client/src/api/content.ts
+  - Then extract assessments or admin as the second slice to prove the pattern.

@@ -1,3 +1,7 @@
+/**
+ * Architecture: Seed helpers for local or development data.
+ */
+
 import { storage } from "./storage";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";

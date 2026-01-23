@@ -15,9 +15,10 @@ interface UpgradePromptProps {
   feature: string;
   requiredTier: "basic" | "pro";
   currentTier?: string;
-  variant?: "card" | "inline" | "dialog";
+  variant?: "card" | "inline" | "dialog" | "banner" | "sidebar";
   open?: boolean;
   onClose?: () => void;
+  className?: string;
 }
 
 const TIER_DISPLAY = {
@@ -42,6 +43,7 @@ export function UpgradePrompt({
   variant = "card",
   open,
   onClose,
+  className = "",
 }: UpgradePromptProps) {
   const tierInfo = TIER_DISPLAY[requiredTier];
   const TierIcon = tierInfo.icon;
@@ -90,7 +92,7 @@ export function UpgradePrompt({
   if (variant === "inline") {
     const borderClass = requiredTier === "pro" ? "border-amber-200" : "border-blue-200";
     return (
-      <div className={`p-4 rounded-lg border ${tierInfo.bgColor} ${borderClass}`}>
+      <div className={`p-4 rounded-lg border ${tierInfo.bgColor} ${borderClass} ${className}`}>
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center`}>
             <Lock className={`w-5 h-5 ${tierInfo.color}`} />
@@ -105,6 +107,46 @@ export function UpgradePrompt({
             </Button>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (variant === "banner") {
+    return (
+      <div className={`bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 ${className}`}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 p-2 rounded-full">
+              <Crown className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-amber-900">Unlock {feature} with Pro</p>
+              <p className="text-sm text-amber-700">Get more powerful features for your practice</p>
+            </div>
+          </div>
+          <Link href="/subscription?upgrade=true">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" data-testid="button-upgrade-banner">
+              Upgrade to Pro
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "sidebar") {
+    return (
+      <div className={`mx-4 mb-4 p-3 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 ${className}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Crown className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-900">Upgrade to Pro</span>
+        </div>
+        <p className="text-xs text-amber-700 mb-3">Unlock {feature} and more premium features</p>
+        <Link href="/subscription?upgrade=true">
+          <Button size="sm" className="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs" data-testid="button-upgrade-sidebar">
+            View Plans
+          </Button>
+        </Link>
       </div>
     );
   }
