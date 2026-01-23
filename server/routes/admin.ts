@@ -16,12 +16,16 @@ import {
   getAdminStats,
   getEnhancedAdminStats,
   getUser,
+  getUserSupportOverview,
+  getUserSupportTimeline,
   listAdminNotes,
   listAllRecommendationConfigs,
   listLoginHistory,
   listUserContentActivity,
+  listUserPermissions,
   listUsers,
   resetUserPassword,
+  unlockUserAccount,
   updateUser,
   updateUserSubscription,
 } from "../application";
@@ -255,6 +259,91 @@ router.get("/recommendation-configs", requireAdmin, async (req, res, next) => {
   try {
     const configs = await listAllRecommendationConfigs(appContext);
     res.json(configs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ====== User Support Dashboard ======
+
+router.get("/users/:userId/support-overview", requireAdmin, async (req, res, next) => {
+  try {
+    const overview = await getUserSupportOverview(appContext, { userId: req.params.userId });
+    if (!overview) {
+      return res.status(404).send("User not found");
+    }
+    res.json({
+      ...overview,
+      user: toPublicUser(overview.user),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/users/:userId/support-timeline", requireAdmin, async (req, res, next) => {
+  try {
+    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const timeline = await getUserSupportTimeline(appContext, { 
+      userId: req.params.userId,
+      days,
+    });
+    res.json(timeline);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/users/:userId/unlock", requireAdmin, async (req, res, next) => {
+  try {
+    const result = await unlockUserAccount(appContext, {
+      userId: req.params.userId,
+      adminId: req.user!.id,
+    });
+    if (!result) {
+      return res.status(404).send("User not found");
+    }
+    res.json({
+      success: true,
+      user: toPublicUser(result.user),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/users/:userId/permissions", requireAdmin, async (req, res, next) => {
+  try {
+    const permissions = await listUserPermissions(appContext, { userId: req.params.userId });
+    res.json(permissions);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) => {
+  try {
+    const user = await appContext.storage.getUserById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const allFlags = await appContext.storage.getFeatureFlags();
+    const userTier = user.subscriptionTier || "basic";
+
+    const userFlags = allFlags.map((flag) => {
+      const enabled = flag.isEnabled && (!flag.tiersAllowed || flag.tiersAllowed.length === 0 || flag.tiersAllowed.includes(userTier));
+      return {
+        id: flag.id,
+        name: flag.name,
+        key: flag.key,
+        enabled,
+        description: flag.description,
+        category: flag.category,
+      };
+    });
+
+    res.json(userFlags);
   } catch (error) {
     next(error);
   }

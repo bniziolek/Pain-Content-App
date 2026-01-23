@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Loader2, Filter, Crown, Sparkles } from "lucide-react";
+import { UserPlus, Loader2, Filter, Crown, Sparkles, Lock, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { PublicUser as User } from "@shared/api-types";
@@ -21,12 +21,46 @@ const TIER_BADGE_CONFIG: Record<string, { className: string; icon?: typeof Crown
   enterprise: { className: "bg-purple-100 text-purple-600", icon: Crown },
 };
 
+type UserStatus = "active" | "trial" | "expired" | "inactive";
+
+function getUserStatus(user: User): UserStatus {
+  const status = user.subscriptionStatus || "inactive";
+  
+  if (status === "trialing") {
+    return "trial";
+  }
+  
+  if (status === "active") {
+    if (user.subscriptionPeriodEnd) {
+      const endDate = new Date(user.subscriptionPeriodEnd);
+      if (endDate < new Date()) {
+        return "expired";
+      }
+    }
+    return "active";
+  }
+  
+  if (status === "past_due" || status === "canceled") {
+    return "expired";
+  }
+  
+  return "inactive";
+}
+
+const STATUS_CONFIG: Record<UserStatus, { label: string; className: string; icon: typeof CheckCircle2 }> = {
+  active: { label: "Active", className: "bg-green-100 text-green-700", icon: CheckCircle2 },
+  trial: { label: "Trial", className: "bg-blue-100 text-blue-700", icon: Clock },
+  expired: { label: "Expired", className: "bg-red-100 text-red-700", icon: AlertTriangle },
+  inactive: { label: "Inactive", className: "bg-gray-100 text-gray-600", icon: Lock },
+};
+
 export default function AdminUsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [tierFilter, setTierFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Create user form state
@@ -44,16 +78,18 @@ export default function AdminUsersPage() {
     },
   });
 
-  // Filter users by tier and search query
+  // Filter users by tier, status, and search query
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesTier = tierFilter === "all" || (u.subscriptionTier || "basic") === tierFilter;
+      const matchesStatus = statusFilter === "all" || getUserStatus(u) === statusFilter;
       const matchesSearch = !searchQuery || 
         u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesTier && matchesSearch;
+        (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        u.id.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTier && matchesStatus && matchesSearch;
     });
-  }, [users, tierFilter, searchQuery]);
+  }, [users, tierFilter, statusFilter, searchQuery]);
 
   // Count by tier for filter badges
   const tierCounts = useMemo(() => {
@@ -61,6 +97,16 @@ export default function AdminUsersPage() {
     users.forEach((u) => {
       const tier = u.subscriptionTier || "basic";
       counts[tier] = (counts[tier] || 0) + 1;
+    });
+    return counts;
+  }, [users]);
+
+  // Count by status for filter badges
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: users.length, active: 0, trial: 0, expired: 0, inactive: 0 };
+    users.forEach((u) => {
+      const status = getUserStatus(u);
+      counts[status] = (counts[status] || 0) + 1;
     });
     return counts;
   }, [users]);
@@ -218,6 +264,18 @@ export default function AdminUsersPage() {
                   className="w-[200px]"
                   data-testid="input-search-users"
                 />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status ({statusCounts.all})</SelectItem>
+                    <SelectItem value="active">Active ({statusCounts.active})</SelectItem>
+                    <SelectItem value="trial">Trial ({statusCounts.trial})</SelectItem>
+                    <SelectItem value="expired">Expired ({statusCounts.expired})</SelectItem>
+                    <SelectItem value="inactive">Inactive ({statusCounts.inactive})</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={tierFilter} onValueChange={setTierFilter}>
                   <SelectTrigger className="w-[140px]" data-testid="select-tier-filter">
                     <Filter className="w-4 h-4 mr-2" />
@@ -275,12 +333,17 @@ export default function AdminUsersPage() {
                       })()}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={u.subscriptionStatus === "active" ? "default" : "outline"}
-                        className={u.subscriptionStatus === "active" ? "bg-green-600" : ""}
-                      >
-                        {u.subscriptionStatus}
-                      </Badge>
+                      {(() => {
+                        const status = getUserStatus(u);
+                        const config = STATUS_CONFIG[status];
+                        const StatusIcon = config.icon;
+                        return (
+                          <Badge variant="outline" className={config.className}>
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {config.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {u.subscriptionPeriodEnd
