@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles } from "lucide-react";
+import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles, Activity, AlertTriangle, CreditCard, UserCheck, Unlock } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { PublicUser as User, AdminNote, LoginHistory } from "@shared/api-types";
@@ -24,6 +24,43 @@ interface ContentActivity {
   patientEmail: string;
   sentAt: string;
   status: string;
+}
+
+interface TimelineEvent {
+  id: string;
+  type: 'login' | 'login_failed' | 'content_sent' | 'assessment' | 'subscription' | 'admin_action' | 'error' | 'other';
+  action: string;
+  description: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+  severity: 'info' | 'warning' | 'error' | 'success';
+}
+
+const TIMELINE_ICON_MAP: Record<TimelineEvent['type'], typeof Activity> = {
+  login: LogIn,
+  login_failed: AlertTriangle,
+  content_sent: FileText,
+  assessment: CheckCircle,
+  subscription: CreditCard,
+  admin_action: UserCheck,
+  error: AlertTriangle,
+  other: Activity,
+};
+
+const SEVERITY_COLORS: Record<TimelineEvent['severity'], string> = {
+  info: 'text-blue-600 bg-blue-50',
+  warning: 'text-amber-600 bg-amber-50',
+  error: 'text-red-600 bg-red-50',
+  success: 'text-green-600 bg-green-50',
+};
+
+interface UserFeatureFlag {
+  id: string;
+  name: string;
+  key: string;
+  enabled: boolean;
+  description: string | null;
+  category: string | null;
 }
 
 export default function UserDetailPage() {
@@ -88,6 +125,27 @@ export default function UserDetailPage() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/users/${userId}/content-activity`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch content activity");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: timeline = [], isLoading: timelineLoading } = useQuery<TimelineEvent[]>({
+    queryKey: ["admin-user-timeline", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/support-timeline`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch timeline");
+      const data = await res.json();
+      return data.events || [];
+    },
+    enabled: !!userId,
+  });
+
+  const { data: userFeatureFlags = [], isLoading: flagsLoading } = useQuery<UserFeatureFlag[]>({
+    queryKey: ["admin-user-feature-flags", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/feature-flags`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch feature flags");
       return res.json();
     },
     enabled: !!userId,
@@ -362,6 +420,7 @@ export default function UserDetailPage() {
             <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
             <TabsTrigger value="notes" data-testid="tab-notes">Notes</TabsTrigger>
             <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
+            <TabsTrigger value="flags" data-testid="tab-flags">Feature Flags</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -630,6 +689,65 @@ export default function UserDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Unified Timeline
+                </CardTitle>
+                <CardDescription>Complete activity history from the last 30 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {timelineLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : timeline.length > 0 ? (
+                  <div className="relative">
+                    <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-gray-200" />
+                    <div className="space-y-4">
+                      {timeline.slice(0, 50).map((event) => {
+                        const Icon = TIMELINE_ICON_MAP[event.type] || Activity;
+                        const colorClass = SEVERITY_COLORS[event.severity];
+                        return (
+                          <div key={event.id} className="relative pl-10" data-testid={`timeline-event-${event.id}`}>
+                            <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center ${colorClass}`}>
+                              <Icon className="w-3 h-3" />
+                            </div>
+                            <div className="bg-card border rounded-lg p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="font-medium text-sm">{event.description}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className={`text-xs ${colorClass}`}>
+                                  {event.action.replace(/_/g, ' ')}
+                                </Badge>
+                              </div>
+                              {event.metadata && Object.keys(event.metadata).length > 0 && (
+                                <div className="mt-2 text-xs text-muted-foreground font-mono">
+                                  {event.metadata.ipAddress && <span>IP: {String(event.metadata.ipAddress)}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {timeline.length > 50 && (
+                      <p className="text-sm text-muted-foreground text-center mt-4">
+                        Showing 50 of {timeline.length} events
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No activity recorded in the last 30 days</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                   <LogIn className="h-5 w-5" />
                   Login History
                 </CardTitle>
@@ -794,6 +912,62 @@ export default function UserDetailPage() {
                     </p>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="flags" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  Feature Flags
+                </CardTitle>
+                <CardDescription>Feature flags enabled for this user based on their subscription tier</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {flagsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : userFeatureFlags.length > 0 ? (
+                  <div className="space-y-4">
+                    {Object.entries(
+                      userFeatureFlags.reduce((acc, flag) => {
+                        const category = flag.category || 'Uncategorized';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(flag);
+                        return acc;
+                      }, {} as Record<string, UserFeatureFlag[]>)
+                    ).map(([category, flags]) => (
+                      <div key={category} className="space-y-2">
+                        <h4 className="font-medium text-sm text-muted-foreground">{category}</h4>
+                        <div className="grid gap-2">
+                          {flags.map((flag) => (
+                            <div
+                              key={flag.id}
+                              className={`flex items-center justify-between p-3 rounded-lg border ${flag.enabled ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
+                              data-testid={`flag-${flag.key}`}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{flag.name}</p>
+                                <p className="text-xs text-muted-foreground">{flag.key}</p>
+                                {flag.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{flag.description}</p>
+                                )}
+                              </div>
+                              <Badge variant={flag.enabled ? "default" : "outline"} className={flag.enabled ? "bg-green-600" : ""}>
+                                {flag.enabled ? "Enabled" : "Disabled"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No feature flags configured for this user</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
