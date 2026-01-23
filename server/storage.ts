@@ -307,6 +307,13 @@ export interface IStorage {
   updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
   getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]>;
   getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]>;
+  getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]>;
+  setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride>;
+  deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void>;
+  
+  // Feature flag audit log
+  createFeatureFlagAuditLog(entry: schema.InsertFeatureFlagAuditLog): Promise<schema.FeatureFlagAuditLog>;
+  getFeatureFlagAuditLog(userId: string): Promise<(schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[]>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -1580,6 +1587,63 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(schema.auditLogs.resourceType, "feature_flag"), eq(schema.auditLogs.resourceId, key)))
       .orderBy(desc(schema.auditLogs.createdAt))
       .limit(200);
+  }
+
+  async getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]> {
+    return db.select().from(schema.userFeatureOverrides).where(eq(schema.userFeatureOverrides.userId, userId));
+  }
+
+  async setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride> {
+    const existing = await db.select().from(schema.userFeatureOverrides)
+      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(schema.userFeatureOverrides)
+        .set({ isEnabled, setByAdminId: adminId, reason, updatedAt: new Date() })
+        .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(schema.userFeatureOverrides)
+      .values({ userId, featureFlagId, isEnabled, setByAdminId: adminId, reason })
+      .returning();
+    return created;
+  }
+
+  async deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void> {
+    await db.delete(schema.userFeatureOverrides)
+      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
+  }
+
+  async createFeatureFlagAuditLog(entry: schema.InsertFeatureFlagAuditLog): Promise<schema.FeatureFlagAuditLog> {
+    const [created] = await db.insert(schema.featureFlagAuditLog)
+      .values(entry)
+      .returning();
+    return created;
+  }
+
+  async getFeatureFlagAuditLog(userId: string): Promise<(schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[]> {
+    const results = await db.select({
+      id: schema.featureFlagAuditLog.id,
+      userId: schema.featureFlagAuditLog.userId,
+      featureFlagId: schema.featureFlagAuditLog.featureFlagId,
+      adminId: schema.featureFlagAuditLog.adminId,
+      action: schema.featureFlagAuditLog.action,
+      previousValue: schema.featureFlagAuditLog.previousValue,
+      newValue: schema.featureFlagAuditLog.newValue,
+      reason: schema.featureFlagAuditLog.reason,
+      createdAt: schema.featureFlagAuditLog.createdAt,
+      adminEmail: schema.users.email,
+      flagKey: schema.featureFlags.key,
+      flagName: schema.featureFlags.name,
+    })
+      .from(schema.featureFlagAuditLog)
+      .leftJoin(schema.users, eq(schema.featureFlagAuditLog.adminId, schema.users.id))
+      .leftJoin(schema.featureFlags, eq(schema.featureFlagAuditLog.featureFlagId, schema.featureFlags.id))
+      .where(eq(schema.featureFlagAuditLog.userId, userId))
+      .orderBy(desc(schema.featureFlagAuditLog.createdAt));
+    return results as (schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[];
   }
 
   // Enhanced admin analytics
