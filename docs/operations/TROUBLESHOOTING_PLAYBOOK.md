@@ -57,4 +57,4 @@ If the issue persists after first-response steps:
 2. Note the affected user and endpoint.
 3. Create a ticket with reproduction steps.
 
-For more detailed troubleshooting notes, see `docs/troubleshooting-guide.md`.
+For more detailed troubleshooting notes, see `docs/operations/troubleshooting-guide.md`.

@@ -90,4 +90,4 @@ Notes:
 
 - Some endpoints require an active subscription and feature flags.
 - If Stripe is not configured, subscription endpoints return HTTP 503.
-- For a full list of endpoints, see `docs/api-reference.md`.
+- For a full list of endpoints, see `docs/api/api-reference.md`.

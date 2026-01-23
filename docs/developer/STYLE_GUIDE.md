@@ -337,7 +337,7 @@ Examples:
 ## 12) Implementation guidance for Replit
 
 ### 12.1 Where to place this system
-- `docs/STYLE_GUIDE.md` (this file)
+- `docs/developer/STYLE_GUIDE.md` (this file)
 - `styles/tokens.css` (CSS variables)
 - `components/ui/*` (buttons, inputs, cards)
 - Add a `ThemeProvider` if you support dark mode

@@ -35,12 +35,12 @@ npm run start
 
 ## Deploy Checklist (High Level)
 
-1. Confirm env vars in `docs/ENVIRONMENT_REFERENCE.md`.
-2. Run tests or smoke tests (see `docs/TEST_STRATEGY.md`).
+1. Confirm env vars in `docs/data/ENVIRONMENT_REFERENCE.md`.
+2. Run tests or smoke tests (see `docs/testing/TEST_STRATEGY.md`).
 3. Ensure database migrations are applied: `npm run db:push`.
 4. Deploy and verify `GET /api/health`.
 
-Detailed checklist: `docs/deployment-checklist.md`.
+Detailed checklist: `docs/operations/deployment-checklist.md`.
 
 ## Incident Triage
 

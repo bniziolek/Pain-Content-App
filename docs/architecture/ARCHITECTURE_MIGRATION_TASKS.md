@@ -1,6 +1,6 @@
 # Architecture Migration Task List
 
-This document enumerates concrete tasks required to align the current codebase with the layered architecture in `docs/ARCHITECTURE.md`.
+This document enumerates concrete tasks required to align the current codebase with the layered architecture in `docs/architecture/ARCHITECTURE.md`.
 
 ## Migration Status: COMPLETE ✓
 

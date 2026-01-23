@@ -54,7 +54,7 @@ Migrate DriverPath from Replit hosting to Render for production deployment.
 The application currently uses several Replit-specific features that need to be replaced with platform-agnostic alternatives to enable hosting on Render.
 
 ## Migration Documentation
-See \`docs/RENDER_MIGRATION.md\` for the complete migration guide.
+See \`docs/operations/RENDER_MIGRATION.md\` for the complete migration guide.
 
 ## Key Components to Migrate
 

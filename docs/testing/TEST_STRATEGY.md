@@ -7,7 +7,7 @@ This document describes the automated and manual testing approach.
 1. **Type checks** (fast, static)
 2. **API tests** (Vitest)
 3. **E2E tests** (Playwright)
-4. **Manual test plan** (see `docs/test-plan.md`)
+4. **Manual test plan** (see `docs/testing/test-plan.md`)
 
 ## Quick Commands
 
@@ -73,7 +73,7 @@ This script provides smoke tests, role-based tests, and feature-focused runs.
 ## Test Data Assumptions
 
 - Some tests assume seeded data exists.
-- If a test fails due to missing data, run the seed helper described in `docs/DEVELOPER_ONBOARDING.md`.
+- If a test fails due to missing data, run the seed helper described in `docs/developer/DEVELOPER_ONBOARDING.md`.
 
 ## Known Gaps (TODO)
 

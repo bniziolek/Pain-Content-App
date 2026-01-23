@@ -42,7 +42,7 @@ npm test
 **Required for every merge.**
 
 ### For New Features:
-Add test cases to `docs/test-plan.md` covering:
+Add test cases to `docs/testing/test-plan.md` covering:
 - Happy path (feature works as expected)
 - Edge cases (empty states, max limits)
 - Error handling (invalid input, failures)
@@ -125,7 +125,7 @@ Add test case that:
 
 ## Test Execution Log
 
-After each QA session, log results in `docs/test-plan.md`:
+After each QA session, log results in `docs/testing/test-plan.md`:
 
 ```markdown
 | Date | Tester | Scope | Results | Notes |

@@ -1,6 +1,6 @@
 # Environment Reference
 
-This is a consolidated list of environment variables used by the codebase, with notes on where they are used. It complements `docs/environment-variables.md`.
+This is a consolidated list of environment variables used by the codebase, with notes on where they are used.
 
 ## Required (Production)
 
@@ -57,4 +57,36 @@ This is a consolidated list of environment variables used by the codebase, with 
 - If you use Replit, most `REPLIT_*` variables are auto-populated.
 - If `CONTENTFUL_*` is missing, content falls back to the database.
 - If Stripe variables are missing, subscription endpoints return 503.
-- For more guidance, see `docs/environment-variables.md`.
+
+## Setup (Replit)
+
+1. Open the **Secrets** tab in your Replit workspace.
+2. Click **+ New Secret** and add required variables.
+3. Keep `SESSION_SECRET` stable across restarts.
+
+Generate a secure session secret:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Development vs Production
+
+| Variable | Development | Production |
+|---|---|---|
+| `NODE_ENV` | `development` | `production` |
+| Base URL | `REPLIT_DEV_DOMAIN` | `REPLIT_DOMAINS` |
+| Cookie secure | `false` | `true` |
+
+## Troubleshooting
+
+### "Database connection failed"
+- Verify `DATABASE_URL` is set correctly.
+- Check the database is running.
+
+### "Session not persisting"
+- Ensure `SESSION_SECRET` is set and stable.
+- Confirm cookie settings match the environment.
+
+### "Contentful content not loading"
+- Verify `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN`.
+- Check that the Contentful space has content.

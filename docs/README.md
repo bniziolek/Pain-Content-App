@@ -13,34 +13,37 @@ This directory contains operational, architectural, and product documentation fo
 
 ## Operations and Reliability
 
-- `docs/OPERATIONS_RUNBOOK.md`: How to run, deploy, and triage the system.
-- `docs/TROUBLESHOOTING_PLAYBOOK.md`: Common issues and first-response steps.
-- `docs/deployment-checklist.md`: Deployment checklist.
+- `docs/operations/OPERATIONS_RUNBOOK.md`: How to run, deploy, and triage the system.
+- `docs/operations/TROUBLESHOOTING_PLAYBOOK.md`: Common issues and first-response steps.
+- `docs/operations/troubleshooting-guide.md`: Deeper troubleshooting for operators and engineers.
+- `docs/operations/deployment-checklist.md`: Deployment checklist.
+- `docs/operations/RENDER_MIGRATION.md`: Render migration notes.
 
 ## Developer Workflow
 
-- `docs/DEVELOPER_ONBOARDING.md`: Getting set up locally.
-- `docs/DEVELOPMENT_WORKFLOW.md`: Day-to-day development workflow.
-- `docs/STYLE_GUIDE.md`: Coding conventions.
-- `docs/SCRIPTS_AND_TOOLS.md`: Useful scripts and how to run them.
-- `docs/TEST_STRATEGY.md`: Automated and manual testing guidance.
+- `docs/developer/DEVELOPER_ONBOARDING.md`: Getting set up locally.
+- `docs/developer/DEVELOPMENT_WORKFLOW.md`: Day-to-day development workflow.
+- `docs/developer/STYLE_GUIDE.md`: Coding conventions.
+- `docs/developer/SCRIPTS_AND_TOOLS.md`: Useful scripts and how to run them.
+- `docs/developer/git-branching-workflow.md`: Branching guidelines.
+- `docs/developer/merge-process.md`: Merge expectations and QA steps.
+- `docs/testing/TEST_STRATEGY.md`: Automated and manual testing guidance.
 
 ## Product and API
 
-- `docs/api-reference.md`: API overview.
-- `docs/API_EXAMPLES.md`: Example requests and responses.
-- `docs/FEATURE_CATALOG.md`: Feature-to-code mapping.
-- `docs/FEATURE_WALKTHROUGHS.md`: Non-technical, step-by-step feature tours.
-- `docs/test-plan.md`: Manual test plan.
-- `docs/SCREENSHOT_GUIDE.md`: Production screenshot capture checklist.
+- `docs/api/api-reference.md`: API overview.
+- `docs/api/API_EXAMPLES.md`: Example requests and responses.
+- `docs/product/FEATURE_CATALOG.md`: Feature-to-code mapping.
+- `docs/product/FEATURE_WALKTHROUGHS.md`: Non-technical, step-by-step feature tours.
+- `docs/testing/test-plan.md`: Manual test plan.
+- `docs/testing/SCREENSHOT_GUIDE.md`: Production screenshot capture checklist.
 
 ## Data and Integrations
 
-- `docs/database-schema.md`: Database schema reference.
-- `docs/environment-variables.md`: Existing environment variable guide.
-- `docs/ENVIRONMENT_REFERENCE.md`: Consolidated env var reference with where used.
-- `docs/INTEGRATIONS.md`: External integrations.
+- `docs/data/database-schema.md`: Database schema reference.
+- `docs/data/ENVIRONMENT_REFERENCE.md`: Environment variables and where they are used.
+- `docs/data/INTEGRATIONS.md`: External integrations.
 
 ## Support and Troubleshooting
 
-- `docs/KNOWN_ISSUES.md`: Current issues and workarounds.
+- `docs/operations/KNOWN_ISSUES.md`: Current issues and workarounds.

@@ -43,6 +43,14 @@ import AboutPage from "@/pages/public/about";
 import PhilosophyPage from "@/pages/public/philosophy";
 import WhyDriverPathPage from "@/pages/public/why-driverpath";
 import FeaturesPage from "@/pages/public/features";
+import PrivacyPage from "@/pages/public/privacy";
+import TermsPage from "@/pages/public/terms";
+import ContactPage from "@/pages/public/contact";
+import PricingPage from "@/pages/public/pricing";
+import CaseStudiesPage from "@/pages/public/case-studies";
+import FAQPage from "@/pages/public/faq";
+import UseCasesPage from "@/pages/public/use-cases";
+import IntegrationsPage from "@/pages/public/integrations";
 
 function Router() {
   return (
@@ -57,6 +65,14 @@ function Router() {
       <Route path="/philosophy" component={PhilosophyPage} />
       <Route path="/why-driverpath" component={WhyDriverPathPage} />
       <Route path="/features" component={FeaturesPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/pricing" component={PricingPage} />
+      <Route path="/case-studies" component={CaseStudiesPage} />
+      <Route path="/faq" component={FAQPage} />
+      <Route path="/use-cases" component={UseCasesPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>

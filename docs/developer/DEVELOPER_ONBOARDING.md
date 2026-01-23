@@ -16,7 +16,7 @@ npm install
 
 ## 2) Configure Environment Variables
 
-See `docs/ENVIRONMENT_REFERENCE.md` and `docs/environment-variables.md`.
+See `docs/data/ENVIRONMENT_REFERENCE.md`.
 
 Minimum required for local development:
 
@@ -58,7 +58,7 @@ Then open `http://localhost:5000`.
 - E2E tests: `npx playwright test`
 - Test menu: `./scripts/test.sh`
 
-See `docs/TEST_STRATEGY.md` for details.
+See `docs/testing/TEST_STRATEGY.md` for details.
 
 ## 6) Common Local Issues
 

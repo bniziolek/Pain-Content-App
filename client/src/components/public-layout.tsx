@@ -79,8 +79,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/subscription">
+                  <Link href="/pricing">
                     <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-pricing">Pricing</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/use-cases">
+                    <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-use-cases">Use Cases</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/integrations">
+                    <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-integrations">Integrations</span>
                   </Link>
                 </li>
               </ul>
@@ -105,6 +115,11 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-blog">Blog</span>
                   </Link>
                 </li>
+                <li>
+                  <Link href="/case-studies">
+                    <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-case-studies">Case Studies</span>
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
@@ -113,6 +128,16 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <li>
                   <Link href="/why-driverpath">
                     <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-why">Why DriverPath</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/faq">
+                    <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-faq">Help Center</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contact">
+                    <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-contact">Contact Us</span>
                   </Link>
                 </li>
                 <li>
@@ -125,7 +150,17 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </div>
           <div className="border-t border-gray-200 pt-8 text-center text-muted-foreground text-sm">
             <p>&copy; 2025 DriverPath by Health Drivers Institute. All rights reserved.</p>
-            <div className="pt-4">
+            <div className="flex justify-center gap-6 pt-4">
+              <Link href="/privacy">
+                <span className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer" data-testid="footer-link-privacy">
+                  Privacy Policy
+                </span>
+              </Link>
+              <Link href="/terms">
+                <span className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer" data-testid="footer-link-terms">
+                  Terms of Service
+                </span>
+              </Link>
               <Link href="/admin/login">
                 <span className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer" data-testid="footer-link-admin">
                   Admin Access

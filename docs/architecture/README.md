@@ -9,15 +9,13 @@ This directory is the single source of truth for how to evolve the codebase unde
 - `ARCHITECTURE_MIGRATION_TASKS.md`: Concrete migration tasks to reach the target architecture.
 - `adrs/README.md`: Architecture Decision Records index.
 
-## Supporting Guides (Copies)
+## Related Guides
 
-These files are copied here for convenience so agents can work from a single directory.
-
-- `DEVELOPMENT_WORKFLOW.md`: Standard development workflow and expectations.
-- `STYLE_GUIDE.md`: Naming, formatting, and code conventions.
-- `database-schema.md`: Data model reference for storage interfaces.
-- `api-reference.md`: API contracts and route expectations.
-- `INTEGRATIONS.md`: External integrations and configuration details.
+- `docs/developer/DEVELOPMENT_WORKFLOW.md`: Standard development workflow and expectations.
+- `docs/developer/STYLE_GUIDE.md`: Naming, formatting, and code conventions.
+- `docs/data/database-schema.md`: Data model reference for storage interfaces.
+- `docs/api/api-reference.md`: API contracts and route expectations.
+- `docs/data/INTEGRATIONS.md`: External integrations and configuration details.
 
 ## Usage Notes
 

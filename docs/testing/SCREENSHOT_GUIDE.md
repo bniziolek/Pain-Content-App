@@ -31,4 +31,4 @@ Save files under `docs/assets/screenshots/` using the exact names below:
 - Use PNG format.
 - Avoid showing secrets or personal emails in the UI.
 
-Once screenshots are added, I will embed them into `docs/FEATURE_WALKTHROUGHS.md`.
+Once screenshots are added, I will embed them into `docs/product/FEATURE_WALKTHROUGHS.md`.
