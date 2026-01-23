@@ -6,6 +6,7 @@
 // Using Replit's Resend connector for authentication
 
 import { Resend } from 'resend';
+import type { EmailBrandingConfig } from '../../application/context';
 
 let connectionSettings: any;
 
@@ -47,16 +48,6 @@ async function getResendClient() {
     client: new Resend(apiKey),
     fromEmail
   };
-}
-
-export interface EmailBrandingConfig {
-  logoUrl?: string | null;
-  clinicName?: string | null;
-  tagline?: string | null;
-  primaryColor?: string | null;
-  accentColor?: string | null;
-  footerText?: string | null;
-  showPoweredBy?: boolean;
 }
 
 export interface ContentEmailData {
@@ -101,7 +92,6 @@ export async function sendContentEmail(data: ContentEmailData): Promise<{ succes
     
     const branding = data.branding;
     const primaryColor = branding?.primaryColor || '#0f766e';
-    const accentColor = branding?.accentColor || '#14B8A6';
     const headerName = branding?.clinicName || 'DriverPath';
     const tagline = branding?.tagline || 'Educational Content for Your Recovery';
     const showPoweredBy = branding?.showPoweredBy !== false;

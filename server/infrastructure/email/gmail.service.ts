@@ -3,6 +3,7 @@
  */
 
 import { google } from 'googleapis';
+import type { EmailBrandingConfig } from '../../application/context';
 
 let connectionSettings: any;
 
@@ -71,16 +72,6 @@ function createEmail(to: string, subject: string, htmlContent: string): string {
   ].join('\r\n');
   
   return Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-export interface EmailBrandingConfig {
-  logoUrl?: string | null;
-  clinicName?: string | null;
-  tagline?: string | null;
-  primaryColor?: string | null;
-  accentColor?: string | null;
-  footerText?: string | null;
-  showPoweredBy?: boolean;
 }
 
 export interface ContentEmailData {
