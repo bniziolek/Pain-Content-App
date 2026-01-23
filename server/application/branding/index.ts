@@ -5,7 +5,11 @@
 
 import type { User, ClinicBranding, InsertClinicBranding } from "@shared/schema";
 import type { AppContext, AuditRequestContext } from "../context";
-import type { MinimalAppContext } from "../context-helpers";
+import type { IStorage } from "../../storage";
+
+interface MinimalContext {
+  storage: IStorage;
+}
 
 export interface GetBrandingParams {
   clinician: User;
@@ -21,7 +25,7 @@ export interface DeleteBrandingParams {
 }
 
 export async function getClinicBranding(
-  ctx: MinimalAppContext,
+  ctx: MinimalContext,
   params: GetBrandingParams
 ): Promise<ClinicBranding | null> {
   const branding = await ctx.storage.getClinicBranding(params.clinician.id);
@@ -29,7 +33,7 @@ export async function getClinicBranding(
 }
 
 export async function saveClinicBranding(
-  ctx: MinimalAppContext,
+  ctx: MinimalContext,
   params: SaveBrandingParams
 ): Promise<ClinicBranding> {
   const existing = await ctx.storage.getClinicBranding(params.clinician.id);
@@ -45,14 +49,14 @@ export async function saveClinicBranding(
     return updated;
   } else {
     return await ctx.storage.createClinicBranding({
-      userId: params.clinician.id,
       ...params.branding,
+      userId: params.clinician.id,
     } as InsertClinicBranding);
   }
 }
 
 export async function deleteClinicBranding(
-  ctx: MinimalAppContext,
+  ctx: MinimalContext,
   params: DeleteBrandingParams
 ): Promise<void> {
   await ctx.storage.deleteClinicBranding(params.clinician.id);

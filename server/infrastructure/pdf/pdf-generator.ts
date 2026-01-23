@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer';
 import { marked } from 'marked';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { ContentItem, ClinicBranding } from '@shared/schema';
+import type { ContentItem } from '@shared/schema';
 
 const execAsync = promisify(exec);
 
@@ -314,7 +314,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .toc-link {
-      color: var(--primary-color);
+      color: var(--accent-color);
       text-decoration: none;
     }
     
@@ -395,7 +395,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .content-body a {
-      color: var(--primary-color);
+      color: var(--accent-color);
       text-decoration: underline;
     }
     
@@ -456,7 +456,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
       }
       
       a {
-        color: var(--primary-color) !important;
+        color: var(--accent-color) !important;
       }
     }
   </style>

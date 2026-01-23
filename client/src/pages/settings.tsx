@@ -14,8 +14,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useTour, resetTour } from "@/components/product-tour";
 import { useLocation } from "wouter";
-import type { EmailSettings } from "@shared/api-types";
-import type { ClinicBranding } from "@shared/schema";
+import type { EmailSettings, ClinicBranding } from "@shared/api-types";
 
 interface ProfileFormData {
   name: string;
@@ -145,7 +144,7 @@ export default function SettingsPage() {
 
   const currentMode = emailSettings?.emailDeliveryMode || 'central';
 
-  const isProOrEnterprise = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'enterprise';
+  const isProOrEnterprise = (user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'enterprise') && isSubscriptionActive;
 
   const [brandingForm, setBrandingForm] = useState<BrandingFormData>({
     logoUrl: '',
@@ -159,7 +158,7 @@ export default function SettingsPage() {
     showPoweredBy: true,
   });
 
-  const { data: branding, isLoading: brandingLoading } = useQuery<ClinicBranding | null>({
+  const { data: branding } = useQuery<ClinicBranding | null>({
     queryKey: ["/api/branding"],
     enabled: isProOrEnterprise,
   });
@@ -585,7 +584,7 @@ export default function SettingsPage() {
                             placeholder={user?.clinicName || "Your Clinic Name"}
                             data-testid="input-branding-clinic-name"
                           />
-                          <p className="text-xs text-muted-foreground">Leave blank to use your profile's clinic name</p>
+                          <p className="text-xs text-muted-foreground">Leave blank to use default "DriverPath" branding</p>
                         </div>
                       </div>
                       <div className="space-y-2">

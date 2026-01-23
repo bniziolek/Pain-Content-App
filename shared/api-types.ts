@@ -223,3 +223,20 @@ export interface LoginHistory {
   failureReason: string | null;
   createdAt: ISODateString;
 }
+
+export interface ClinicBranding {
+  id: string;
+  userId: string;
+  logoUrl: string | null;
+  clinicName: string | null;
+  tagline: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  accentColor: string | null;
+  footerText: string | null;
+  showWatermark: boolean | null;
+  showPoweredBy: boolean | null;
+  isActive: boolean | null;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
