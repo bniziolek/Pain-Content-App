@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { PublicUser as User, AdminNote, LoginHistory } from "@shared/api-types";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface ContentActivity {
   contentId: string;
@@ -59,6 +60,8 @@ interface UserFeatureFlag {
   name: string;
   key: string;
   enabled: boolean;
+  defaultEnabled: boolean;
+  hasOverride: boolean;
   description: string | null;
   category: string | null;
 }
@@ -73,6 +76,11 @@ export default function UserDetailPage() {
   const [editedName, setEditedName] = useState("");
   const [editedEmail, setEditedEmail] = useState("");
   const [editedRole, setEditedRole] = useState<"clinician" | "admin">("clinician");
+  const [editedPhone, setEditedPhone] = useState("");
+  const [editedClinicName, setEditedClinicName] = useState("");
+  const [editedCredentials, setEditedCredentials] = useState("");
+  const [editedAddress, setEditedAddress] = useState("");
+  const [isDemographicsEditing, setIsDemographicsEditing] = useState(false);
 
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [extendMonths, setExtendMonths] = useState("");
@@ -95,6 +103,10 @@ export default function UserDetailPage() {
       setEditedName(userData.name || "");
       setEditedEmail(userData.email);
       setEditedRole(userData.role as "clinician" | "admin");
+      setEditedPhone(userData.phone || "");
+      setEditedClinicName(userData.clinicName || "");
+      setEditedCredentials(userData.credentials || "");
+      setEditedAddress(userData.address || "");
       return userData;
     },
     enabled: !!userId,
@@ -161,6 +173,10 @@ export default function UserDetailPage() {
           name: editedName,
           email: editedEmail,
           role: editedRole,
+          phone: editedPhone,
+          clinicName: editedClinicName,
+          credentials: editedCredentials,
+          address: editedAddress,
         }),
       });
       if (!res.ok) throw new Error("Failed to update user");
@@ -170,6 +186,7 @@ export default function UserDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-user", userId] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setIsEditing(false);
+      setIsDemographicsEditing(false);
       toast({
         title: "User Updated",
         description: "User information has been updated successfully.",
@@ -322,6 +339,58 @@ export default function UserDetailPage() {
     onError: (error: Error) => {
       toast({
         title: "Failed to Delete Note",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleFeatureFlagMutation = useMutation({
+    mutationFn: async ({ flagId, enabled }: { flagId: string; enabled: boolean }) => {
+      const res = await fetch(`/api/admin/users/${userId}/feature-flags/${flagId}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle feature flag");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-feature-flags", userId] });
+      toast({
+        title: "Feature Flag Updated",
+        description: "User's feature flag has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update Flag",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetFeatureFlagMutation = useMutation({
+    mutationFn: async (flagId: string) => {
+      const res = await fetch(`/api/admin/users/${userId}/feature-flags/${flagId}/override`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to reset feature flag");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-feature-flags", userId] });
+      toast({
+        title: "Flag Reset",
+        description: "Feature flag has been reset to default.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Reset Flag",
         description: error.message,
         variant: "destructive",
       });
@@ -547,27 +616,107 @@ export default function UserDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Clinician Demographics</CardTitle>
-                <CardDescription>Professional and contact information for identity verification</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Clinician Demographics</CardTitle>
+                  <CardDescription>Professional and contact information for identity verification</CardDescription>
+                </div>
+                {!isDemographicsEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsDemographicsEditing(true)}
+                    data-testid="button-edit-demographics"
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsDemographicsEditing(false);
+                        setEditedPhone(user.phone || "");
+                        setEditedClinicName(user.clinicName || "");
+                        setEditedCredentials(user.credentials || "");
+                        setEditedAddress(user.address || "");
+                      }}
+                      data-testid="button-cancel-demographics"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => updateUserMutation.mutate()}
+                      disabled={updateUserMutation.isPending}
+                      data-testid="button-save-demographics"
+                    >
+                      {updateUserMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      Save
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Clinic Name</Label>
-                    <p className="text-sm font-medium" data-testid="text-clinic-name">{user.clinicName || "—"}</p>
+                    {isDemographicsEditing ? (
+                      <Input
+                        value={editedClinicName}
+                        onChange={(e) => setEditedClinicName(e.target.value)}
+                        placeholder="Enter clinic name"
+                        data-testid="input-clinic-name"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium" data-testid="text-clinic-name">{user.clinicName || "—"}</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Credentials</Label>
-                    <p className="text-sm font-medium" data-testid="text-credentials">{user.credentials || "—"}</p>
+                    {isDemographicsEditing ? (
+                      <Input
+                        value={editedCredentials}
+                        onChange={(e) => setEditedCredentials(e.target.value)}
+                        placeholder="e.g., DPT, PT, OT"
+                        data-testid="input-credentials"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium" data-testid="text-credentials">{user.credentials || "—"}</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Phone</Label>
-                    <p className="text-sm font-medium" data-testid="text-phone">{user.phone || "—"}</p>
+                    {isDemographicsEditing ? (
+                      <Input
+                        value={editedPhone}
+                        onChange={(e) => setEditedPhone(e.target.value)}
+                        placeholder="Enter phone number"
+                        data-testid="input-phone"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium" data-testid="text-phone">{user.phone || "—"}</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Address</Label>
-                    <p className="text-sm font-medium" data-testid="text-address">{user.address || "—"}</p>
+                    {isDemographicsEditing ? (
+                      <Input
+                        value={editedAddress}
+                        onChange={(e) => setEditedAddress(e.target.value)}
+                        placeholder="Enter address"
+                        data-testid="input-address"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium" data-testid="text-address">{user.address || "—"}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -973,19 +1122,42 @@ export default function UserDetailPage() {
                           {flags.map((flag) => (
                             <div
                               key={flag.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border ${flag.enabled ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
+                              className={`flex items-center justify-between p-3 rounded-lg border ${flag.hasOverride ? 'border-amber-300 bg-amber-50' : flag.enabled ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
                               data-testid={`flag-${flag.key}`}
                             >
-                              <div>
-                                <p className="font-medium text-sm">{flag.name}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">{flag.name}</p>
+                                  {flag.hasOverride && (
+                                    <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                                      Override
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">{flag.key}</p>
                                 {flag.description && (
                                   <p className="text-xs text-muted-foreground mt-1">{flag.description}</p>
                                 )}
                               </div>
-                              <Badge variant={flag.enabled ? "default" : "outline"} className={flag.enabled ? "bg-green-600" : ""}>
-                                {flag.enabled ? "Enabled" : "Disabled"}
-                              </Badge>
+                              <div className="flex items-center gap-3">
+                                {flag.hasOverride && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => resetFeatureFlagMutation.mutate(flag.id)}
+                                    disabled={resetFeatureFlagMutation.isPending}
+                                    data-testid={`button-reset-flag-${flag.key}`}
+                                  >
+                                    Reset
+                                  </Button>
+                                )}
+                                <Switch
+                                  checked={flag.enabled}
+                                  onCheckedChange={(checked) => toggleFeatureFlagMutation.mutate({ flagId: flag.id, enabled: checked })}
+                                  disabled={toggleFeatureFlagMutation.isPending}
+                                  data-testid={`switch-flag-${flag.key}`}
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>

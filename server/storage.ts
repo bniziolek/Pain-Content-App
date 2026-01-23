@@ -307,6 +307,9 @@ export interface IStorage {
   updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
   getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]>;
   getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]>;
+  getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]>;
+  setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride>;
+  deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void>;
 
   // Admin analytics
   getAdminStats(): Promise<{
@@ -1580,6 +1583,33 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(schema.auditLogs.resourceType, "feature_flag"), eq(schema.auditLogs.resourceId, key)))
       .orderBy(desc(schema.auditLogs.createdAt))
       .limit(200);
+  }
+
+  async getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]> {
+    return db.select().from(schema.userFeatureOverrides).where(eq(schema.userFeatureOverrides.userId, userId));
+  }
+
+  async setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride> {
+    const existing = await db.select().from(schema.userFeatureOverrides)
+      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(schema.userFeatureOverrides)
+        .set({ isEnabled, setByAdminId: adminId, reason, updatedAt: new Date() })
+        .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(schema.userFeatureOverrides)
+      .values({ userId, featureFlagId, isEnabled, setByAdminId: adminId, reason })
+      .returning();
+    return created;
+  }
+
+  async deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void> {
+    await db.delete(schema.userFeatureOverrides)
+      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
   }
 
   // Enhanced admin analytics
