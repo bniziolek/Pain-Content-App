@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { 
@@ -17,18 +19,31 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  User
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const STEPS = [
   { id: 0, title: "Welcome", icon: Sparkles },
-  { id: 1, title: "Email Delivery", icon: Mail },
-  { id: 2, title: "Explore Content", icon: BookOpen },
-  { id: 3, title: "Your First Assessment", icon: ClipboardList },
-  { id: 4, title: "Send Your First Content", icon: Send },
-  { id: 5, title: "All Set!", icon: CheckCircle2 },
+  { id: 1, title: "Your Profile", icon: User },
+  { id: 2, title: "Email Delivery", icon: Mail },
+  { id: 3, title: "Explore Content", icon: BookOpen },
+  { id: 4, title: "Your First Assessment", icon: ClipboardList },
+  { id: 5, title: "Send Your First Content", icon: Send },
+  { id: 6, title: "All Set!", icon: CheckCircle2 },
 ];
+
+interface ProfileFormData {
+  name: string;
+  phone: string;
+  clinicName: string;
+  credentials: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
 
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
@@ -39,23 +54,60 @@ export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [profileForm, setProfileForm] = useState<ProfileFormData>({
+    name: '',
+    phone: '',
+    clinicName: '',
+    credentials: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+  });
   
   useEffect(() => {
     if (user && !hasInitialized) {
       const savedStep = user.onboardingStep || 0;
       setCurrentStep(Math.min(savedStep, STEPS.length - 1));
+      setProfileForm({
+        name: user.name || '',
+        phone: user.phone || '',
+        clinicName: user.clinicName || '',
+        credentials: user.credentials || '',
+        address: user.address || '',
+        city: user.city || '',
+        state: user.state || '',
+        zipCode: user.zipCode || '',
+      });
       setHasInitialized(true);
     }
   }, [user, hasInitialized]);
 
   const { data: content } = useQuery({
     queryKey: ["/api/content"],
-    enabled: currentStep === 2,
+    enabled: currentStep === 3,
   });
 
   const { data: assessments } = useQuery({
     queryKey: ["/api/assessments"],
-    enabled: currentStep === 3,
+    enabled: currentStep === 4,
+  });
+
+  const updateProfile = useMutation({
+    mutationFn: async (updates: Partial<ProfileFormData>) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      refreshUser();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to save profile",
+        variant: "destructive" 
+      });
+    },
   });
 
   const updateOnboarding = useMutation({
@@ -82,6 +134,9 @@ export default function OnboardingPage() {
 
   const handleNext = async () => {
     if (currentStep < STEPS.length - 1) {
+      if (currentStep === 1) {
+        await updateProfile.mutateAsync(profileForm);
+      }
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
       await updateOnboarding.mutateAsync({ onboardingStep: nextStep });
@@ -137,11 +192,12 @@ export default function OnboardingPage() {
 
           <CardContent className="pt-4">
             {currentStep === 0 && <WelcomeStep />}
-            {currentStep === 1 && <EmailStep />}
-            {currentStep === 2 && <ContentStep content={content} />}
-            {currentStep === 3 && <AssessmentStep assessments={assessments} />}
-            {currentStep === 4 && <SendStep />}
-            {currentStep === 5 && <CompleteStep />}
+            {currentStep === 1 && <ProfileStep profileForm={profileForm} setProfileForm={setProfileForm} />}
+            {currentStep === 2 && <EmailStep />}
+            {currentStep === 3 && <ContentStep content={content} />}
+            {currentStep === 4 && <AssessmentStep assessments={assessments} />}
+            {currentStep === 5 && <SendStep />}
+            {currentStep === 6 && <CompleteStep />}
           </CardContent>
 
           <CardFooter className="flex justify-between pt-6">
@@ -215,6 +271,117 @@ function WelcomeStep() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+interface ProfileStepProps {
+  profileForm: ProfileFormData;
+  setProfileForm: React.Dispatch<React.SetStateAction<ProfileFormData>>;
+}
+
+function ProfileStep({ profileForm, setProfileForm }: ProfileStepProps) {
+  return (
+    <div className="space-y-4">
+      <CardDescription className="text-base text-center">
+        Tell us about yourself. This information will appear on content packets sent to your patients.
+      </CardDescription>
+      
+      <div className="space-y-4 max-w-md mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="onboard-name">Full Name</Label>
+            <Input 
+              id="onboard-name"
+              value={profileForm.name}
+              onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Dr. Jane Smith"
+              data-testid="input-onboard-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboard-credentials">Credentials</Label>
+            <Input 
+              id="onboard-credentials"
+              value={profileForm.credentials}
+              onChange={(e) => setProfileForm(prev => ({ ...prev, credentials: e.target.value }))}
+              placeholder="DPT, OCS"
+              data-testid="input-onboard-credentials"
+            />
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="onboard-phone">Phone Number</Label>
+          <Input 
+            id="onboard-phone"
+            type="tel"
+            value={profileForm.phone}
+            onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+            placeholder="(555) 123-4567"
+            data-testid="input-onboard-phone"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="onboard-clinic">Clinic / Practice Name</Label>
+          <Input 
+            id="onboard-clinic"
+            value={profileForm.clinicName}
+            onChange={(e) => setProfileForm(prev => ({ ...prev, clinicName: e.target.value }))}
+            placeholder="Summit Physical Therapy"
+            data-testid="input-onboard-clinic"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="onboard-address">Street Address</Label>
+          <Input 
+            id="onboard-address"
+            value={profileForm.address}
+            onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
+            placeholder="123 Main Street, Suite 100"
+            data-testid="input-onboard-address"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="space-y-2 col-span-2">
+            <Label htmlFor="onboard-city">City</Label>
+            <Input 
+              id="onboard-city"
+              value={profileForm.city}
+              onChange={(e) => setProfileForm(prev => ({ ...prev, city: e.target.value }))}
+              placeholder="Denver"
+              data-testid="input-onboard-city"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboard-state">State</Label>
+            <Input 
+              id="onboard-state"
+              value={profileForm.state}
+              onChange={(e) => setProfileForm(prev => ({ ...prev, state: e.target.value }))}
+              placeholder="CO"
+              data-testid="input-onboard-state"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboard-zip">ZIP Code</Label>
+            <Input 
+              id="onboard-zip"
+              value={profileForm.zipCode}
+              onChange={(e) => setProfileForm(prev => ({ ...prev, zipCode: e.target.value }))}
+              placeholder="80202"
+              data-testid="input-onboard-zip"
+            />
+          </div>
+        </div>
+      </div>
+      
+      <p className="text-xs text-muted-foreground text-center">
+        You can update this information anytime in your Settings.
+      </p>
     </div>
   );
 }

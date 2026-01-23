@@ -4,6 +4,7 @@
 
 import type { Express } from "express";
 import passport from "passport";
+import { z } from "zod";
 import { toPublicUser } from "../serializers/user";
 import {
   AppError,
@@ -12,8 +13,21 @@ import {
   recordLoginSuccess,
   recordLogout,
   registerUser,
+  updateUserProfile,
 } from "../application";
 import { buildAuditRequestContext } from "../http/audit-context";
+
+const profileUpdateSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  clinicName: z.string().optional(),
+  credentials: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+});
 
 export function registerAuthRoutes(app: Express) {
   const appContext = createAppContext();
@@ -73,5 +87,30 @@ export function registerAuthRoutes(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(toPublicUser(req.user as any));
+  });
+
+  app.patch("/api/user/profile", async (req, res, next) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const updates = profileUpdateSchema.parse(req.body);
+      const user = req.user as any;
+
+      const updatedUser = await updateUserProfile(
+        appContext,
+        buildAuditRequestContext(req),
+        { userId: user.id, updates }
+      );
+
+      res.json(toPublicUser(updatedUser));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid input", details: error.errors });
+      }
+      if (error instanceof AppError) {
+        return res.status(error.status).send(error.message);
+      }
+      next(error);
+    }
   });
 }

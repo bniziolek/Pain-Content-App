@@ -22,6 +22,13 @@ export interface PublicUser {
   onboardingStep?: number;
   emailDeliveryMode?: string;
   activePersona?: string | null;
+  phone?: string | null;
+  clinicName?: string | null;
+  credentials?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
 }
 
 export interface ContentItem {

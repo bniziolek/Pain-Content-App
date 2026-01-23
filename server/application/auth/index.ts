@@ -6,3 +6,4 @@ export * from "./register-user";
 export * from "./record-login-failure";
 export * from "./record-login-success";
 export * from "./record-logout";
+export * from "./update-user-profile";

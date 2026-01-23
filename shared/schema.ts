@@ -30,6 +30,15 @@ export const users = pgTable("users", {
   // Persona switching for super admins
   activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
   
+  // Clinician demographic/profile information
+  phone: text("phone"),
+  clinicName: text("clinic_name"),
+  credentials: text("credentials"), // e.g., DPT, PT, OT, MD, etc.
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

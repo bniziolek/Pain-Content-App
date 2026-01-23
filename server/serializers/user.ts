@@ -19,6 +19,13 @@ export function toPublicUser(user: User): PublicUser {
     onboardingStep: user.onboardingStep ?? undefined,
     emailDeliveryMode: user.emailDeliveryMode ?? undefined,
     activePersona: user.activePersona ?? null,
+    phone: user.phone ?? null,
+    clinicName: user.clinicName ?? null,
+    credentials: user.credentials ?? null,
+    address: user.address ?? null,
+    city: user.city ?? null,
+    state: user.state ?? null,
+    zipCode: user.zipCode ?? null,
   };
 }
 

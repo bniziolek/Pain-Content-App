@@ -99,7 +99,18 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(userId: string, updates: { name?: string; email?: string; role?: string }): Promise<void>;
+  updateUser(userId: string, updates: { 
+    name?: string; 
+    email?: string; 
+    role?: string;
+    phone?: string;
+    clinicName?: string;
+    credentials?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  }): Promise<void>;
   updateUserRole(userId: string, role: string): Promise<void>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
   updateLastLogin(userId: string): Promise<void>;
@@ -386,7 +397,18 @@ export class DatabaseStorage implements IStorage {
     return user!;
   }
 
-  async updateUser(userId: string, updates: { name?: string; email?: string; role?: string }): Promise<void> {
+  async updateUser(userId: string, updates: { 
+    name?: string; 
+    email?: string; 
+    role?: string;
+    phone?: string;
+    clinicName?: string;
+    credentials?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  }): Promise<void> {
     await db.update(schema.users)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
