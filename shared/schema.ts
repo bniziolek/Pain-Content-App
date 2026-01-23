@@ -727,6 +727,26 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 
+// User feature overrides - per-user feature flag overrides set by admins
+export const userFeatureOverrides = pgTable("user_feature_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  isEnabled: boolean("is_enabled").notNull(),
+  setByAdminId: varchar("set_by_admin_id").references(() => users.id),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertUserFeatureOverrideSchema = createInsertSchema(userFeatureOverrides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserFeatureOverride = z.infer<typeof insertUserFeatureOverrideSchema>;
+export type UserFeatureOverride = typeof userFeatureOverrides.$inferSelect;
+
 // Admin notes schemas
 export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
   id: true,

@@ -88,9 +88,10 @@ router.get("/users/:id", requireAdmin, async (req, res, next) => {
 router.patch("/users/:id", requireAdmin, async (req, res, next) => {
   try {
     const { name, email, role } = req.body;
+    const { phone, clinicName, credentials, address } = req.body;
     const user = await updateUser(appContext, {
       userId: req.params.id,
-      updates: { name, email, role },
+      updates: { name, email, role, phone, clinicName, credentials, address },
     });
     if (!user) {
       return res.status(404).send("User not found");
@@ -330,21 +331,58 @@ router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) 
     }
 
     const allFlags = await appContext.storage.getFeatureFlags();
+    const userOverrides = await appContext.storage.getUserFeatureOverrides(req.params.userId);
     const userTier = user.subscriptionTier || "basic";
 
+    const overrideMap = new Map(userOverrides.map(o => [o.featureFlagId, o]));
+
     const userFlags = allFlags.map((flag) => {
-      const enabled = flag.isEnabled && (!flag.tiersAllowed || flag.tiersAllowed.length === 0 || flag.tiersAllowed.includes(userTier));
+      const override = overrideMap.get(flag.id);
+      const tierAllowed = !flag.tiersAllowed || flag.tiersAllowed.length === 0 || flag.tiersAllowed.includes(userTier);
+      const defaultEnabled = flag.isEnabled && tierAllowed;
+      const enabled = override ? override.isEnabled : defaultEnabled;
+      
       return {
         id: flag.id,
         name: flag.name,
         key: flag.key,
         enabled,
+        defaultEnabled,
+        hasOverride: !!override,
         description: flag.description,
         category: flag.category,
       };
     });
 
     res.json(userFlags);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (req, res, next) => {
+  try {
+    const { enabled } = req.body;
+    const adminId = req.user?.id;
+    
+    await appContext.storage.setUserFeatureOverride(
+      req.params.userId,
+      req.params.flagId,
+      enabled,
+      adminId,
+      `Set by admin`
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, async (req, res, next) => {
+  try {
+    await appContext.storage.deleteUserFeatureOverride(req.params.userId, req.params.flagId);
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

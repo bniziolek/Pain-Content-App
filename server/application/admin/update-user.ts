@@ -11,6 +11,10 @@ export interface UpdateUserInput {
     name?: string;
     email?: string;
     role?: string;
+    phone?: string;
+    clinicName?: string;
+    credentials?: string;
+    address?: string;
   };
 }
 
