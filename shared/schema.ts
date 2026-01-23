@@ -801,7 +801,7 @@ export const clinicBranding = pgTable("clinic_branding", {
   
   // Logo and basic info
   logoUrl: text("logo_url"), // Uploaded clinic logo URL
-  clinicName: text("clinic_name"), // Custom display name (overrides user.clinicName if set)
+  clinicName: text("clinic_name"), // Custom display name used in branded content/PDFs
   tagline: text("tagline"), // Optional tagline below clinic name
   
   // Color scheme
@@ -811,7 +811,6 @@ export const clinicBranding = pgTable("clinic_branding", {
   
   // Footer and additional options
   footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
-  showWatermark: boolean("show_watermark").default(false), // Subtle logo watermark on pages
   showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
   
   // Activation status
@@ -828,3 +827,16 @@ export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omi
 });
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
 export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+// API request schema - only allows client-editable fields (excludes server-controlled fields)
+export const brandingRequestSchema = z.object({
+  logoUrl: z.string().nullable().optional(),
+  clinicName: z.string().nullable().optional(),
+  tagline: z.string().nullable().optional(),
+  primaryColor: z.string().nullable().optional(),
+  secondaryColor: z.string().nullable().optional(),
+  accentColor: z.string().nullable().optional(),
+  footerText: z.string().nullable().optional(),
+  showPoweredBy: z.boolean().nullable().optional(),
+});
+export type BrandingRequest = z.infer<typeof brandingRequestSchema>;

@@ -2002,7 +2002,10 @@ export class DatabaseStorage implements IStorage {
     return created!;
   }
 
-  async updateClinicBranding(userId: string, updates: Partial<schema.InsertClinicBranding>): Promise<schema.ClinicBranding | undefined> {
+  async updateClinicBranding(
+    userId: string,
+    updates: Partial<Omit<schema.InsertClinicBranding, "userId" | "createdAt" | "updatedAt" | "isActive">>,
+  ): Promise<schema.ClinicBranding | undefined> {
     const [updated] = await db.update(schema.clinicBranding)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.clinicBranding.userId, userId))

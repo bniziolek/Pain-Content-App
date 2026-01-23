@@ -7,19 +7,20 @@ import { Router } from "express";
 import { requireAuth, requireTier } from "../auth";
 import {
   getClinicBranding,
-  saveClinicBranding,
-  deleteClinicBranding,
-  createMinimalContext,
+  saveClinicBrandingWithAudit,
+  deleteClinicBrandingWithAudit,
+  createAppContext,
 } from "../application";
-import { insertClinicBrandingSchema } from "@shared/schema";
+import { buildAuditRequestContext } from "../http/audit-context";
+import { brandingRequestSchema } from "@shared/schema";
 
 const requireProOrEnterprise = requireTier(['pro', 'enterprise']);
 
 const router = Router();
-const appContext = createMinimalContext();
 
 router.get("/", requireAuth, requireProOrEnterprise, async (req, res, next) => {
   try {
+    const appContext = createAppContext();
     const branding = await getClinicBranding(appContext, { clinician: req.user! });
     res.json(branding || null);
   } catch (error) {
@@ -29,12 +30,14 @@ router.get("/", requireAuth, requireProOrEnterprise, async (req, res, next) => {
 
 router.put("/", requireAuth, requireProOrEnterprise, async (req, res, next) => {
   try {
-    const parseResult = insertClinicBrandingSchema.partial().safeParse(req.body);
+    const parseResult = brandingRequestSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({ error: "Invalid branding data", details: parseResult.error.issues });
     }
 
-    const branding = await saveClinicBranding(appContext, {
+    const appContext = createAppContext();
+    const auditContext = buildAuditRequestContext(req);
+    const branding = await saveClinicBrandingWithAudit(appContext, auditContext, {
       clinician: req.user!,
       branding: parseResult.data,
     });
@@ -46,7 +49,9 @@ router.put("/", requireAuth, requireProOrEnterprise, async (req, res, next) => {
 
 router.delete("/", requireAuth, requireProOrEnterprise, async (req, res, next) => {
   try {
-    await deleteClinicBranding(appContext, { clinician: req.user! });
+    const appContext = createAppContext();
+    const auditContext = buildAuditRequestContext(req);
+    await deleteClinicBrandingWithAudit(appContext, auditContext, { clinician: req.user! });
     res.status(204).send();
   } catch (error) {
     next(error);

@@ -10,6 +10,39 @@ import type { ContentItem } from '@shared/schema';
 
 const execAsync = promisify(exec);
 
+// Security helpers for branding values
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
+function validateColor(color: string | null | undefined, defaultColor: string): string {
+  if (!color) return defaultColor;
+  // Strict hex color validation
+  const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
+  return hexColorRegex.test(color) ? color : defaultColor;
+}
+
+function validateLogoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    // Only allow https URLs to prevent SSRF attacks
+    if (parsed.protocol === 'https:') {
+      return url;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function getChromiumPath(): Promise<string> {
   try {
     const { stdout } = await execAsync('which chromium');
@@ -28,7 +61,6 @@ export interface PDFBrandingConfig {
   secondaryColor?: string | null;
   accentColor?: string | null;
   footerText?: string | null;
-  showWatermark?: boolean;
   showPoweredBy?: boolean;
 }
 
@@ -55,7 +87,7 @@ function generateTableOfContents(items: ContentItem[]): string {
   if (items.length === 0) return '';
   
   const tocItems = items.map((item, index) => 
-    `<li><a href="#content-${index}" class="toc-link">${item.title}</a></li>`
+    `<li><a href="#content-${index}" class="toc-link">${escapeHtml(item.title)}</a></li>`
   ).join('\n');
   
   return `
@@ -79,20 +111,23 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
   const title = config.packetTitle || 'Your Personalized Health Education';
   const branding = config.branding;
   
-  // Determine logo/header content based on branding
-  const logoSection = branding?.logoUrl 
-    ? `<img src="${branding.logoUrl}" alt="${branding.clinicName || 'Clinic Logo'}" class="logo-image" onerror="this.style.display='none'; document.getElementById('fallback-name').style.display='block';" />
-       <h1 id="fallback-name" style="display:none;">${branding.clinicName || 'DriverPath'}</h1>`
-    : `<h1>${branding?.clinicName || 'DriverPath'}</h1>`;
+  // Sanitize and validate branding values
+  const validatedLogoUrl = validateLogoUrl(branding?.logoUrl);
+  const clinicName = branding?.clinicName ? escapeHtml(branding.clinicName) : 'DriverPath';
+  const tagline = branding?.tagline ? escapeHtml(branding.tagline) : (branding?.clinicName ? '' : 'Evidence-Based Patient Education');
   
-  const tagline = branding?.tagline || (branding?.clinicName ? '' : 'Evidence-Based Patient Education');
+  // Determine logo/header content based on branding
+  const logoSection = validatedLogoUrl 
+    ? `<img src="${escapeHtml(validatedLogoUrl)}" alt="${clinicName}" class="logo-image" style="max-width: 300px; max-height: 150px;" />
+       <h1 style="margin-top: 1rem;">${clinicName}</h1>`
+    : `<h1>${clinicName}</h1>`;
   
   // Determine footer text
   let footerContent = '';
   if (branding?.footerText) {
-    footerContent = branding.footerText;
+    footerContent = escapeHtml(branding.footerText);
   } else if (branding?.showPoweredBy !== false) {
-    footerContent = branding?.clinicName ? `Powered by DriverPath` : 'Powered by DriverPath';
+    footerContent = branding?.clinicName ? 'Powered by DriverPath' : 'Powered by DriverPath';
   }
   
   return `
@@ -105,11 +140,11 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
       </header>
       
       <main class="cover-main">
-        <h1 class="packet-title">${title}</h1>
+        <h1 class="packet-title">${escapeHtml(title)}</h1>
         
         <div class="cover-details">
-          ${config.patientName ? `<p class="patient-name">Prepared for: <strong>${config.patientName}</strong></p>` : ''}
-          ${config.clinicianName ? `<p class="clinician-name">Curated by: <strong>${config.clinicianName}</strong></p>` : ''}
+          ${config.patientName ? `<p class="patient-name">Prepared for: <strong>${escapeHtml(config.patientName)}</strong></p>` : ''}
+          ${config.clinicianName ? `<p class="clinician-name">Curated by: <strong>${escapeHtml(config.clinicianName)}</strong></p>` : ''}
           <p class="date">Generated on: ${date}</p>
           <p class="item-count">${itemCount} educational resource${itemCount !== 1 ? 's' : ''} included</p>
         </div>
@@ -117,7 +152,7 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
         ${config.coverPageMessage ? `
           <div class="cover-message">
             <h3>A note from your provider:</h3>
-            <p>${config.coverPageMessage}</p>
+            <p>${escapeHtml(config.coverPageMessage)}</p>
           </div>
         ` : ''}
       </main>
@@ -136,18 +171,18 @@ function generateContentSection(item: ContentItem, index: number): string {
   return `
     <article id="content-${index}" class="content-item">
       <header class="content-header">
-        <h2 class="content-title">${item.title}</h2>
-        ${item.readTime ? `<span class="read-time">${item.readTime} read</span>` : ''}
+        <h2 class="content-title">${escapeHtml(item.title)}</h2>
+        ${item.readTime ? `<span class="read-time">${escapeHtml(item.readTime)} read</span>` : ''}
       </header>
       
       ${item.imageUrl ? `
         <div class="content-image">
-          <img src="${item.imageUrl}" alt="${item.title}" />
+          <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" />
         </div>
       ` : ''}
       
       <div class="content-summary">
-        <p>${item.summary}</p>
+        <p>${escapeHtml(item.summary)}</p>
       </div>
       
       <div class="content-body">
@@ -169,11 +204,11 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     generateContentSection(item, index)
   ).join('\n<div class="page-break"></div>\n');
   
-  // Extract branding colors or use defaults
+  // Validate and sanitize branding colors or use defaults
   const branding = config.branding;
-  const primaryColor = branding?.primaryColor || '#0F766E';
-  const secondaryColor = branding?.secondaryColor || '#f5f5f5';
-  const accentColor = branding?.accentColor || '#14B8A6';
+  const primaryColor = validateColor(branding?.primaryColor, '#0F766E');
+  const secondaryColor = validateColor(branding?.secondaryColor, '#f5f5f5');
+  const accentColor = validateColor(branding?.accentColor, '#14B8A6');
   
   return `
 <!DOCTYPE html>

@@ -40,13 +40,12 @@ export async function generateContentPdf(
     if (clinicBranding && clinicBranding.isActive) {
       branding = {
         logoUrl: clinicBranding.logoUrl,
-        clinicName: clinicBranding.clinicName,
+        clinicName: clinicBranding.clinicName || input.clinician.clinicName,
         tagline: clinicBranding.tagline,
         primaryColor: clinicBranding.primaryColor,
         secondaryColor: clinicBranding.secondaryColor,
         accentColor: clinicBranding.accentColor,
         footerText: clinicBranding.footerText,
-        showWatermark: clinicBranding.showWatermark || false,
         showPoweredBy: clinicBranding.showPoweredBy !== false,
       };
     }

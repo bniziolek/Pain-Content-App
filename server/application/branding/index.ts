@@ -3,7 +3,7 @@
  * Branding service for managing clinic branding settings (Pro/Enterprise feature).
  */
 
-import type { User, ClinicBranding, InsertClinicBranding } from "@shared/schema";
+import type { User, ClinicBranding, InsertClinicBranding, BrandingRequest } from "@shared/schema";
 import type { AppContext, AuditRequestContext } from "../context";
 import type { IStorage } from "../../storage";
 
@@ -17,7 +17,7 @@ export interface GetBrandingParams {
 
 export interface SaveBrandingParams {
   clinician: User;
-  branding: Partial<InsertClinicBranding>;
+  branding: BrandingRequest;
 }
 
 export interface DeleteBrandingParams {
@@ -49,8 +49,8 @@ export async function saveClinicBranding(
     return updated;
   } else {
     return await ctx.storage.createClinicBranding({
-      ...params.branding,
       userId: params.clinician.id,
+      ...params.branding,
     } as InsertClinicBranding);
   }
 }
