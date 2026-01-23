@@ -24,6 +24,7 @@ import { pdfRouter } from "./pdf";
 import { complianceRouter } from "./compliance";
 import { onboardingRouter } from "./onboarding";
 import { contentRecommendationsRouter } from "./content-recommendations";
+import { brandingRouter } from "./branding";
 
 // Function-based route registrations
 import { registerPasswordResetRoutes } from "./password-reset";
@@ -110,6 +111,9 @@ export function registerRoutes(app: Express): Server {
 
   // ====== Onboarding ======
   app.use("/api/onboarding", onboardingRouter);
+
+  // ====== Branding ======
+  app.use("/api/branding", brandingRouter);
 
   // Health check
   app.get("/api/health", (_req, res) => {

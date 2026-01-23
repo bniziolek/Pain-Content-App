@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2, HelpCircle, Play, Save } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CreditCard, CheckCircle, AlertTriangle, Mail, ExternalLink, Loader2, HelpCircle, Play, Save, Palette, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useTour, resetTour } from "@/components/product-tour";
 import { useLocation } from "wouter";
 import type { EmailSettings } from "@shared/api-types";
+import type { ClinicBranding } from "@shared/schema";
 
 interface ProfileFormData {
   name: string;
@@ -25,6 +27,18 @@ interface ProfileFormData {
   city: string;
   state: string;
   zipCode: string;
+}
+
+interface BrandingFormData {
+  logoUrl: string;
+  clinicName: string;
+  tagline: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  footerText: string;
+  showWatermark: boolean;
+  showPoweredBy: boolean;
 }
 
 export default function SettingsPage() {
@@ -131,6 +145,64 @@ export default function SettingsPage() {
 
   const currentMode = emailSettings?.emailDeliveryMode || 'central';
 
+  const isProOrEnterprise = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'enterprise';
+
+  const [brandingForm, setBrandingForm] = useState<BrandingFormData>({
+    logoUrl: '',
+    clinicName: '',
+    tagline: '',
+    primaryColor: '#0F766E',
+    secondaryColor: '#f5f5f5',
+    accentColor: '#14B8A6',
+    footerText: '',
+    showWatermark: false,
+    showPoweredBy: true,
+  });
+
+  const { data: branding, isLoading: brandingLoading } = useQuery<ClinicBranding | null>({
+    queryKey: ["/api/branding"],
+    enabled: isProOrEnterprise,
+  });
+
+  useEffect(() => {
+    if (branding) {
+      setBrandingForm({
+        logoUrl: branding.logoUrl || '',
+        clinicName: branding.clinicName || '',
+        tagline: branding.tagline || '',
+        primaryColor: branding.primaryColor || '#0F766E',
+        secondaryColor: branding.secondaryColor || '#f5f5f5',
+        accentColor: branding.accentColor || '#14B8A6',
+        footerText: branding.footerText || '',
+        showWatermark: branding.showWatermark || false,
+        showPoweredBy: branding.showPoweredBy !== false,
+      });
+    }
+  }, [branding]);
+
+  const saveBranding = useMutation({
+    mutationFn: async (data: BrandingFormData) => {
+      const res = await apiRequest("PUT", "/api/branding", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/branding"] });
+      toast({ title: "Branding settings saved" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to save branding settings",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleBrandingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveBranding.mutate(brandingForm);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -140,9 +212,14 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
             <TabsTrigger value="email" data-testid="tab-email">Email Delivery</TabsTrigger>
+            <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center gap-1">
+              <Palette className="h-4 w-4" />
+              Branding
+              {!isProOrEnterprise && <Crown className="h-3 w-3 text-amber-500" />}
+            </TabsTrigger>
             <TabsTrigger value="billing" data-testid="tab-billing">Subscription & Billing</TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">Notifications</TabsTrigger>
             <TabsTrigger value="help" data-testid="tab-help">Help & Tips</TabsTrigger>
@@ -431,6 +508,236 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="branding">
+            {!isProOrEnterprise ? (
+              <Card className="border-amber-200 bg-amber-50/30">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-amber-500" />
+                    <CardTitle>Custom Branding</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Upgrade to Pro or Enterprise to customize your PDF content packets with your clinic's branding, logo, and colors.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-teal-600 mt-0.5" />
+                        <span>Custom clinic logo on cover pages</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-teal-600 mt-0.5" />
+                        <span>Custom color scheme for PDF documents</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-teal-600 mt-0.5" />
+                        <span>Custom footer text and tagline</span>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => navigate("/subscription")}
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                      data-testid="button-upgrade-branding"
+                    >
+                      <Crown className="h-4 w-4 mr-2" />
+                      Upgrade to Pro
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <form onSubmit={handleBrandingSubmit}>
+                <div className="grid gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Palette className="h-5 w-5" />
+                        Brand Identity
+                      </CardTitle>
+                      <CardDescription>
+                        Customize how your PDF content packets look when sent to patients. Your branding will appear on cover pages and throughout the document.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="branding-logo">Logo URL</Label>
+                          <Input
+                            id="branding-logo"
+                            type="url"
+                            value={brandingForm.logoUrl}
+                            onChange={(e) => setBrandingForm(prev => ({ ...prev, logoUrl: e.target.value }))}
+                            placeholder="https://example.com/logo.png"
+                            data-testid="input-branding-logo"
+                          />
+                          <p className="text-xs text-muted-foreground">Recommended: 200x80px PNG or JPG with transparent background</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="branding-clinic-name">Clinic Name Override</Label>
+                          <Input
+                            id="branding-clinic-name"
+                            value={brandingForm.clinicName}
+                            onChange={(e) => setBrandingForm(prev => ({ ...prev, clinicName: e.target.value }))}
+                            placeholder={user?.clinicName || "Your Clinic Name"}
+                            data-testid="input-branding-clinic-name"
+                          />
+                          <p className="text-xs text-muted-foreground">Leave blank to use your profile's clinic name</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="branding-tagline">Tagline</Label>
+                        <Input
+                          id="branding-tagline"
+                          value={brandingForm.tagline}
+                          onChange={(e) => setBrandingForm(prev => ({ ...prev, tagline: e.target.value }))}
+                          placeholder="Evidence-Based Patient Education"
+                          data-testid="input-branding-tagline"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Color Scheme</CardTitle>
+                      <CardDescription>
+                        Choose colors that match your clinic's brand. These will be used for headings, accents, and highlights in your PDFs.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="branding-primary">Primary Color</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="branding-primary"
+                              type="color"
+                              value={brandingForm.primaryColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, primaryColor: e.target.value }))}
+                              className="w-12 h-10 p-1 cursor-pointer"
+                              data-testid="input-branding-primary-color"
+                            />
+                            <Input
+                              type="text"
+                              value={brandingForm.primaryColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, primaryColor: e.target.value }))}
+                              className="flex-1 font-mono text-sm"
+                              placeholder="#0F766E"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Used for headings and main accents</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="branding-secondary">Secondary Color</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="branding-secondary"
+                              type="color"
+                              value={brandingForm.secondaryColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                              className="w-12 h-10 p-1 cursor-pointer"
+                              data-testid="input-branding-secondary-color"
+                            />
+                            <Input
+                              type="text"
+                              value={brandingForm.secondaryColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                              className="flex-1 font-mono text-sm"
+                              placeholder="#f5f5f5"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Used for backgrounds and highlights</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="branding-accent">Accent Color</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="branding-accent"
+                              type="color"
+                              value={brandingForm.accentColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, accentColor: e.target.value }))}
+                              className="w-12 h-10 p-1 cursor-pointer"
+                              data-testid="input-branding-accent-color"
+                            />
+                            <Input
+                              type="text"
+                              value={brandingForm.accentColor}
+                              onChange={(e) => setBrandingForm(prev => ({ ...prev, accentColor: e.target.value }))}
+                              className="flex-1 font-mono text-sm"
+                              placeholder="#14B8A6"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Used for links and call-to-actions</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-4 rounded-lg border" style={{ borderColor: brandingForm.primaryColor }}>
+                        <p className="text-sm font-medium mb-2" style={{ color: brandingForm.primaryColor }}>Preview</p>
+                        <div className="p-3 rounded" style={{ backgroundColor: brandingForm.secondaryColor }}>
+                          <p className="text-sm" style={{ color: brandingForm.primaryColor }}>
+                            This is how your colors will appear in PDF documents.
+                          </p>
+                          <a href="#" className="text-sm underline" style={{ color: brandingForm.accentColor }} onClick={(e) => e.preventDefault()}>
+                            Sample link with accent color
+                          </a>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Footer & Attribution</CardTitle>
+                      <CardDescription>
+                        Customize the footer text and attribution settings for your PDFs.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="branding-footer">Custom Footer Text</Label>
+                        <Input
+                          id="branding-footer"
+                          value={brandingForm.footerText}
+                          onChange={(e) => setBrandingForm(prev => ({ ...prev, footerText: e.target.value }))}
+                          placeholder="Leave blank for default"
+                          data-testid="input-branding-footer"
+                        />
+                      </div>
+                      <div className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="branding-powered-by">Show "Powered by DriverPath"</Label>
+                            <p className="text-xs text-muted-foreground">Display attribution in the PDF footer</p>
+                          </div>
+                          <Switch
+                            id="branding-powered-by"
+                            checked={brandingForm.showPoweredBy}
+                            onCheckedChange={(checked) => setBrandingForm(prev => ({ ...prev, showPoweredBy: checked }))}
+                            data-testid="switch-branding-powered-by"
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="border-t pt-6">
+                      <Button 
+                        type="submit" 
+                        disabled={saveBranding.isPending}
+                        data-testid="button-save-branding"
+                      >
+                        {saveBranding.isPending ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                        ) : (
+                          <><Save className="h-4 w-4 mr-2" /> Save Branding Settings</>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </div>
+              </form>
+            )}
           </TabsContent>
 
           <TabsContent value="billing">

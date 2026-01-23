@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer';
 import { marked } from 'marked';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { ContentItem } from '@shared/schema';
+import type { ContentItem, ClinicBranding } from '@shared/schema';
 
 const execAsync = promisify(exec);
 
@@ -19,6 +19,19 @@ async function getChromiumPath(): Promise<string> {
   }
 }
 
+// Branding configuration for custom-branded PDFs
+export interface PDFBrandingConfig {
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  footerText?: string | null;
+  showWatermark?: boolean;
+  showPoweredBy?: boolean;
+}
+
 export interface PDFGenerationConfig {
   pageSize: 'letter' | 'a4';
   orientation: 'portrait' | 'landscape';
@@ -28,6 +41,7 @@ export interface PDFGenerationConfig {
   clinicianName?: string;
   patientName?: string;
   packetTitle?: string;
+  branding?: PDFBrandingConfig;
 }
 
 const defaultConfig: PDFGenerationConfig = {
@@ -63,13 +77,30 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
   });
   
   const title = config.packetTitle || 'Your Personalized Health Education';
+  const branding = config.branding;
+  
+  // Determine logo/header content based on branding
+  const logoSection = branding?.logoUrl 
+    ? `<img src="${branding.logoUrl}" alt="${branding.clinicName || 'Clinic Logo'}" class="logo-image" onerror="this.style.display='none'; document.getElementById('fallback-name').style.display='block';" />
+       <h1 id="fallback-name" style="display:none;">${branding.clinicName || 'DriverPath'}</h1>`
+    : `<h1>${branding?.clinicName || 'DriverPath'}</h1>`;
+  
+  const tagline = branding?.tagline || (branding?.clinicName ? '' : 'Evidence-Based Patient Education');
+  
+  // Determine footer text
+  let footerContent = '';
+  if (branding?.footerText) {
+    footerContent = branding.footerText;
+  } else if (branding?.showPoweredBy !== false) {
+    footerContent = branding?.clinicName ? `Powered by DriverPath` : 'Powered by DriverPath';
+  }
   
   return `
     <div class="cover-page">
       <header class="cover-header">
         <div class="logo">
-          <h1>DriverPath</h1>
-          <p class="tagline">Evidence-Based Patient Education</p>
+          ${logoSection}
+          ${tagline ? `<p class="tagline">${tagline}</p>` : ''}
         </div>
       </header>
       
@@ -92,7 +123,7 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
       </main>
       
       <footer class="cover-footer">
-        <p>Powered by DriverPath</p>
+        ${footerContent ? `<p>${footerContent}</p>` : ''}
       </footer>
     </div>
     <div class="page-break"></div>
@@ -138,6 +169,12 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     generateContentSection(item, index)
   ).join('\n<div class="page-break"></div>\n');
   
+  // Extract branding colors or use defaults
+  const branding = config.branding;
+  const primaryColor = branding?.primaryColor || '#0F766E';
+  const secondaryColor = branding?.secondaryColor || '#f5f5f5';
+  const accentColor = branding?.accentColor || '#14B8A6';
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -146,6 +183,12 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Patient Education Packet</title>
   <style>
+    :root {
+      --primary-color: ${primaryColor};
+      --secondary-color: ${secondaryColor};
+      --accent-color: ${accentColor};
+    }
+    
     * {
       box-sizing: border-box;
       margin: 0;
@@ -178,6 +221,13 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
       padding-top: 2rem;
     }
     
+    .logo-image {
+      max-width: 200px;
+      max-height: 80px;
+      object-fit: contain;
+      margin-bottom: 0.5rem;
+    }
+    
     .cover-main {
       flex: 1;
       display: flex;
@@ -188,14 +238,14 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     
     .packet-title {
       font-size: 2rem;
-      color: #0F766E;
+      color: var(--primary-color);
       margin-bottom: 2rem;
       font-weight: 600;
     }
     
     .logo h1 {
       font-size: 2.5rem;
-      color: #0F766E;
+      color: var(--primary-color);
       margin-bottom: 0.25rem;
     }
     
@@ -220,7 +270,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .cover-message {
-      background: #f5f5f5;
+      background: var(--secondary-color);
       padding: 1.5rem;
       border-radius: 8px;
       text-align: left;
@@ -228,7 +278,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .cover-message h3 {
-      color: #0F766E;
+      color: var(--primary-color);
       margin-bottom: 0.5rem;
       font-size: 0.875rem;
     }
@@ -248,7 +298,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .table-of-contents h2 {
-      color: #0F766E;
+      color: var(--primary-color);
       margin-bottom: 1.5rem;
       font-size: 1.5rem;
     }
@@ -264,7 +314,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .toc-link {
-      color: #0F766E;
+      color: var(--primary-color);
       text-decoration: none;
     }
     
@@ -282,12 +332,12 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
       justify-content: space-between;
       align-items: baseline;
       margin-bottom: 1rem;
-      border-bottom: 2px solid #0F766E;
+      border-bottom: 2px solid var(--primary-color);
       padding-bottom: 0.5rem;
     }
     
     .content-title {
-      color: #0F766E;
+      color: var(--primary-color);
       font-size: 1.5rem;
       font-weight: 600;
     }
@@ -312,9 +362,9 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
       color: #333;
       margin-bottom: 1rem;
       font-style: italic;
-      background: #f9f9f9;
+      background: var(--secondary-color);
       padding: 1rem;
-      border-left: 4px solid #0F766E;
+      border-left: 4px solid var(--primary-color);
     }
     
     .content-body {
@@ -322,7 +372,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .content-body h1, .content-body h2, .content-body h3 {
-      color: #0F766E;
+      color: var(--primary-color);
       margin-top: 1.5rem;
       margin-bottom: 0.75rem;
     }
@@ -345,7 +395,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     }
     
     .content-body a {
-      color: #0F766E;
+      color: var(--primary-color);
       text-decoration: underline;
     }
     
@@ -385,8 +435,8 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
     
     .tag {
       display: inline-block;
-      background: #e5f4f3;
-      color: #0F766E;
+      background: var(--secondary-color);
+      color: var(--primary-color);
       padding: 0.25rem 0.75rem;
       border-radius: 9999px;
       font-size: 0.75rem;
@@ -406,7 +456,7 @@ function generateHTML(items: ContentItem[], config: PDFGenerationConfig): string
       }
       
       a {
-        color: #0F766E !important;
+        color: var(--primary-color) !important;
       }
     }
   </style>

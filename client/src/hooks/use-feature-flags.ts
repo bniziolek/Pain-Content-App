@@ -15,6 +15,7 @@ const TIER_ENTITLEMENTS: Record<string, string[]> = {
   care_pathways: ['pro', 'enterprise'],
   follow_up_automation: ['pro', 'enterprise'],
   priority_support: ['pro', 'enterprise'],
+  custom_branding: ['pro', 'enterprise'],
   white_label: ['enterprise'],
   api_access: ['enterprise'],
   sso: ['enterprise'],

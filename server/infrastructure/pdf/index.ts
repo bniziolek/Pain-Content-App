@@ -6,4 +6,5 @@ export {
   generatePDF,
   generateFilename,
   type PDFGenerationConfig,
+  type PDFBrandingConfig,
 } from './pdf-generator';
