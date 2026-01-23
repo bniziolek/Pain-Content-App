@@ -167,6 +167,7 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
 
 function generateContentSection(item: ContentItem, index: number): string {
   const bodyHtml = marked(item.body || '');
+  const validatedImageUrl = validateLogoUrl(item.imageUrl);
   
   return `
     <article id="content-${index}" class="content-item">
@@ -175,9 +176,9 @@ function generateContentSection(item: ContentItem, index: number): string {
         ${item.readTime ? `<span class="read-time">${escapeHtml(item.readTime)} read</span>` : ''}
       </header>
       
-      ${item.imageUrl ? `
+      ${validatedImageUrl ? `
         <div class="content-image">
-          <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" />
+          <img src="${validatedImageUrl}" alt="${escapeHtml(item.title)}" />
         </div>
       ` : ''}
       
@@ -191,7 +192,7 @@ function generateContentSection(item: ContentItem, index: number): string {
       
       ${item.tags && item.tags.length > 0 ? `
         <div class="content-tags">
-          ${item.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+          ${item.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
         </div>
       ` : ''}
     </article>
