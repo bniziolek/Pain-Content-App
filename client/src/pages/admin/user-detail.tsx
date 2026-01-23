@@ -81,6 +81,25 @@ interface FeatureFlagAuditEntry {
   flagName?: string;
 }
 
+interface SupportOverview {
+  user: User;
+  stats: {
+    contentSentCount: number;
+    assessmentsCreatedCount: number;
+    internalScreeningsCount: number;
+    lastLoginAt: string | null;
+    accountCreatedAt: string;
+  };
+  status: {
+    isActive: boolean;
+    isTrial: boolean;
+    isExpired: boolean;
+    isLocked: boolean;
+    daysUntilExpiration: number | null;
+  };
+  recentNoteCount: number;
+}
+
 export default function UserDetailPage() {
   const [, params] = useRoute("/admin/users/:id");
   const userId = params?.id;
@@ -183,6 +202,16 @@ export default function UserDetailPage() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/users/${userId}/feature-flags/audit`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch audit log");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: supportOverview, isLoading: overviewLoading } = useQuery<SupportOverview>({
+    queryKey: ["admin-user-support-overview", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/support-overview`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch support overview");
       return res.json();
     },
     enabled: !!userId,
@@ -311,6 +340,32 @@ export default function UserDetailPage() {
     onError: (error: Error) => {
       toast({
         title: "Reset Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unlockAccountMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to unlock account");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user", userId] });
+      toast({
+        title: "Account Unlocked",
+        description: "User account has been unlocked successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unlock Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -637,10 +692,99 @@ export default function UserDetailPage() {
                       <Key className="w-4 h-4 mr-2" />
                       Reset Password
                     </Button>
+                    {(user.lockedUntil || user.permanentlyLocked) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unlockAccountMutation.mutate()}
+                        disabled={unlockAccountMutation.isPending}
+                        data-testid="button-unlock-account"
+                      >
+                        {unlockAccountMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Unlock className="w-4 h-4 mr-2" />
+                        )}
+                        Unlock Account
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {supportOverview && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Support Overview</CardTitle>
+                  <CardDescription>At-a-glance summary of user activity and status</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-sm text-muted-foreground">Account Status</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Active Subscription</span>
+                          <Badge variant={supportOverview.status.isActive ? "default" : "secondary"}>
+                            {supportOverview.status.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        {supportOverview.status.isTrial && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Trial Account</span>
+                            <Badge variant="outline">Trial</Badge>
+                          </div>
+                        )}
+                        {supportOverview.status.isLocked && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Account Locked</span>
+                            <Badge variant="destructive">Locked</Badge>
+                          </div>
+                        )}
+                        {supportOverview.status.daysUntilExpiration !== null && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Days Until Expiration</span>
+                            <Badge variant={supportOverview.status.daysUntilExpiration < 7 ? "destructive" : "outline"}>
+                              {supportOverview.status.daysUntilExpiration} days
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-sm text-muted-foreground">Usage Statistics</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Content Sent</span>
+                          <span className="font-mono text-sm">{supportOverview.stats.contentSentCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Assessments Created</span>
+                          <span className="font-mono text-sm">{supportOverview.stats.assessmentsCreatedCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Internal Screenings</span>
+                          <span className="font-mono text-sm">{supportOverview.stats.internalScreeningsCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Recent Admin Notes</span>
+                          <span className="font-mono text-sm">{supportOverview.recentNoteCount}</span>
+                        </div>
+                        {supportOverview.stats.lastLoginAt && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Last Login</span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(supportOverview.stats.lastLoginAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
