@@ -18,14 +18,27 @@ export async function getAdminAnalytics(ctx: AppContext): Promise<AdminAnalytics
     u.subscriptionStatus === 'active' || u.subscriptionStatus === 'trialing'
   ).length;
   
+  // Batch queries to avoid N+1 pattern
+  const emailLogsPromises = users.map((user: User) =>
+    ctx.storage.getEmailLogsByClinicianId(user.id)
+  );
+  const invitePromises = users.map((user: User) =>
+    ctx.storage.getAssessmentInvitesByClinicianId(user.id)
+  );
+
+  const [emailLogsResults, invitesResults] = await Promise.all([
+    Promise.all(emailLogsPromises),
+    Promise.all(invitePromises),
+  ]);
+
   let totalContentSent = 0;
   let totalAssessmentsSent = 0;
-  
-  for (const user of users) {
-    const emailLogs = await ctx.storage.getEmailLogsByClinicianId(user.id);
+
+  for (const emailLogs of emailLogsResults) {
     totalContentSent += emailLogs.length;
-    
-    const invites = await ctx.storage.getAssessmentInvitesByClinicianId(user.id);
+  }
+
+  for (const invites of invitesResults) {
     totalAssessmentsSent += invites.length;
   }
   

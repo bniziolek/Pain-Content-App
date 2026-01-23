@@ -27,6 +27,10 @@ export async function getAssessmentInviteResultsWithRecommendations(
     throw new Error("Invite not found");
   }
 
+  if (invite.clinicianUserId !== input.clinician.id) {
+    throw new Error("Unauthorized");
+  }
+
   await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'assessment_access', {
     resourceType: 'assessment',
     resourceId: invite.id,

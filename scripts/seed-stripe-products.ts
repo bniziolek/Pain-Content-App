@@ -1,4 +1,4 @@
-import { getUncachableStripeClient } from '../server/stripeClient';
+import { getUncachableStripeClient } from '../server/infrastructure/payment/stripe-client';
 
 async function seedStripeProducts() {
   console.log('Seeding Stripe products...');

@@ -108,7 +108,7 @@ export function useTierEntitlement(featureKey: string) {
     hasAccess,
     needsUpgrade: !hasAccess,
     currentTier: userTier,
-    requiredTier: minRequiredTier as "basic" | "pro",
+    requiredTier: minRequiredTier as "free" | "basic" | "pro" | "enterprise",
     isActive: user?.subscriptionStatus === 'active',
   };
 }

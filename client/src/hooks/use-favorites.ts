@@ -1,34 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-
-interface Favorite {
-  contentId: string;
-  title: string;
-  createdAt: string;
-}
+import { getFavorites, addFavorite as addFavoriteAPI, removeFavorite as removeFavoriteAPI, getFrequentlyUsedContent, type FavoriteItem, type FrequentlyUsedItem } from "@/api/content";
 
 export function useFavorites() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: favorites = [], isLoading, error, isError } = useQuery<Favorite[]>({
+  const { data: favorites = [], isLoading, error, isError } = useQuery<FavoriteItem[]>({
     queryKey: ["favorites"],
-    queryFn: async () => {
-      const res = await fetch("/api/favorites", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch favorites");
-      return res.json();
-    },
+    queryFn: getFavorites,
   });
 
   const addFavorite = useMutation({
-    mutationFn: async (contentId: string) => {
-      const res = await fetch(`/api/favorites/${contentId}`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to add favorite");
-      return res.json();
-    },
+    mutationFn: addFavoriteAPI,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["favorites"] });
     },
@@ -42,14 +26,7 @@ export function useFavorites() {
   });
 
   const removeFavorite = useMutation({
-    mutationFn: async (contentId: string) => {
-      const res = await fetch(`/api/favorites/${contentId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to remove favorite");
-      return res.json();
-    },
+    mutationFn: removeFavoriteAPI,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["favorites"] });
     },
@@ -89,12 +66,8 @@ export function useFavorites() {
 }
 
 export function useFrequentlyUsed(limit: number = 10) {
-  return useQuery<Array<{ contentId: string; title: string; sendCount: number }>>({
+  return useQuery<FrequentlyUsedItem[]>({
     queryKey: ["frequently-used", limit],
-    queryFn: async () => {
-      const res = await fetch(`/api/content/frequently-used?limit=${limit}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch frequently used");
-      return res.json();
-    },
+    queryFn: () => getFrequentlyUsedContent(limit),
   });
 }

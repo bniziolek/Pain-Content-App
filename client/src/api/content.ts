@@ -1,6 +1,18 @@
 import { fetchAPI, jsonHeaders } from "./base";
 import type { ContentItem, ContentView } from "@shared/api-types";
 
+export interface FavoriteItem {
+  contentId: string;
+  title: string;
+  createdAt: string;
+}
+
+export interface FrequentlyUsedItem {
+  contentId: string;
+  title: string;
+  sendCount: number;
+}
+
 // Content CRUD
 export async function getContent(): Promise<ContentItem[]> {
   return fetchAPI("/content");
@@ -31,7 +43,7 @@ export async function deleteContent(id: string): Promise<void> {
 }
 
 // Favorites
-export async function getFavorites(): Promise<ContentItem[]> {
+export async function getFavorites(): Promise<FavoriteItem[]> {
   return fetchAPI("/favorites");
 }
 
@@ -48,7 +60,7 @@ export async function checkFavorite(contentId: string): Promise<{ isFavorite: bo
 }
 
 // Frequently Used
-export async function getFrequentlyUsedContent(limit = 5): Promise<ContentItem[]> {
+export async function getFrequentlyUsedContent(limit = 5): Promise<FrequentlyUsedItem[]> {
   return fetchAPI(`/content/frequently-used?limit=${limit}`);
 }
 
