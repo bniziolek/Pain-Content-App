@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,10 +9,30 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Loader2, Filter, Crown, Sparkles, Lock, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UserPlus, Loader2, Filter, Crown, Sparkles, Lock, AlertTriangle, Clock, CheckCircle2, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { PublicUser as User } from "@shared/api-types";
+
+const EXPORT_FIELDS = [
+  { key: "id", label: "User ID" },
+  { key: "email", label: "Email" },
+  { key: "name", label: "Name" },
+  { key: "role", label: "Role" },
+  { key: "subscriptionTier", label: "Subscription Tier" },
+  { key: "subscriptionStatus", label: "Subscription Status" },
+  { key: "subscriptionPeriodEnd", label: "Subscription End Date" },
+  { key: "lastLogin", label: "Last Login" },
+  { key: "createdAt", label: "Created At" },
+  { key: "clinicName", label: "Clinic Name" },
+  { key: "credentials", label: "Credentials" },
+  { key: "phone", label: "Phone" },
+  { key: "address", label: "Address" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "zipCode", label: "Zip Code" },
+] as const;
 
 const TIER_BADGE_CONFIG: Record<string, { className: string; icon?: typeof Crown }> = {
   free: { className: "bg-gray-100 text-gray-600" },
@@ -59,9 +79,17 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [tierFilter, setTierFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  
+  // Export state
+  const [selectedExportFields, setSelectedExportFields] = useState<string[]>(["email", "name", "subscriptionTier", "subscriptionStatus"]);
 
   // Create user form state
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -110,6 +138,75 @@ export default function AdminUsersPage() {
     });
     return counts;
   }, [users]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tierFilter, statusFilter, searchQuery, pageSize]);
+
+  // Export function
+  const handleExportCSV = () => {
+    if (selectedExportFields.length === 0) {
+      toast({
+        title: "No Fields Selected",
+        description: "Please select at least one field to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = selectedExportFields.map(key => {
+      const field = EXPORT_FIELDS.find(f => f.key === key);
+      return field?.label || key;
+    });
+
+    const rows = filteredUsers.map(user => {
+      return selectedExportFields.map(key => {
+        const value = user[key as keyof User];
+        if (value === null || value === undefined) return "";
+        if (key === "subscriptionPeriodEnd" || key === "lastLogin" || key === "createdAt") {
+          return value ? new Date(value as string).toISOString() : "";
+        }
+        return String(value);
+      });
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `users-export-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportDialogOpen(false);
+    toast({
+      title: "Export Complete",
+      description: `Exported ${filteredUsers.length} users to CSV.`,
+    });
+  };
+
+  const toggleExportField = (key: string) => {
+    setSelectedExportFields(prev => 
+      prev.includes(key) 
+        ? prev.filter(f => f !== key)
+        : [...prev, key]
+    );
+  };
 
   const createUserMutation = useMutation({
     mutationFn: async () => {
@@ -169,13 +266,56 @@ export default function AdminUsersPage() {
             <h1 className="text-3xl font-serif font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground">View and manage user accounts. Click on a user to see details and perform actions.</p>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-create-user">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Create User
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-export-users">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Export Users to CSV</DialogTitle>
+                  <DialogDescription>
+                    Select the fields you want to include in the export. {filteredUsers.length} users will be exported based on current filters.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-3">
+                    {EXPORT_FIELDS.map((field) => (
+                      <div key={field.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`export-${field.key}`}
+                          checked={selectedExportFields.includes(field.key)}
+                          onCheckedChange={() => toggleExportField(field.key)}
+                          data-testid={`checkbox-export-${field.key}`}
+                        />
+                        <Label htmlFor={`export-${field.key}`} className="text-sm cursor-pointer">
+                          {field.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleExportCSV} disabled={selectedExportFields.length === 0} data-testid="button-confirm-export">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export {filteredUsers.length} Users
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-user">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Create User
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
@@ -245,6 +385,7 @@ export default function AdminUsersPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <Card>
@@ -265,8 +406,13 @@ export default function AdminUsersPage() {
                   data-testid="input-search-users"
                 />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
-                    <SelectValue placeholder="All Status" />
+                  <SelectTrigger className={`w-[140px] ${statusFilter !== "all" ? "border-primary bg-primary/5" : ""}`} data-testid="select-status-filter">
+                    <SelectValue>
+                      {statusFilter === "all" 
+                        ? `All Status (${statusCounts.all})`
+                        : `${STATUS_CONFIG[statusFilter as UserStatus]?.label || statusFilter} (${statusCounts[statusFilter] || 0})`
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status ({statusCounts.all})</SelectItem>
@@ -288,6 +434,16 @@ export default function AdminUsersPage() {
                     <SelectItem value="enterprise">Enterprise ({tierCounts.enterprise})</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="w-[100px]" data-testid="select-page-size">
+                    <SelectValue placeholder="Per page" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 / page</SelectItem>
+                    <SelectItem value="25">25 / page</SelectItem>
+                    <SelectItem value="100">100 / page</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -305,7 +461,7 @@ export default function AdminUsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((u) => (
+                {paginatedUsers.map((u) => (
                   <TableRow 
                     key={u.id}
                     data-testid={`user-row-${u.id}`}
@@ -361,6 +517,63 @@ export default function AdminUsersPage() {
                 ))}
               </TableBody>
             </Table>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 px-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredUsers.length)} of {filteredUsers.length} users
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                          data-testid={`button-page-${pageNum}`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
