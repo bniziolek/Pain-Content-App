@@ -131,9 +131,8 @@ router.post("/users/:id/extend-subscription", requireAdmin, async (req, res, nex
       let baseDate = new Date();
       try {
         const existingUser = await getUser(appContext, { userId: req.params.id });
-        const subscriptionPeriodEnd = (existingUser as any)?.subscriptionPeriodEnd;
-        if (subscriptionPeriodEnd) {
-          baseDate = new Date(subscriptionPeriodEnd);
+        if (existingUser?.subscriptionPeriodEnd) {
+          baseDate = new Date(existingUser.subscriptionPeriodEnd);
         }
       } catch {
         // If fetching the user fails for any reason, fall back to using the current date as baseDate.
