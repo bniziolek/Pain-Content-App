@@ -830,13 +830,20 @@ export type ClinicBranding = typeof clinicBranding.$inferSelect;
 
 // API request schema - only allows client-editable fields (excludes server-controlled fields)
 export const brandingRequestSchema = z.object({
-  logoUrl: z.string().nullable().optional(),
-  clinicName: z.string().nullable().optional(),
-  tagline: z.string().nullable().optional(),
-  primaryColor: z.string().nullable().optional(),
-  secondaryColor: z.string().nullable().optional(),
-  accentColor: z.string().nullable().optional(),
-  footerText: z.string().nullable().optional(),
+  logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  clinicName: z.string().max(200).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  tagline: z.string().max(500).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  footerText: z.string().max(1000).nullable().optional()
+    .or(z.literal('').transform(() => null)),
   showPoweredBy: z.boolean().nullable().optional(),
 });
 export type BrandingRequest = z.infer<typeof brandingRequestSchema>;

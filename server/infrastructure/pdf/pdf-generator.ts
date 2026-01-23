@@ -118,7 +118,7 @@ function generateCoverPage(config: PDFGenerationConfig, itemCount: number): stri
   
   // Determine logo/header content based on branding
   const logoSection = validatedLogoUrl 
-    ? `<img src="${escapeHtml(validatedLogoUrl)}" alt="${clinicName}" class="logo-image" style="max-width: 300px; max-height: 150px;" />
+    ? `<img src="${validatedLogoUrl}" alt="${clinicName}" class="logo-image" style="max-width: 300px; max-height: 150px;" />
        <h1 style="margin-top: 1rem;">${clinicName}</h1>`
     : `<h1>${clinicName}</h1>`;
   

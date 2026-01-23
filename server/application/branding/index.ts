@@ -48,10 +48,20 @@ export async function saveClinicBranding(
     }
     return updated;
   } else {
-    return await ctx.storage.createClinicBranding({
+    // Explicitly construct the branding object to prevent any field override
+    const brandingToCreate: InsertClinicBranding = {
       userId: params.clinician.id,
-      ...params.branding,
-    } as InsertClinicBranding);
+      logoUrl: params.branding.logoUrl ?? null,
+      clinicName: params.branding.clinicName ?? null,
+      tagline: params.branding.tagline ?? null,
+      primaryColor: params.branding.primaryColor ?? null,
+      secondaryColor: params.branding.secondaryColor ?? null,
+      accentColor: params.branding.accentColor ?? null,
+      footerText: params.branding.footerText ?? null,
+      showPoweredBy: params.branding.showPoweredBy ?? null,
+      isActive: true,
+    };
+    return await ctx.storage.createClinicBranding(brandingToCreate);
   }
 }
 
