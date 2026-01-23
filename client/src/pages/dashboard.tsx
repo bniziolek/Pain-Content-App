@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { useTour, shouldShowTour } from "@/components/product-tour";
 import { usePatientFeatures } from "@/hooks/use-feature-flags";
 import { useFavorites, useFrequentlyUsed } from "@/hooks/use-favorites";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 function getStatusBadge(status: string) {
   switch(status?.toLowerCase()) {
@@ -130,6 +131,15 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Pro Upgrade Banner for Basic tier users */}
+        {user?.subscriptionTier === 'basic' && (
+          <UpgradePrompt 
+            feature="Care Pathways, Email Delivery, and Follow-up Automation" 
+            requiredTier="pro" 
+            variant="banner" 
+          />
+        )}
 
         {/* Concierge Hero Card - Only in MVP mode with assessments */}
         {!patientMessagingEnabled && assessmentsEnabled && (

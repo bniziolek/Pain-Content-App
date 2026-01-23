@@ -289,15 +289,27 @@ export default function SettingsPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold mb-1">Professional Plan</div>
+                  <div className="text-2xl font-bold mb-1">
+                    {user?.subscriptionTier === 'pro' ? 'Professional Plan' : 
+                     user?.subscriptionTier === 'enterprise' ? 'Enterprise Plan' : 'Basic Plan'}
+                  </div>
                   <p className="text-muted-foreground text-sm">
                     {isSubscriptionActive 
                       ? `Next billing date: ${user?.subscriptionPeriodEnd ? new Date(user.subscriptionPeriodEnd).toLocaleDateString() : 'N/A'}` 
                       : "Your subscription has lapsed. Please update your payment method to restore access."}
                   </p>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex gap-2">
                   {!isSubscriptionActive && <Button variant="destructive" data-testid="button-pay-now">Pay Now</Button>}
+                  {isSubscriptionActive && user?.subscriptionTier === 'basic' && (
+                    <Button 
+                      onClick={() => navigate('/subscription?upgrade=true')} 
+                      className="bg-amber-500 hover:bg-amber-600"
+                      data-testid="button-upgrade-to-pro"
+                    >
+                      Upgrade to Pro
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
 
