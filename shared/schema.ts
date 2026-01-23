@@ -696,6 +696,7 @@ export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
   care_pathways: ['pro', 'enterprise'],
   follow_up_automation: ['pro', 'enterprise'],
   priority_support: ['pro', 'enterprise'],
+  custom_branding: ['pro', 'enterprise'],
   
   // Enterprise-only
   white_label: ['enterprise'],
@@ -792,3 +793,57 @@ export const insertCollectionItemSchema = createInsertSchema(collectionItems).om
 });
 export type InsertCollectionItem = z.infer<typeof insertCollectionItemSchema>;
 export type CollectionItem = typeof collectionItems.$inferSelect;
+
+// Clinic branding - custom branding for PDF content packets (Pro/Enterprise feature)
+export const clinicBranding = pgTable("clinic_branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Logo and basic info
+  logoUrl: text("logo_url"), // Uploaded clinic logo URL
+  clinicName: text("clinic_name"), // Custom display name used in branded content/PDFs
+  tagline: text("tagline"), // Optional tagline below clinic name
+  
+  // Color scheme
+  primaryColor: text("primary_color").default("#0F766E"), // Headers, main elements
+  secondaryColor: text("secondary_color").default("#f5f5f5"), // Backgrounds
+  accentColor: text("accent_color").default("#14B8A6"), // Links, highlights
+  
+  // Footer and additional options
+  footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
+  showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
+  
+  // Activation status
+  isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
+export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+// API request schema - only allows client-editable fields (excludes server-controlled fields)
+export const brandingRequestSchema = z.object({
+  logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  clinicName: z.string().max(200).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  tagline: z.string().max(500).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  footerText: z.string().max(1000).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  showPoweredBy: z.boolean().nullable().optional(),
+});
+export type BrandingRequest = z.infer<typeof brandingRequestSchema>;

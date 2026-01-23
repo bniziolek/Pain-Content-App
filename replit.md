@@ -43,7 +43,14 @@ The application adheres to the **DriverPath Style Guide**, featuring:
     - **Domain Services** (`server/domain/`): Pure business logic with no side effects (scoring algorithms, access code generation, password hashing).
     - **Infrastructure Services** (`server/infrastructure/`): External integrations (email via Gmail/Resend adapter, payments via Stripe, CMS via Contentful, PDF generation via Puppeteer).
     - **Data Layer** (`server/storage.ts`): Drizzle ORM database access with IStorage interface.
-- **PDF Generation**: Utilizes a Puppeteer-based service (`server/pdf-generator.ts`) to convert HTML to professional, templated PDFs with active links, configurable options, and audit logging.
+- **PDF Generation**: Utilizes a Puppeteer-based service (`server/infrastructure/pdf/pdf-generator.ts`) to convert HTML to professional, templated PDFs with active links, configurable options, and audit logging.
+- **Custom Branding (Pro/Enterprise)**: Clinicians with Pro or Enterprise subscriptions can customize their PDF content packets with:
+    - Custom clinic logo on cover pages
+    - Custom color scheme (primary, secondary, accent colors)
+    - Custom clinic name and tagline
+    - Custom footer text
+    - "Powered by DriverPath" attribution toggle
+    - Settings managed via `/api/branding` endpoints and stored in `clinic_branding` table
 - **Subscription Tiers**: Implements Basic, Pro, and Enterprise tiers with feature entitlements controlled by a server-side matrix. Includes UI components for tier display and upgrade prompts.
 - **Admin Dashboard**: Enhanced with detailed analytics (user trends, tier breakdown, churn), recent signups, user search/filters, sortable tables, login history, admin notes, and data export capabilities.
 - **Favorites & Frequently Used Content**: Clinicians can favorite content for quick access, and the system tracks frequently used content based on send history.

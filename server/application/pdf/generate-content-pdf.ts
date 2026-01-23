@@ -4,7 +4,7 @@
 
 import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
-import { generatePDF, generateFilename, type PDFGenerationConfig } from "../../infrastructure/pdf";
+import { generatePDF, generateFilename, type PDFGenerationConfig, type PDFBrandingConfig } from "../../infrastructure/pdf";
 
 export interface GenerateContentPdfInput {
   clinician: User;
@@ -31,6 +31,26 @@ export async function generateContentPdf(
     return null;
   }
 
+  const clinicianTier = input.clinician.subscriptionTier || 'basic';
+  const hasBrandingAccess = clinicianTier === 'pro' || clinicianTier === 'enterprise';
+  let branding: PDFBrandingConfig | undefined;
+  
+  if (hasBrandingAccess) {
+    const clinicBranding = await ctx.storage.getClinicBranding(input.clinician.id);
+    if (clinicBranding && clinicBranding.isActive) {
+      branding = {
+        logoUrl: clinicBranding.logoUrl,
+        clinicName: clinicBranding.clinicName || input.clinician.clinicName,
+        tagline: clinicBranding.tagline,
+        primaryColor: clinicBranding.primaryColor,
+        secondaryColor: clinicBranding.secondaryColor,
+        accentColor: clinicBranding.accentColor,
+        footerText: clinicBranding.footerText,
+        showPoweredBy: clinicBranding.showPoweredBy !== false,
+      };
+    }
+  }
+
   const config: PDFGenerationConfig = {
     pageSize: input.configOverrides?.pageSize ?? "letter",
     orientation: "portrait",
@@ -40,6 +60,7 @@ export async function generateContentPdf(
     clinicianName: input.configOverrides?.clinicianName || input.clinician.name || "Your Healthcare Provider",
     patientName: input.patientName,
     packetTitle: input.configOverrides?.packetTitle,
+    branding,
   };
 
   const pdfBuffer = await generatePDF(contentItems, config);
@@ -53,6 +74,7 @@ export async function generateContentPdf(
       patientName: input.patientName,
       contentCount: contentItems.length,
       pageSize: config.pageSize,
+      customBranding: !!branding,
     },
   });
 

@@ -368,6 +368,12 @@ export interface IStorage {
   removeItemFromCollection(collectionId: string, contentId: string): Promise<void>;
   reorderCollectionItems(collectionId: string, items: Array<{ contentId: string; sortOrder: number }>): Promise<void>;
 
+  // Clinic Branding
+  getClinicBranding(userId: string): Promise<schema.ClinicBranding | undefined>;
+  createClinicBranding(branding: schema.InsertClinicBranding): Promise<schema.ClinicBranding>;
+  updateClinicBranding(userId: string, updates: Partial<schema.InsertClinicBranding>): Promise<schema.ClinicBranding | undefined>;
+  deleteClinicBranding(userId: string): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -1979,6 +1985,37 @@ export class DatabaseStorage implements IStorage {
           eq(schema.collectionItems.contentId, item.contentId)
         ));
     }
+  }
+
+  // Clinic Branding methods
+  async getClinicBranding(userId: string): Promise<schema.ClinicBranding | undefined> {
+    const [branding] = await db.select()
+      .from(schema.clinicBranding)
+      .where(eq(schema.clinicBranding.userId, userId));
+    return branding;
+  }
+
+  async createClinicBranding(branding: schema.InsertClinicBranding): Promise<schema.ClinicBranding> {
+    const [created] = await db.insert(schema.clinicBranding)
+      .values(branding)
+      .returning();
+    return created!;
+  }
+
+  async updateClinicBranding(
+    userId: string,
+    updates: Partial<Omit<schema.InsertClinicBranding, "userId" | "createdAt" | "updatedAt" | "isActive">>,
+  ): Promise<schema.ClinicBranding | undefined> {
+    const [updated] = await db.update(schema.clinicBranding)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.clinicBranding.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  async deleteClinicBranding(userId: string): Promise<void> {
+    await db.delete(schema.clinicBranding)
+      .where(eq(schema.clinicBranding.userId, userId));
   }
 }
 
