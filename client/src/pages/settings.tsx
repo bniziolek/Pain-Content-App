@@ -36,7 +36,6 @@ interface BrandingFormData {
   secondaryColor: string;
   accentColor: string;
   footerText: string;
-  showWatermark: boolean;
   showPoweredBy: boolean;
 }
 
@@ -154,7 +153,6 @@ export default function SettingsPage() {
     secondaryColor: '#f5f5f5',
     accentColor: '#14B8A6',
     footerText: '',
-    showWatermark: false,
     showPoweredBy: true,
   });
 
@@ -173,7 +171,6 @@ export default function SettingsPage() {
         secondaryColor: branding.secondaryColor || '#f5f5f5',
         accentColor: branding.accentColor || '#14B8A6',
         footerText: branding.footerText || '',
-        showWatermark: branding.showWatermark || false,
         showPoweredBy: branding.showPoweredBy !== false,
       });
     }

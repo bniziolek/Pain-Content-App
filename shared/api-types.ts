@@ -234,7 +234,6 @@ export interface ClinicBranding {
   secondaryColor: string | null;
   accentColor: string | null;
   footerText: string | null;
-  showWatermark: boolean | null;
   showPoweredBy: boolean | null;
   isActive: boolean | null;
   createdAt: ISODateString;

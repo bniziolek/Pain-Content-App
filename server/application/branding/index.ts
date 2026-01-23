@@ -3,7 +3,7 @@
  * Branding service for managing clinic branding settings (Pro/Enterprise feature).
  */
 
-import type { User, ClinicBranding, InsertClinicBranding } from "@shared/schema";
+import type { User, ClinicBranding, InsertClinicBranding, BrandingRequest } from "@shared/schema";
 import type { AppContext, AuditRequestContext } from "../context";
 import type { IStorage } from "../../storage";
 
@@ -17,7 +17,7 @@ export interface GetBrandingParams {
 
 export interface SaveBrandingParams {
   clinician: User;
-  branding: Partial<InsertClinicBranding>;
+  branding: BrandingRequest;
 }
 
 export interface DeleteBrandingParams {
@@ -48,10 +48,20 @@ export async function saveClinicBranding(
     }
     return updated;
   } else {
-    return await ctx.storage.createClinicBranding({
-      ...params.branding,
+    // Explicitly construct the branding object to prevent any field override
+    const brandingToCreate: InsertClinicBranding = {
       userId: params.clinician.id,
-    } as InsertClinicBranding);
+      logoUrl: params.branding.logoUrl ?? null,
+      clinicName: params.branding.clinicName ?? null,
+      tagline: params.branding.tagline ?? null,
+      primaryColor: params.branding.primaryColor ?? null,
+      secondaryColor: params.branding.secondaryColor ?? null,
+      accentColor: params.branding.accentColor ?? null,
+      footerText: params.branding.footerText ?? null,
+      showPoweredBy: params.branding.showPoweredBy ?? null,
+      isActive: true,
+    };
+    return await ctx.storage.createClinicBranding(brandingToCreate);
   }
 }
 
