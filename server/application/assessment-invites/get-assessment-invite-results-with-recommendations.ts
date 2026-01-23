@@ -5,6 +5,7 @@
 import type { AppContext, AuditRequestContext } from "../context";
 import type { Assessment, AssessmentInvite, User } from "@shared/schema";
 import { getRecommendationsWithFallback } from "../recommendations";
+import { AppError } from "../errors";
 
 export interface GetAssessmentInviteResultsWithRecommendationsInput {
   auditContext: AuditRequestContext;
@@ -24,7 +25,11 @@ export async function getAssessmentInviteResultsWithRecommendations(
 ): Promise<AssessmentInviteResultsWithRecommendations> {
   const invite = await ctx.storage.getAssessmentInviteById(input.inviteId);
   if (!invite) {
-    throw new Error("Invite not found");
+    throw new AppError(404, "Invite not found");
+  }
+
+  if (invite.clinicianUserId !== input.clinician.id) {
+    throw new AppError(403, "Unauthorized");
   }
 
   await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'assessment_access', {

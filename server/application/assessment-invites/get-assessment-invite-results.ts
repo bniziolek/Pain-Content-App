@@ -4,6 +4,7 @@
 
 import type { AppContext, AuditRequestContext } from "../context";
 import type { User, AssessmentInvite, AssessmentResponse } from "@shared/schema";
+import { AppError } from "../errors";
 
 export interface GetAssessmentInviteResultsInput {
   clinician: User;
@@ -23,11 +24,11 @@ export async function getAssessmentInviteResults(
 ): Promise<AssessmentInviteResults> {
   const invite = await ctx.storage.getAssessmentInviteById(input.inviteId);
   if (!invite) {
-    throw new Error("Invite not found");
+    throw new AppError(404, "Invite not found");
   }
   
   if (invite.clinicianUserId !== input.clinician.id) {
-    throw new Error("Unauthorized");
+    throw new AppError(403, "Unauthorized");
   }
   
   const response = await ctx.storage.getAssessmentResponseByInviteId(input.inviteId);
