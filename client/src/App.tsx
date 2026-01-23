@@ -38,12 +38,25 @@ import OnboardingPage from "@/pages/onboarding";
 import ContentPacketGuidePage from "@/pages/content-packet-guide";
 import RecommendationRulesPage from "@/pages/recommendation-rules";
 
+import BlogPage from "@/pages/public/blog";
+import AboutPage from "@/pages/public/about";
+import PhilosophyPage from "@/pages/public/philosophy";
+import WhyDriverPathPage from "@/pages/public/why-driverpath";
+import FeaturesPage from "@/pages/public/features";
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
+      
+      {/* Public Marketing Pages */}
+      <Route path="/blog" component={BlogPage} />
+      <Route path="/about" component={AboutPage} />
+      <Route path="/philosophy" component={PhilosophyPage} />
+      <Route path="/why-driverpath" component={WhyDriverPathPage} />
+      <Route path="/features" component={FeaturesPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
