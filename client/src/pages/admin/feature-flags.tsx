@@ -48,7 +48,7 @@ export default function AdminFeatureFlags() {
   const { data: featureFlags = [], isLoading: flagsLoading } = useQuery({
     queryKey: ["admin-feature-flags"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/feature-flags", { credentials: "include" });
+      const res = await fetch("/api/feature-flags/admin", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch feature flags");
       return res.json() as Promise<FeatureFlag[]>;
     },
@@ -57,7 +57,7 @@ export default function AdminFeatureFlags() {
   const { data: changeHistory = [], isLoading: historyLoading } = useQuery({
     queryKey: ["feature-flags-history"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/feature-flags/history/all", { credentials: "include" });
+      const res = await fetch("/api/feature-flags/admin/history/all", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch history");
       return res.json() as Promise<AuditLog[]>;
     },
@@ -65,7 +65,7 @@ export default function AdminFeatureFlags() {
 
   const updateFlagMutation = useMutation({
     mutationFn: async ({ key, updates }: { key: string; updates: Partial<FeatureFlag> }) => {
-      const res = await fetch(`/api/admin/feature-flags/${key}`, {
+      const res = await fetch(`/api/feature-flags/admin/${key}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
