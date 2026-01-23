@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Calendar, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles, Activity, AlertTriangle, CreditCard, UserCheck, Unlock } from "lucide-react";
+import { ArrowLeft, Edit2, Save, X, Key, Clock, Trash2, Loader2, Download, Plus, MessageSquare, FileText, LogIn, CheckCircle, XCircle, Crown, Sparkles, Activity, AlertTriangle, CreditCard, UserCheck, Unlock } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { PublicUser as User, AdminNote, LoginHistory } from "@shared/api-types";

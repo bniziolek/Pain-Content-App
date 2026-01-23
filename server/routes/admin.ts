@@ -124,7 +124,34 @@ router.patch("/users/:id/subscription", requireAdmin, async (req, res, next) => 
 router.post("/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
   try {
     const { months, days } = req.body;
-    const daysToAdd = months ? months * 30 : (days || 30);
+    let daysToAdd: number;
+
+    if (months) {
+      // Determine the base date from which to extend: current subscription end if available, otherwise now.
+      let baseDate = new Date();
+      try {
+        const existingUser = await getUser(appContext, { userId: req.params.id });
+        const subscriptionPeriodEnd = (existingUser as any)?.subscriptionPeriodEnd;
+        if (subscriptionPeriodEnd) {
+          baseDate = new Date(subscriptionPeriodEnd);
+        }
+      } catch {
+        // If fetching the user fails for any reason, fall back to using the current date as baseDate.
+      }
+
+      const targetDate = new Date(baseDate.getTime());
+      targetDate.setMonth(targetDate.getMonth() + Number(months));
+
+      if (days) {
+        targetDate.setDate(targetDate.getDate() + Number(days));
+      }
+
+      const msPerDay = 24 * 60 * 60 * 1000;
+      daysToAdd = Math.max(1, Math.round((targetDate.getTime() - baseDate.getTime()) / msPerDay));
+    } else {
+      daysToAdd = days || 30;
+    }
+
     const user = await extendSubscription(appContext, {
       userId: req.params.id,
       days: daysToAdd,
@@ -285,10 +312,18 @@ router.get("/users/:userId/support-overview", requireAdmin, async (req, res, nex
 
 router.get("/users/:userId/support-timeline", requireAdmin, async (req, res, next) => {
   try {
-    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const daysParam = req.query.days ? parseInt(req.query.days as string) : 30;
+    
+    // Validate days parameter
+    if (isNaN(daysParam) || daysParam < 1 || daysParam > 365) {
+      return res.status(400).json({ 
+        error: "Invalid days parameter. Must be a positive integer between 1 and 365." 
+      });
+    }
+    
     const timeline = await getUserSupportTimeline(appContext, { 
       userId: req.params.userId,
-      days,
+      days: daysParam,
     });
     res.json(timeline);
   } catch (error) {

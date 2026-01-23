@@ -82,6 +82,7 @@ export async function sendContentEmailFlow(
     contentItems: contentItemsWithUrls,
     providerNote: input.providerNote,
     branding,
+    clinicianName: input.clinician.name,
   });
   
   await ctx.audit.logClinicianAction(auditContext, input.clinician, 'email_sent', {
