@@ -75,6 +75,14 @@ This catalog maps product features to the backend routes and application service
 - Application: `server/application/pdf/`
 - Infrastructure: `server/infrastructure/pdf/`
 
+### Custom Branding (Pro/Enterprise)
+
+- Routes: `server/routes/branding.ts`
+- Application: `server/application/branding/`
+- Storage: `server/storage.ts` (clinic_branding table)
+- UI: `client/src/pages/settings.tsx` (Branding tab)
+- Integration: PDF generation applies branding via `server/application/pdf/generate-content-pdf.ts`
+
 ### Admin Tools
 
 - Routes: `server/routes/admin.ts`

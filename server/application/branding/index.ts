@@ -4,6 +4,7 @@
  */
 
 import type { User, ClinicBranding, InsertClinicBranding } from "@shared/schema";
+import type { AppContext, AuditRequestContext } from "../context";
 import type { MinimalAppContext } from "../context-helpers";
 
 export interface GetBrandingParams {
@@ -55,4 +56,37 @@ export async function deleteClinicBranding(
   params: DeleteBrandingParams
 ): Promise<void> {
   await ctx.storage.deleteClinicBranding(params.clinician.id);
+}
+
+export async function saveClinicBrandingWithAudit(
+  ctx: AppContext,
+  auditContext: AuditRequestContext,
+  params: SaveBrandingParams
+): Promise<ClinicBranding> {
+  const result = await saveClinicBranding(ctx, params);
+  
+  await ctx.audit.logClinicianAction(auditContext, params.clinician, "branding_update", {
+    resourceType: "clinic_branding",
+    phiAccessed: false,
+    details: {
+      hasLogo: !!params.branding.logoUrl,
+      hasCustomColors: !!(params.branding.primaryColor || params.branding.secondaryColor || params.branding.accentColor),
+    },
+  });
+  
+  return result;
+}
+
+export async function deleteClinicBrandingWithAudit(
+  ctx: AppContext,
+  auditContext: AuditRequestContext,
+  params: DeleteBrandingParams
+): Promise<void> {
+  await deleteClinicBranding(ctx, params);
+  
+  await ctx.audit.logClinicianAction(auditContext, params.clinician, "branding_delete", {
+    resourceType: "clinic_branding",
+    phiAccessed: false,
+    details: {},
+  });
 }
