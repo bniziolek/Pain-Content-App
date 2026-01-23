@@ -66,6 +66,21 @@ interface UserFeatureFlag {
   category: string | null;
 }
 
+interface FeatureFlagAuditEntry {
+  id: string;
+  userId: string;
+  featureFlagId: string;
+  adminId: string;
+  action: 'enable' | 'disable' | 'reset';
+  previousValue: boolean | null;
+  newValue: boolean | null;
+  reason: string | null;
+  createdAt: string;
+  adminEmail?: string;
+  flagKey?: string;
+  flagName?: string;
+}
+
 export default function UserDetailPage() {
   const [, params] = useRoute("/admin/users/:id");
   const userId = params?.id;
@@ -158,6 +173,16 @@ export default function UserDetailPage() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/users/${userId}/feature-flags`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch feature flags");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: flagAuditLog = [], isLoading: auditLogLoading } = useQuery<FeatureFlagAuditEntry[]>({
+    queryKey: ["admin-user-flag-audit", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/feature-flags/audit`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch audit log");
       return res.json();
     },
     enabled: !!userId,
@@ -358,6 +383,7 @@ export default function UserDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-user-feature-flags", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-user-flag-audit", userId] });
       toast({
         title: "Feature Flag Updated",
         description: "User's feature flag has been updated.",
@@ -383,6 +409,7 @@ export default function UserDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-user-feature-flags", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-user-flag-audit", userId] });
       toast({
         title: "Flag Reset",
         description: "Feature flag has been reset to default.",
@@ -1166,6 +1193,86 @@ export default function UserDetailPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">No feature flags configured for this user</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Override Audit Trail
+                </CardTitle>
+                <CardDescription>History of feature flag changes for this user</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {auditLogLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : flagAuditLog.length > 0 ? (
+                  <div className="space-y-3">
+                    {flagAuditLog.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-4 p-3 rounded-lg border bg-gray-50"
+                        data-testid={`audit-entry-${entry.id}`}
+                      >
+                        <div className={`p-2 rounded-full ${
+                          entry.action === 'enable' ? 'bg-green-100 text-green-600' :
+                          entry.action === 'disable' ? 'bg-red-100 text-red-600' :
+                          'bg-amber-100 text-amber-600'
+                        }`}>
+                          {entry.action === 'enable' ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : entry.action === 'disable' ? (
+                            <XCircle className="w-4 h-4" />
+                          ) : (
+                            <Activity className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">
+                              {entry.action === 'enable' ? 'Enabled' :
+                               entry.action === 'disable' ? 'Disabled' :
+                               'Reset to default'}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {entry.flagName || entry.flagKey || 'Unknown flag'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            By {entry.adminEmail || 'Unknown admin'}
+                          </p>
+                          {entry.reason && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">
+                              Reason: {entry.reason}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {entry.previousValue !== null && (
+                              <span className="mr-2">
+                                Previous: <span className={entry.previousValue ? 'text-green-600' : 'text-red-600'}>{entry.previousValue ? 'Enabled' : 'Disabled'}</span>
+                              </span>
+                            )}
+                            {entry.newValue !== null && (
+                              <span>
+                                New: <span className={entry.newValue ? 'text-green-600' : 'text-red-600'}>{entry.newValue ? 'Enabled' : 'Disabled'}</span>
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No feature flag changes recorded for this user
+                  </p>
                 )}
               </CardContent>
             </Card>

@@ -362,16 +362,35 @@ router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) 
 
 router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (req, res, next) => {
   try {
-    const { enabled } = req.body;
+    const { enabled, reason } = req.body;
     const adminId = req.user?.id;
+    const { userId, flagId } = req.params;
+    
+    // Get existing override to record previous value
+    const existingOverrides = await appContext.storage.getUserFeatureOverrides(userId);
+    const existingOverride = existingOverrides.find(o => o.featureFlagId === flagId);
+    const previousValue = existingOverride?.isEnabled ?? null;
     
     await appContext.storage.setUserFeatureOverride(
-      req.params.userId,
-      req.params.flagId,
+      userId,
+      flagId,
       enabled,
       adminId,
-      `Set by admin`
+      reason || `Set by admin`
     );
+    
+    // Log the change to audit trail
+    if (adminId) {
+      await appContext.storage.createFeatureFlagAuditLog({
+        userId,
+        featureFlagId: flagId,
+        adminId,
+        action: enabled ? 'enable' : 'disable',
+        previousValue,
+        newValue: enabled,
+        reason: reason || null,
+      });
+    }
     
     res.json({ success: true });
   } catch (error) {
@@ -381,8 +400,40 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
 
 router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, async (req, res, next) => {
   try {
-    await appContext.storage.deleteUserFeatureOverride(req.params.userId, req.params.flagId);
+    const adminId = req.user?.id;
+    const { userId, flagId } = req.params;
+    
+    // Get existing override to record previous value
+    const existingOverrides = await appContext.storage.getUserFeatureOverrides(userId);
+    const existingOverride = existingOverrides.find(o => o.featureFlagId === flagId);
+    const previousValue = existingOverride?.isEnabled ?? null;
+    
+    await appContext.storage.deleteUserFeatureOverride(userId, flagId);
+    
+    // Log the reset to audit trail
+    if (adminId && previousValue !== null) {
+      await appContext.storage.createFeatureFlagAuditLog({
+        userId,
+        featureFlagId: flagId,
+        adminId,
+        action: 'reset',
+        previousValue,
+        newValue: null,
+        reason: 'Reset to default',
+      });
+    }
+    
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get feature flag audit log for a user
+router.get("/users/:userId/feature-flags/audit", requireAdmin, async (req, res, next) => {
+  try {
+    const auditLog = await appContext.storage.getFeatureFlagAuditLog(req.params.userId);
+    res.json(auditLog);
   } catch (error) {
     next(error);
   }

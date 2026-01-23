@@ -747,6 +747,26 @@ export const insertUserFeatureOverrideSchema = createInsertSchema(userFeatureOve
 export type InsertUserFeatureOverride = z.infer<typeof insertUserFeatureOverrideSchema>;
 export type UserFeatureOverride = typeof userFeatureOverrides.$inferSelect;
 
+// Feature flag audit log - tracks all changes to user feature flag overrides
+export const featureFlagAuditLog = pgTable("feature_flag_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // 'enable' | 'disable' | 'reset'
+  previousValue: boolean("previous_value"), // null if no previous override existed
+  newValue: boolean("new_value"), // null if reset (removed override)
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagAuditLogSchema = createInsertSchema(featureFlagAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFeatureFlagAuditLog = z.infer<typeof insertFeatureFlagAuditLogSchema>;
+export type FeatureFlagAuditLog = typeof featureFlagAuditLog.$inferSelect;
+
 // Admin notes schemas
 export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
   id: true,
