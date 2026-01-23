@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -737,7 +737,9 @@ export const userFeatureOverrides = pgTable("user_feature_overrides", {
   reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  uniqueUserFeature: uniqueIndex("user_feature_override_unique_idx").on(table.userId, table.featureFlagId),
+}));
 
 export const insertUserFeatureOverrideSchema = createInsertSchema(userFeatureOverrides).omit({
   id: true,
