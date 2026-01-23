@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+async function loginAsAdmin(page: any) {
+  await page.goto('/auth');
+  await page.fill('input[type="email"], input[name="email"]', 'admin@driverpath.com');
+  await page.fill('input[type="password"]', 'admin123');
+  await page.click('button[type="submit"]');
+  await expect(page).toHaveURL(/\/(dashboard)?$/);
+}
+
 test.describe('Content Library', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto('/auth');
-    await page.fill('input[type="email"], input[name="email"]', 'admin@driverpath.com');
-    await page.fill('input[type="password"]', 'admin123');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/(dashboard)?$/);
+    await loginAsAdmin(page);
   });
 
   test('should display content library page', async ({ page }) => {
@@ -56,12 +59,7 @@ test.describe('Content Library', () => {
 
 test.describe('Content Library - Mobile', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto('/auth');
-    await page.fill('input[type="email"], input[name="email"]', 'admin@driverpath.com');
-    await page.fill('input[type="password"]', 'admin123');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/(dashboard)?$/);
+    await loginAsAdmin(page);
   });
 
   test('action button should not overlap bottom navigation on mobile', async ({ page, isMobile }) => {
