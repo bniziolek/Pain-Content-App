@@ -548,6 +548,33 @@ export default function UserDetailPage() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Clinician Demographics</CardTitle>
+                <CardDescription>Professional and contact information for identity verification</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Clinic Name</Label>
+                    <p className="text-sm font-medium" data-testid="text-clinic-name">{user.clinicName || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Credentials</Label>
+                    <p className="text-sm font-medium" data-testid="text-credentials">{user.credentials || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <p className="text-sm font-medium" data-testid="text-phone">{user.phone || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Address</Label>
+                    <p className="text-sm font-medium" data-testid="text-address">{user.address || "—"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Account Timeline</CardTitle>
                 <CardDescription>Key dates and activity</CardDescription>
               </CardHeader>
@@ -723,11 +750,11 @@ export default function UserDetailPage() {
                                   {event.action.replace(/_/g, ' ')}
                                 </Badge>
                               </div>
-                              {event.metadata && Object.keys(event.metadata).length > 0 && (
+                              {event.metadata && 'ipAddress' in event.metadata && event.metadata.ipAddress ? (
                                 <div className="mt-2 text-xs text-muted-foreground font-mono">
-                                  {event.metadata.ipAddress && <span>IP: {String(event.metadata.ipAddress)}</span>}
+                                  IP: {String(event.metadata.ipAddress)}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         );

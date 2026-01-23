@@ -122,10 +122,11 @@ router.patch("/users/:id/subscription", requireAdmin, async (req, res, next) => 
 // Extend subscription
 router.post("/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
   try {
-    const { days } = req.body;
+    const { months, days } = req.body;
+    const daysToAdd = months ? months * 30 : (days || 30);
     const user = await extendSubscription(appContext, {
       userId: req.params.id,
-      days,
+      days: daysToAdd,
     });
     if (!user) {
       return res.status(404).send("User not found");
@@ -323,7 +324,7 @@ router.get("/users/:userId/permissions", requireAdmin, async (req, res, next) =>
 
 router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) => {
   try {
-    const user = await appContext.storage.getUserById(req.params.userId);
+    const user = await appContext.storage.getUser(req.params.userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
