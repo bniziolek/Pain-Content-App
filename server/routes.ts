@@ -11,7 +11,15 @@ import {
   insertInternalScreeningSchema,
   insertEmailLogSchema 
 } from "@shared/schema";
-import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
+import {
+  getAllContentFromContentful,
+  getContentByIdFromContentful,
+  getAllPathwaysFromContentful,
+  getPathwayByIdFromContentful,
+  isContentfulConfigured,
+  isContentfulReadEnabled,
+  ContentfulError,
+} from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
@@ -149,7 +157,7 @@ export function registerRoutes(app: Express): Server {
       
       // Fetch the content
       let content = null;
-      if (isContentfulConfigured()) {
+      if (isContentfulReadEnabled()) {
         try {
           content = await getContentByIdFromContentful(view.contentId);
         } catch (e) {
@@ -376,7 +384,7 @@ export function registerRoutes(app: Express): Server {
       
       for (const view of views) {
         let content = null;
-        if (isContentfulConfigured()) {
+        if (isContentfulReadEnabled()) {
           try {
             content = await getContentByIdFromContentful(view.contentId);
           } catch (e) {
@@ -432,7 +440,7 @@ export function registerRoutes(app: Express): Server {
   // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
     try {
-      if (isContentfulConfigured()) {
+      if (isContentfulReadEnabled()) {
         try {
           const content = await getAllContentFromContentful();
           res.json(content);
@@ -453,7 +461,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
     try {
       let content = null;
-      if (isContentfulConfigured()) {
+      if (isContentfulReadEnabled()) {
         try {
           content = await getContentByIdFromContentful(req.params.id);
         } catch (error) {
@@ -477,15 +485,17 @@ export function registerRoutes(app: Express): Server {
       
       res.json(content);
     } catch (error) {
-      next(error);
+        configured: isContentfulConfigured(),
+        contentfulReadEnabled: isContentfulReadEnabled(),
     }
   });
 
   app.get("/api/content/status", requireAuth, async (req, res, next) => {
     try {
       res.json({ 
-        source: isContentfulConfigured() ? "contentful" : "database",
-        configured: isContentfulConfigured() 
+        source: isContentfulReadEnabled() ? "contentful" : "database",
+        configured: isContentfulConfigured(),
+        readThroughEnabled: isContentfulReadEnabled()
       });
     } catch (error) {
       next(error);
@@ -1255,7 +1265,7 @@ export function registerRoutes(app: Express): Server {
         for (const contentId of validated.contentIds) {
           try {
             let content = null;
-            if (isContentfulConfigured()) {
+            if (isContentfulReadEnabled()) {
               content = await getContentByIdFromContentful(contentId);
             }
             if (!content) {
@@ -2213,7 +2223,7 @@ export function registerRoutes(app: Express): Server {
       
       // Try to get template pathways from Contentful first
       let templatePathways: any[] = [];
-      if (isContentfulConfigured()) {
+      if (isContentfulReadEnabled()) {
         try {
           const contentfulPathways = await getAllPathwaysFromContentful();
           templatePathways = contentfulPathways;
@@ -2236,7 +2246,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Try Contentful first for pathway templates
-      if (isContentfulConfigured()) {
+      if (isContentfulReadEnabled()) {
         try {
           const contentfulPathway = await getPathwayByIdFromContentful(req.params.id);
           if (contentfulPathway) {

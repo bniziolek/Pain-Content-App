@@ -60,6 +60,7 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL!,
 });
 
+export const getPool = () => pool;
 const db = drizzle({ client: pool, schema });
 
 export interface IStorage {
@@ -95,6 +96,7 @@ export interface IStorage {
   createContent(content: InsertContentItem): Promise<ContentItem>;
   updateContent(id: string, content: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
   deleteContent(id: string): Promise<void>;
+  upsertContentItems(items: ContentItem[]): Promise<void>;
 
   // Assessments
   getDefaultAssessment(): Promise<Assessment | undefined>;
@@ -395,6 +397,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContent(id: string): Promise<void> {
     await db.delete(schema.contentItems).where(eq(schema.contentItems.id, id));
+  }
+
+  async upsertContentItems(items: ContentItem[]): Promise<void> {
+    if (items.length === 0) {
+      return;
+    }
+
+    const values = items.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      body: item.body,
+      tags: item.tags ?? [],
+      imageUrl: item.imageUrl ?? null,
+      readTime: item.readTime ?? "5 min",
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }));
+
+    await db.insert(schema.contentItems)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.contentItems.id,
+        set: {
+          title: sql`excluded.title`,
+          summary: sql`excluded.summary`,
+          body: sql`excluded.body`,
+          tags: sql`excluded.tags`,
+          imageUrl: sql`excluded.imageUrl`,
+          readTime: sql`excluded.readTime`,
+          updatedAt: sql`excluded.updatedAt`,
+        },
+      });
   }
 
   // Assessment methods

@@ -43,6 +43,44 @@ const client = spaceId && accessToken
     })
   : null;
 
+const DEFAULT_CACHE_TTL_MS = 300000;
+const rawCacheTtl = process.env.CONTENTFUL_CACHE_TTL_MS;
+let cacheTtlMs: number = DEFAULT_CACHE_TTL_MS;
+
+if (rawCacheTtl && rawCacheTtl.trim() !== "") {
+  const parsedTtl = Number.parseInt(rawCacheTtl, 10);
+  if (Number.isNaN(parsedTtl) || parsedTtl <= 0) {
+    console.warn(
+      `Invalid CONTENTFUL_CACHE_TTL_MS value "${rawCacheTtl}". Using default TTL of ${DEFAULT_CACHE_TTL_MS} ms.`
+    );
+  } else {
+    cacheTtlMs = parsedTtl;
+  }
+}
+const cache = new Map<string, { value: unknown; expiresAt: number }>();
+
+function getCache<T>(key: string): T | undefined {
+  if (!cacheTtlMs || cacheTtlMs <= 0) {
+    return undefined;
+  }
+  const entry = cache.get(key);
+  if (!entry) {
+    return undefined;
+  }
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return undefined;
+  }
+  return entry.value as T;
+}
+
+function setCache<T>(key: string, value: T): void {
+  if (!cacheTtlMs || cacheTtlMs <= 0) {
+    return;
+  }
+  cache.set(key, { value, expiresAt: Date.now() + cacheTtlMs });
+}
+
 export class ContentfulError extends Error {
   constructor(message: string, public originalError?: unknown) {
     super(message);
@@ -122,6 +160,11 @@ export async function getAllContentFromContentful(): Promise<ContentItem[]> {
     throw new ContentfulError("Contentful client not initialized");
   }
 
+  const cached = getCache<ContentItem[]>("content:all");
+  if (cached) {
+    return cached;
+  }
+
   console.log("[Contentful] Fetching all content items...");
 
   try {
@@ -131,8 +174,14 @@ export async function getAllContentFromContentful(): Promise<ContentItem[]> {
     });
 
     console.log(`[Contentful] Found ${entries.items.length} content items`);
-    
-    return entries.items.map(parseContentfulEntry);
+
+    const parsed = entries.items.map(parseContentfulEntry);
+    setCache("content:all", parsed);
+    for (const item of parsed) {
+      setCache(`content:id:${item.id}`, item);
+    }
+
+    return parsed;
   } catch (error) {
     console.error("[Contentful] Error fetching content:", error);
     throw new ContentfulError("Failed to fetch content from Contentful", error);
@@ -144,11 +193,31 @@ export async function getContentByIdFromContentful(id: string): Promise<ContentI
     throw new ContentfulError("Contentful client not initialized");
   }
 
+  const cached = getCache<ContentItem>(`content:id:${id}`);
+  if (cached) {
+    return cached;
+  }
+
+  const listCached = getCache<ContentItem[]>("content:all");
+  if (listCached) {
+    const match = listCached.find(item => item.id === id) || null;
+    if (match) {
+      return match;
+    }
+  }
+
   console.log(`[Contentful] Fetching content by ID: ${id}`);
 
   try {
     const entry = await client.getEntry<ContentfulContentItem>(id);
-    return parseContentfulEntry(entry);
+    const parsed = parseContentfulEntry(entry);
+  const flag = process.env.CONTENTFUL_READ_THROUGH;
+  const isDisabled =
+    typeof flag === "string" &&
+    ["false", "0", "no", "off"].includes(flag.toLowerCase());
+
+  return client !== null && !isDisabled;
+    return parsed;
   } catch (error) {
     console.error(`[Contentful] Error fetching content by ID ${id}:`, error);
     throw new ContentfulError(`Failed to fetch content with ID ${id} from Contentful`, error);
@@ -157,6 +226,10 @@ export async function getContentByIdFromContentful(id: string): Promise<ContentI
 
 export function isContentfulConfigured(): boolean {
   return client !== null;
+}
+
+export function isContentfulReadEnabled(): boolean {
+  return client !== null && process.env.CONTENTFUL_READ_THROUGH !== "false";
 }
 
 // Care Pathway Contentful Types
@@ -233,6 +306,11 @@ export async function getAllPathwaysFromContentful(): Promise<(CarePathway & { m
     throw new ContentfulError("Contentful client not initialized");
   }
 
+  const cached = getCache<(CarePathway & { milestones: PathwayMilestone[] })[]>("pathways:all");
+  if (cached) {
+    return cached;
+  }
+
   console.log("[Contentful] Fetching all care pathways...");
 
   try {
@@ -242,8 +320,14 @@ export async function getAllPathwaysFromContentful(): Promise<(CarePathway & { m
     });
 
     console.log(`[Contentful] Found ${entries.items.length} care pathways`);
-    
-    return entries.items.map(parseContentfulCarePathway);
+
+    const parsed = entries.items.map(parseContentfulCarePathway);
+    setCache("pathways:all", parsed);
+    for (const item of parsed) {
+      setCache(`pathways:id:${item.id}`, item);
+    }
+
+    return parsed;
   } catch (error: any) {
     if (error?.sys?.id === "NotFound" || error?.message?.includes("Unknown content type")) {
       console.log("[Contentful] carePathway content type not found, returning empty array");
@@ -259,11 +343,26 @@ export async function getPathwayByIdFromContentful(id: string): Promise<(CarePat
     throw new ContentfulError("Contentful client not initialized");
   }
 
+  const cached = getCache<(CarePathway & { milestones: PathwayMilestone[] })>(`pathways:id:${id}`);
+  if (cached) {
+    return cached;
+  }
+
+  const listCached = getCache<(CarePathway & { milestones: PathwayMilestone[] })[]>("pathways:all");
+  if (listCached) {
+    const match = listCached.find(item => item.id === id) || null;
+    if (match) {
+      return match;
+    }
+  }
+
   console.log(`[Contentful] Fetching pathway by ID: ${id}`);
 
   try {
     const entry = await client.getEntry<ContentfulCarePathway>(id, { include: 2 });
-    return parseContentfulCarePathway(entry);
+    const parsed = parseContentfulCarePathway(entry);
+    setCache(`pathways:id:${id}`, parsed);
+    return parsed;
   } catch (error: any) {
     if (error?.sys?.id === "NotFound") {
       return null;

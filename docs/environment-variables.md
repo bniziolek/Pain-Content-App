@@ -38,6 +38,8 @@ For managing content library via Contentful.
 |----------|-------------|---------------|
 | `CONTENTFUL_SPACE_ID` | Contentful space identifier | Contentful Settings > API Keys |
 | `CONTENTFUL_ACCESS_TOKEN` | Content Delivery API token | Contentful Settings > API Keys |
+| `CONTENTFUL_READ_THROUGH` | Set to `false` to force DB reads only (use with scheduled sync) | App config |
+| `CONTENTFUL_CACHE_TTL_MS` | Cache TTL for Contentful reads (ms). Set `0` to disable | App config |
 
 If not configured, content is served from the local PostgreSQL database.
 
