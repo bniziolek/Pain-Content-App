@@ -2,6 +2,10 @@
 
 This directory contains operational, architectural, and product documentation for DriverPath.
 
+## Agent Entry Point
+
+- `docs/Agent_guide.md`: Single starting point for agents with links to the authoritative docs.
+
 ## Architecture and Design
 
 - `docs/architecture/ARCHITECTURE.md`: Layered architecture rules and responsibilities.
