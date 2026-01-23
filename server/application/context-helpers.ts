@@ -153,6 +153,18 @@ const infrastructurePaymentService: PaymentService = {
       cancel_at_period_end: false,
     });
   },
+  async updateSubscription(params) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    const subscription = await stripe.subscriptions.retrieve(params.subscriptionId);
+    await stripe.subscriptions.update(params.subscriptionId, {
+      items: [{
+        id: subscription.items.data[0].id,
+        price: params.newPriceId,
+      }],
+      proration_behavior: 'create_prorations',
+    });
+  },
   async getPublishableKey() {
     try {
       return await getStripePublishableKey();

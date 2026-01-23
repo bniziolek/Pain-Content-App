@@ -117,6 +117,7 @@ export interface PaymentService {
   }): Promise<Array<{ id: string; amount: number; status: string | null; date: number; pdfUrl: string | null }>>;
   cancelSubscription(params: { subscriptionId: string; cancelAtPeriodEnd?: boolean }): Promise<void>;
   resumeSubscription(params: { subscriptionId: string }): Promise<void>;
+  updateSubscription(params: { subscriptionId: string; newPriceId: string }): Promise<void>;
   getPublishableKey(): Promise<string | undefined>;
   processWebhook(payload: Buffer, signature: string): Promise<void>;
   getSubscriptionStatus(customerId: string): Promise<{

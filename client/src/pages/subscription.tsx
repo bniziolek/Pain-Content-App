@@ -131,6 +131,42 @@ export default function SubscriptionPage() {
     }
   };
 
+  const handleUpgrade = async (priceId: string, tier: string) => {
+    setCheckoutLoading(priceId);
+    try {
+      const res = await fetch("/api/subscription/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ priceId, tier }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to upgrade subscription");
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "Upgrade Successful!",
+          description: `Your subscription has been upgraded to ${tier.charAt(0).toUpperCase() + tier.slice(1)}.`,
+        });
+        // Refresh user data to get the new tier
+        await refreshUser();
+        setLocation("/dashboard?subscription=upgraded");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Upgrade Error",
+        description: error.message || "Failed to upgrade subscription. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
   const handleManageSubscription = async () => {
     setIsLoading(true);
     try {
@@ -407,6 +443,21 @@ export default function SubscriptionPage() {
                     <Button className="w-full" variant="outline" disabled>
                       Current Plan
                     </Button>
+                  ) : currentTier === "basic" && user?.stripeSubscriptionId ? (
+                    <Button
+                      className="w-full bg-amber-500 hover:bg-amber-600"
+                      onClick={() => {
+                        const price = getPrice(proPlan!, billingInterval);
+                        if (price) handleUpgrade(price.id, "pro");
+                      }}
+                      disabled={!proPlan || checkoutLoading !== null}
+                      data-testid="button-upgrade-pro"
+                    >
+                      {checkoutLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : null}
+                      Upgrade to Pro
+                    </Button>
                   ) : (
                     <Button
                       className="w-full bg-amber-500 hover:bg-amber-600"
@@ -420,7 +471,7 @@ export default function SubscriptionPage() {
                       {checkoutLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       ) : null}
-                      {currentTier === "basic" ? "Upgrade to Pro" : "Get Started"}
+                      Get Started
                     </Button>
                   )}
                 </CardFooter>

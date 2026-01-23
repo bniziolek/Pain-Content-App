@@ -17,3 +17,4 @@ export * from "./list-invoices";
 export * from "./list-enabled-feature-flags";
 export * from "./admin-update-user-tier";
 export * from "./admin-update-user-subscription";
+export * from "./upgrade-subscription";

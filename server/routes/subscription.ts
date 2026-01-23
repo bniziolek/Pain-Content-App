@@ -18,6 +18,7 @@ import {
   listInvoices,
   listPlans,
   resumeSubscription,
+  upgradeSubscription,
 } from "../application";
 
 const router = Router();
@@ -113,6 +114,45 @@ router.post("/change", requireAuth, async (req, res, next) => {
     await changeSubscriptionTier(appContext, { user: req.user!, newTier });
     res.json({ success: true, tier: newTier });
   } catch (error) {
+    next(error);
+  }
+});
+
+// Upgrade subscription to a new tier (for existing subscribers)
+router.post("/upgrade", requireAuth, async (req, res, next) => {
+  try {
+    const { priceId, tier } = req.body;
+    
+    if (!priceId || !tier) {
+      return res.status(400).json({ error: "Price ID and tier are required" });
+    }
+    
+    if (!req.user!.stripeSubscriptionId) {
+      return res.status(400).json({ error: "No active subscription to upgrade. Please use checkout instead." });
+    }
+    
+    if (!["basic", "pro", "enterprise"].includes(tier)) {
+      return res.status(400).json({ error: "Invalid tier" });
+    }
+    
+    const result = await upgradeSubscription(appContext, {
+      user: req.user!,
+      newPriceId: priceId,
+      newTier: tier,
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Upgrade error:", error);
+    if (error instanceof Error) {
+      if (error.message === "Stripe not configured") {
+        return res.status(503).json({ error: "Stripe is not configured. Please contact support." });
+      }
+      if (error.message === "No active subscription to upgrade") {
+        return res.status(400).json({ error: error.message });
+      }
+      return res.status(500).json({ error: error.message || "Failed to upgrade subscription" });
+    }
     next(error);
   }
 });
