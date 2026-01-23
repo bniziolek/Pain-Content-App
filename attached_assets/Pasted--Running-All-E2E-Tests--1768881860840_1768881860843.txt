@@ -1,0 +1,497 @@
+
+════════════════════════════════════════════════════════════
+  Running All E2E Tests
+════════════════════════════════════════════════════════════
+
+
+Running 83 tests using 4 workers
+
+  ✓   1 [chromium] › tests/e2e/auth.spec.ts:25:3 › Authentication › should reject invalid credentials (2.8s)
+  ✓   2 [chromium] › tests/e2e/auth.spec.ts:10:3 › Authentication › should login with valid credentials (3.4s)
+  ✓   3 [chromium] › tests/e2e/auth.spec.ts:39:3 › Authentication › should logout successfully (7.2s)
+  ✓   4 [chromium] › tests/e2e/auth.spec.ts:4:3 › Authentication › should display login page (2.6s)
+  ✓   5 [chromium] › tests/e2e/library.spec.ts:13:3 › Content Library › should display content library page (4.5s)
+  ✘   6 [chromium] › tests/e2e/library.spec.ts:19:3 › Content Library › should show content cards (14.2s)
+  ✓   7 [chromium] › tests/e2e/library.spec.ts:29:3 › Content Library › should filter content by search (3.9s)
+  ✘   8 [chromium] › tests/e2e/library.spec.ts:42:3 › Content Library › should select content items (12.8s)
+  ✘   9 [chromium] › tests/e2e/pdf-generation.spec.ts:13:3 › PDF Generation › should open PDF configuration dialog (13.0s)
+  ✘  10 …romium] › tests/e2e/pdf-generation.spec.ts:42:3 › PDF Generation › should show character counter for cover message (12.8s)
+  ✘  11 …ium] › tests/e2e/pdf-generation.spec.ts:70:3 › PDF Generation › should update preview when patient name is entered (11.8s)
+  ✓  12 …/roles/admin.spec.ts:26:5 › Admin Role - Administrative Functions › Admin Dashboard › should access admin dashboard (5.6s)
+  ✓  13 …oles/admin.spec.ts:33:5 › Admin Role - Administrative Functions › Admin Dashboard › should display admin statistics (5.3s)
+  ✓  14 …e2e/roles/admin.spec.ts:43:5 › Admin Role - Administrative Functions › Admin Dashboard › should show recent signups (5.2s)
+  ✓  15 …s/e2e/roles/admin.spec.ts:55:5 › Admin Role - Administrative Functions › User Management › should display user list (4.7s)
+  ✓  16 … tests/e2e/roles/admin.spec.ts:66:5 › Admin Role - Administrative Functions › User Management › should search users (5.7s)
+  ✓  17 …2e/roles/admin.spec.ts:77:5 › Admin Role - Administrative Functions › User Management › should filter users by tier (4.6s)
+  ✓  18 …/roles/admin.spec.ts:87:5 › Admin Role - Administrative Functions › User Management › should filter users by status (5.0s)
+  ✓  19 …sts/e2e/roles/admin.spec.ts:97:5 › Admin Role - Administrative Functions › User Management › should sort user table (5.2s)
+  ✓  20 …/e2e/roles/admin.spec.ts:108:5 › Admin Role - Administrative Functions › User Management › should view user details (4.8s)
+  ✓  21 …e/roles/admin.spec.ts:124:5 › Admin Role - Administrative Functions › Admin Notes › should view admin notes on user (4.6s)
+  ✓  22 …in.spec.ts:145:5 › Admin Role - Administrative Functions › Subscription Management › should view subscription tiers (5.0s)
+  ✓  23 …s/admin.spec.ts:155:5 › Admin Role - Administrative Functions › Subscription Management › should see tier breakdown (5.8s)
+  ✓  24 …admin.spec.ts:167:5 › Admin Role - Administrative Functions › Content Management › should access content management (5.6s)
+  ✓  25 ….spec.ts:175:5 › Admin Role - Administrative Functions › Feature Flags › should access feature flags if super admin (5.6s)
+  ✓  26 …tests/e2e/roles/admin.spec.ts:183:5 › Admin Role - Administrative Functions › Audit Logs › should access audit logs (3.8s)
+  ✓  27 …admin.spec.ts:191:5 › Admin Role - Administrative Functions › Data Export › should access data export functionality (5.5s)
+  ✓  28 …n.spec.ts:203:5 › Admin Role - Administrative Functions › Admin Navigation › should navigate between admin sections (4.5s)
+  ✓  29 …roles/clinician.spec.ts:26:5 › Clinician Role - Complete Workflow Tests › Dashboard › should display dashboard page (3.4s)
+  ✘  30 …nician.spec.ts:34:5 › Clinician Role - Complete Workflow Tests › Dashboard › should show navigation sidebar or menu (7.7s)
+  ✓  31 …2e/roles/clinician.spec.ts:40:5 › Clinician Role - Complete Workflow Tests › Dashboard › should navigate to library (3.0s)
+  ✓  32 …ian.spec.ts:48:5 › Clinician Role - Complete Workflow Tests › Content Library › should display content library page (2.9s)
+  ✘  33 …es/clinician.spec.ts:55:5 › Clinician Role - Complete Workflow Tests › Content Library › should show content cards (12.8s)
+  ✓  34 …oles/clinician.spec.ts:61:5 › Clinician Role - Complete Workflow Tests › Content Library › should have search input (2.9s)
+  ✘  35 …67:5 › Clinician Role - Complete Workflow Tests › Content Library › should select content and show selection count (12.3s)
+  ✘  36 …cian.spec.ts:79:5 › Clinician Role - Complete Workflow Tests › Content Library › should open content preview modal (12.0s)
+  ✘  37 …s:94:5 › Clinician Role - Complete Workflow Tests › Content Sending › should open send modal with selected content (12.3s)
+  ✘  38 …n.spec.ts:116:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should open PDF configuration dialog (12.0s)
+  ✘  39 …clinician.spec.ts:140:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should configure PDF options (12.4s)
+  ✓  40 …/clinician.spec.ts:169:5 › Clinician Role - Complete Workflow Tests › Assessments › should display assessments page (2.8s)
+  ✓  41 …linician.spec.ts:174:5 › Clinician Role - Complete Workflow Tests › Assessments › should list available assessments (4.4s)
+  ✓  42 ….ts:185:5 › Clinician Role - Complete Workflow Tests › Internal Screenings › should access screenings functionality (3.9s)
+  ✓  43 …cian.spec.ts:194:5 › Clinician Role - Complete Workflow Tests › History / Email Logs › should display email history (3.9s)
+  ✓  44 …e/roles/clinician.spec.ts:202:5 › Clinician Role - Complete Workflow Tests › Settings › should access settings page (2.4s)
+  ✓  45 …les/clinician.spec.ts:207:5 › Clinician Role - Complete Workflow Tests › Settings › should display profile settings (3.0s)
+  ✓  46 …ician.spec.ts:212:5 › Clinician Role - Complete Workflow Tests › Settings › should display subscription information (3.4s)
+  ✓  47 …ician.spec.ts:222:5 › Clinician Role - Complete Workflow Tests › Navigation › should navigate between main sections (5.6s)
+  ✓  48 …ician.spec.ts:236:5 › Clinician Role - Complete Workflow Tests › Navigation › should show navigation menu on mobile (3.8s)
+  ✘  49 …/e2e/roles/clinician.spec.ts:247:5 › Clinician Role - Complete Workflow Tests › Logout › should logout successfully (8.9s)
+  ✓  50 …/patient-portal.spec.ts:10:5 › Patient Portal - Patient Access › Portal Access › should display patient portal page (3.4s)
+  ✓  51 …spec.ts:18:5 › Patient Portal - Patient Access › Portal Access › should show access code entry if portal is enabled (3.7s)
+  ✓  52 …t-portal.spec.ts:28:5 › Patient Portal - Patient Access › Portal Access › should show email entry for portal access (3.7s)
+  ✓  53 …t-portal.spec.ts:40:5 › Patient Portal - Patient Access › Portal Authentication › should reject invalid access code (3.3s)
+  ✓  54 …pec.ts:61:5 › Patient Portal - Patient Access › Portal Authentication › should handle lockout after failed attempts (3.2s)
+  ✘  55 …:89:5 › Patient Portal - Patient Access › Portal Content Access › should not access content without authentication (702ms)
+  ✓  56 …portal.spec.ts:99:5 › Patient Portal - Patient Access › Portal UI Elements › should display branding on portal page (3.3s)
+  ✓  57 …s/patient-portal.spec.ts:110:5 › Patient Portal - Patient Access › Portal UI Elements › should be mobile responsive (3.1s)
+  ✓  58 …c.ts:124:5 › Patient Portal - Patient Access › Portal Session Management › should handle session timeout gracefully (3.1s)
+  ✓  59 …pec.ts:134:5 › Patient Portal - Patient Access › Assessment Access via Portal › should access assessment if invited (3.0s)
+  ✓  60 …ortal.spec.ts:145:5 › Patient Portal - Patient Access › Content Viewing › should access content view page structure (2.9s)
+  ✓  61 …oles/patient-portal.spec.ts:156:5 › Patient Portal - Patient Access › Error States › should handle expired sessions (3.4s)
+  ✓  62 …ent-portal.spec.ts:171:5 › Patient Portal - Patient Access › Error States › should handle network errors gracefully (2.9s)
+  ✓  63 …oles/unauthenticated.spec.ts:10:5 › Unauthenticated User - Public Access › Public Pages › should display login page (1.1s)
+  ✓  64 …thenticated.spec.ts:17:5 › Unauthenticated User - Public Access › Public Pages › should display login form elements (1.0s)
+  ✓  65 …d.spec.ts:33:5 › Unauthenticated User - Public Access › Public Pages › should show registration option if available (1.3s)
+  ✓  66 …pec.ts:43:5 › Unauthenticated User - Public Access › Public Pages › should show forgot password option if available (1.5s)
+  ✓  67 …4:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect dashboard to login (1.9s)
+  ✓  68 …:60:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect library to login (2.0s)
+  ✓  69 …66:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect settings to login (2.1s)
+  ✓  70 …5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect assessments to login (2.2s)
+  ✘  71 …ts:78:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect admin to login (7.0s)
+  ✓  72 …:84:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect history to login (2.1s)
+  ✓  73 …henticated.spec.ts:92:5 › Unauthenticated User - Public Access › Login Validation › should reject empty credentials (2.2s)
+  ✓  74 …icated.spec.ts:101:5 › Unauthenticated User - Public Access › Login Validation › should reject invalid email format (2.8s)
+  ✓  75 …cated.spec.ts:113:5 › Unauthenticated User - Public Access › Login Validation › should reject incorrect credentials (1.6s)
+  ✓  76 …ated.spec.ts:124:5 › Unauthenticated User - Public Access › Login Validation › should show error for empty password (1.4s)
+  ✓  77 …uthenticated User - Public Access › API Access Control › should reject unauthenticated API access to user endpoint (421ms)
+  ✓  78 … › Unauthenticated User - Public Access › API Access Control › should reject unauthenticated API access to content (466ms)
+  ✓  79 …ted.spec.ts:147:5 › Unauthenticated User - Public Access › API Access Control › should allow health check endpoint (487ms)
+  ✘  80 …ec.ts:154:5 › Unauthenticated User - Public Access › Registration Flow › should show registration form if available (6.6s)
+  ✓  81 …nauthenticated.spec.ts:168:5 › Unauthenticated User - Public Access › Error Handling › should handle 404 gracefully (2.6s)
+  ✓  82 …nticated.spec.ts:181:5 › Unauthenticated User - Public Access › Accessibility › should have focusable form elements (1.5s)
+  ✓  83 …ated.spec.ts:192:5 › Unauthenticated User - Public Access › Accessibility › should support keyboard form submission (2.8s)
+
+
+  1) [chromium] › tests/e2e/library.spec.ts:19:3 › Content Library › should show content cards ─────
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      21 |     
+      22 |     // Wait for content to load
+    > 23 |     await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                ^
+      24 |     
+      25 |     const contentCards = page.locator('[data-testid^="card-"], .content-card, article');
+      26 |     await expect(contentCards.first()).toBeVisible();
+        at /home/runner/workspace/tests/e2e/library.spec.ts:23:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/library-Content-Library-should-show-content-cards-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/library-Content-Library-should-show-content-cards-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/library.spec.ts:42:3 › Content Library › should select content items ───
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      43 |     await page.goto('/library');
+      44 |     
+    > 45 |     await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                ^
+      46 |     
+      47 |     // Try to click on content card checkbox or the card itself
+      48 |     const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+        at /home/runner/workspace/tests/e2e/library.spec.ts:45:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/library-Content-Library-should-select-content-items-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/library-Content-Library-should-select-content-items-chromium/error-context.md
+
+  3) [chromium] › tests/e2e/pdf-generation.spec.ts:13:3 › PDF Generation › should open PDF configuration dialog 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      15 |     
+      16 |     // Select content
+    > 17 |     await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                ^
+      18 |     const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+      19 |     const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      20 |     
+        at /home/runner/workspace/tests/e2e/pdf-generation.spec.ts:17:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/pdf-generation-PDF-Generat-7b440-en-PDF-configuration-dialog-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/pdf-generation-PDF-Generat-7b440-en-PDF-configuration-dialog-chromium/error-context.md
+
+  4) [chromium] › tests/e2e/pdf-generation.spec.ts:42:3 › PDF Generation › should show character counter for cover message 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      44 |     
+      45 |     // Select content and open PDF dialog
+    > 46 |     await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                ^
+      47 |     const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+      48 |     const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      49 |     
+        at /home/runner/workspace/tests/e2e/pdf-generation.spec.ts:46:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/pdf-generation-PDF-Generat-0cdfa-r-counter-for-cover-message-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/pdf-generation-PDF-Generat-0cdfa-r-counter-for-cover-message-chromium/error-context.md
+
+  5) [chromium] › tests/e2e/pdf-generation.spec.ts:70:3 › PDF Generation › should update preview when patient name is entered 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      72 |     
+      73 |     // Select content and open PDF dialog
+    > 74 |     await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                ^
+      75 |     const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+      76 |     const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+      77 |     
+        at /home/runner/workspace/tests/e2e/pdf-generation.spec.ts:74:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/pdf-generation-PDF-Generat-2cb4f-hen-patient-name-is-entered-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/pdf-generation-PDF-Generat-2cb4f-hen-patient-name-is-entered-chromium/error-context.md
+
+  6) [chromium] › tests/e2e/roles/clinician.spec.ts:34:5 › Clinician Role - Complete Workflow Tests › Dashboard › should show navigation sidebar or menu 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('nav, aside, [role="navigation"]')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('nav, aside, [role="navigation"]')
+        6 × locator resolved to <nav data-testid="bottom-nav" data-component-name="nav" data-replit-metadata="client/src/components/layout.tsx:187:4" class="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border lg:hidden">…</nav>
+          - unexpected value "hidden"
+
+
+      35 |       await page.goto('/dashboard');
+      36 |       // Must have navigation element
+    > 37 |       await expect(page.locator('nav, aside, [role="navigation"]')).toBeVisible();
+         |                                                                     ^
+      38 |     });
+      39 |
+      40 |     test('should navigate to library', async () => {
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:37:69
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--d3096--navigation-sidebar-or-menu-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--d3096--navigation-sidebar-or-menu-chromium/error-context.md
+
+  7) [chromium] › tests/e2e/roles/clinician.spec.ts:55:5 › Clinician Role - Complete Workflow Tests › Content Library › should show content cards 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid^="card-"], .content-card, article').first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid^="card-"], .content-card, article').first()
+
+
+      56 |       await page.goto('/library');
+      57 |       // Must have content cards (required for library to be functional)
+    > 58 |       await expect(page.locator('[data-testid^="card-"], .content-card, article').first()).toBeVisible({ timeout: 10000 });
+         |                                                                                            ^
+      59 |     });
+      60 |
+      61 |     test('should have search input', async () => {
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:58:92
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--d5175-y-should-show-content-cards-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--d5175-y-should-show-content-cards-chromium/error-context.md
+
+  8) [chromium] › tests/e2e/roles/clinician.spec.ts:67:5 › Clinician Role - Complete Workflow Tests › Content Library › should select content and show selection count 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      67 |     test('should select content and show selection count', async () => {
+      68 |       await page.goto('/library');
+    > 69 |       await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                  ^
+      70 |       
+      71 |       // Click on first content item's checkbox
+      72 |       const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:69:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--f0ad9-nt-and-show-selection-count-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--f0ad9-nt-and-show-selection-count-chromium/error-context.md
+
+  9) [chromium] › tests/e2e/roles/clinician.spec.ts:79:5 › Clinician Role - Complete Workflow Tests › Content Library › should open content preview modal 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      79 |     test('should open content preview modal', async () => {
+      80 |       await page.goto('/library');
+    > 81 |       await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                  ^
+      82 |       
+      83 |       // Hover on card and click preview
+      84 |       const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:81:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--76b97--open-content-preview-modal-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--76b97--open-content-preview-modal-chromium/error-context.md
+
+  10) [chromium] › tests/e2e/roles/clinician.spec.ts:94:5 › Clinician Role - Complete Workflow Tests › Content Sending › should open send modal with selected content 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      94 |     test('should open send modal with selected content', async () => {
+      95 |       await page.goto('/library');
+    > 96 |       await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+         |                  ^
+      97 |       
+      98 |       // Select content
+      99 |       const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:96:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--6c38d-modal-with-selected-content-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--6c38d-modal-with-selected-content-chromium/error-context.md
+
+  11) [chromium] › tests/e2e/roles/clinician.spec.ts:116:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should open PDF configuration dialog 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      116 |     test('should open PDF configuration dialog', async () => {
+      117 |       await page.goto('/library');
+    > 118 |       await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+          |                  ^
+      119 |       
+      120 |       // Select content
+      121 |       const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:118:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--215b8-en-PDF-configuration-dialog-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--215b8-en-PDF-configuration-dialog-chromium/error-context.md
+
+  12) [chromium] › tests/e2e/roles/clinician.spec.ts:140:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should configure PDF options 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid^="card-"], .content-card, article') to be visible
+
+
+      140 |     test('should configure PDF options', async () => {
+      141 |       await page.goto('/library');
+    > 142 |       await page.waitForSelector('[data-testid^="card-"], .content-card, article', { timeout: 10000 });
+          |                  ^
+      143 |       
+      144 |       const firstCard = page.locator('[data-testid^="card-"], .content-card, article').first();
+      145 |       const checkbox = firstCard.locator('input[type="checkbox"], [role="checkbox"]');
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:142:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--f4bb7-hould-configure-PDF-options-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--f4bb7-hould-configure-PDF-options-chromium/error-context.md
+
+  13) [chromium] › tests/e2e/roles/clinician.spec.ts:247:5 › Clinician Role - Complete Workflow Tests › Logout › should logout successfully 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/auth/
+    Received string:  "http://localhost:5000/"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        2 × unexpected value "http://localhost:5000/dashboard"
+        7 × unexpected value "http://localhost:5000/"
+
+
+      259 |       }
+      260 |       
+    > 261 |       await expect(page).toHaveURL(/\/auth/);
+          |                          ^
+      262 |     });
+      263 |   });
+      264 | });
+        at /home/runner/workspace/tests/e2e/roles/clinician.spec.ts:261:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-clinician-Clinician--ca779--should-logout-successfully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-clinician-Clinician--ca779--should-logout-successfully-chromium/error-context.md
+
+  14) [chromium] › tests/e2e/roles/patient-portal.spec.ts:89:5 › Patient Portal - Patient Access › Portal Content Access › should not access content without authentication 
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected value: 200
+    Received array: [401, 403, 404]
+
+      92 |       
+      93 |       // Should be unauthorized
+    > 94 |       expect([401, 403, 404]).toContain(response.status());
+         |                               ^
+      95 |     });
+      96 |   });
+      97 |
+        at /home/runner/workspace/tests/e2e/roles/patient-portal.spec.ts:94:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-patient-portal-Patie-ef6ab-tent-without-authentication-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [chromium] › tests/e2e/roles/unauthenticated.spec.ts:78:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect admin to login 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/auth/
+    Received string:  "http://localhost:5000/admin"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        8 × unexpected value "http://localhost:5000/admin"
+
+
+      79 |       await page.goto('/admin');
+      80 |       // MUST redirect to auth - this is a security requirement
+    > 81 |       await expect(page).toHaveURL(/\/auth/, { timeout: 5000 });
+         |                          ^
+      82 |     });
+      83 |
+      84 |     test('should redirect history to login', async ({ page }) => {
+        at /home/runner/workspace/tests/e2e/roles/unauthenticated.spec.ts:81:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-unauthenticated-Unau-15203-uld-redirect-admin-to-login-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-unauthenticated-Unau-15203-uld-redirect-admin-to-login-chromium/error-context.md
+
+  16) [chromium] › tests/e2e/roles/unauthenticated.spec.ts:154:5 › Unauthenticated User - Public Access › Registration Flow › should show registration form if available 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('input[name="name"], input[placeholder*="name" i]')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('input[name="name"], input[placeholder*="name" i]')
+
+
+      160 |         
+      161 |         // Should show registration fields
+    > 162 |         await expect(page.locator('input[name="name"], input[placeholder*="name" i]')).toBeVisible();
+          |                                                                                        ^
+      163 |       }
+      164 |     });
+      165 |   });
+        at /home/runner/workspace/tests/e2e/roles/unauthenticated.spec.ts:162:88
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/roles-unauthenticated-Unau-33fb5-istration-form-if-available-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/roles-unauthenticated-Unau-33fb5-istration-form-if-available-chromium/error-context.md
+
+  16 failed
+    [chromium] › tests/e2e/library.spec.ts:19:3 › Content Library › should show content cards ──────
+    [chromium] › tests/e2e/library.spec.ts:42:3 › Content Library › should select content items ────
+    [chromium] › tests/e2e/pdf-generation.spec.ts:13:3 › PDF Generation › should open PDF configuration dialog 
+    [chromium] › tests/e2e/pdf-generation.spec.ts:42:3 › PDF Generation › should show character counter for cover message 
+    [chromium] › tests/e2e/pdf-generation.spec.ts:70:3 › PDF Generation › should update preview when patient name is entered 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:34:5 › Clinician Role - Complete Workflow Tests › Dashboard › should show navigation sidebar or menu 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:55:5 › Clinician Role - Complete Workflow Tests › Content Library › should show content cards 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:67:5 › Clinician Role - Complete Workflow Tests › Content Library › should select content and show selection count 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:79:5 › Clinician Role - Complete Workflow Tests › Content Library › should open content preview modal 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:94:5 › Clinician Role - Complete Workflow Tests › Content Sending › should open send modal with selected content 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:116:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should open PDF configuration dialog 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:140:5 › Clinician Role - Complete Workflow Tests › PDF Generation › should configure PDF options 
+    [chromium] › tests/e2e/roles/clinician.spec.ts:247:5 › Clinician Role - Complete Workflow Tests › Logout › should logout successfully 
+    [chromium] › tests/e2e/roles/patient-portal.spec.ts:89:5 › Patient Portal - Patient Access › Portal Content Access › should not access content without authentication 
+    [chromium] › tests/e2e/roles/unauthenticated.spec.ts:78:5 › Unauthenticated User - Public Access › Access Control - Protected Routes › should redirect admin to login 
+    [chromium] › tests/e2e/roles/unauthenticated.spec.ts:154:5 › Unauthenticated User - Public Access › Registration Flow › should show registration form if available 
+  67 passed (1.8m)

@@ -1,8 +1,9 @@
 import { DashboardLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles } from "lucide-react";
-import { useState, useMemo, useRef } from "react";
+import { Search, Filter, Send, Check, Loader2, Eye, X, Download, Printer, FileText, Sparkles, Star, RefreshCw } from "lucide-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
+import { useFavorites } from "@/hooks/use-favorites";
 import { Link } from "wouter";
+import { PDFGeneratorDialog } from "@/components/pdf-generator-dialog";
 
 interface ContentItem {
   id: string;
@@ -39,12 +42,19 @@ export default function LibraryPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isPacketMode, isLoading: isLoadingMode } = useContentDeliveryMode();
+  const { isFavorite, toggleFavorite, isToggling } = useFavorites();
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isPDFDialogOpen, setIsPDFDialogOpen] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const { data: contentItems = [], isLoading } = useQuery({
+  const { data: contentItems = [], isLoading, refetch } = useQuery({
     queryKey: ["content"],
     queryFn: getContent,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -102,8 +112,10 @@ export default function LibraryPage() {
     
     const matchesTags = selectedTags.length === 0 || 
       selectedTags.every(tag => item.tags?.includes(tag));
+
+    const matchesFavorites = !showFavoritesOnly || isFavorite(item.id);
     
-    return matchesSearch && matchesTags;
+    return matchesSearch && matchesTags && matchesFavorites;
   });
 
   const toggleSelection = (id: string) => {
@@ -183,6 +195,14 @@ export default function LibraryPage() {
               data-testid="input-search"
             />
           </div>
+          <Button
+            variant={showFavoritesOnly ? "default" : "outline"}
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            data-testid="button-favorites-filter"
+          >
+            <Star className={cn("w-4 h-4 mr-2", showFavoritesOnly && "fill-current")} />
+            Favorites
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" data-testid="button-filters">
@@ -246,39 +266,73 @@ export default function LibraryPage() {
           )}
         </div>
         
-        {/* Results count */}
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredContent.length} of {contentItems.length} items
+        {/* Results count with manual refresh button for desktop */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>Showing {filteredContent.length} of {contentItems.length} items</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleRefresh()}
+            className="hidden sm:flex"
+            data-testid="button-refresh"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Refresh
+          </Button>
         </div>
 
-        {/* Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Mobile pull-to-refresh hint */}
+        <div className="text-xs text-muted-foreground text-center sm:hidden pb-2">
+          Pull down to refresh
+        </div>
+
+        {/* Grid - responsive for mobile (1 col), tablet (2 cols) and desktop (3 cols) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {filteredContent.map((item) => {
             const isSelected = selectedItems.includes(item.id);
             return (
               <div 
                 key={item.id}
+                data-testid={`content-card-${item.id}`}
                 onClick={() => toggleSelection(item.id)}
                 className={cn(
                   "group relative overflow-hidden rounded-xl border border-border bg-card transition-all cursor-pointer hover:shadow-md",
                   isSelected ? "ring-2 ring-primary border-primary" : "hover:border-primary/50"
                 )}
               >
-                {/* Selection Indicator */}
+                {/* Selection Indicator - always visible on tablet */}
                 <div className={cn(
-                  "absolute top-3 right-3 z-10 w-6 h-6 rounded-full border border-white flex items-center justify-center transition-all",
-                  isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-black/30 text-transparent group-hover:bg-white/80 group-hover:text-muted-foreground"
+                  "absolute top-3 right-3 z-10 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center transition-all touch-manipulation",
+                  isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-black/40 text-white/80 lg:text-transparent lg:group-hover:bg-white/80 lg:group-hover:text-muted-foreground"
                 )}>
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-4 h-4" />
                 </div>
 
-                {/* Preview Button */}
+                {/* Preview Button - always visible on tablet, hover on desktop, 48px touch target */}
                 <button
                   onClick={(e) => openPreview(e, item)}
-                  className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-black/70"
+                  className="absolute top-3 left-3 z-10 w-12 h-12 rounded-full bg-black/50 text-white flex items-center justify-center transition-all active:bg-black/70 lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70 touch-manipulation"
                   data-testid={`button-preview-${item.id}`}
                 >
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-5 h-5" />
+                </button>
+
+                {/* Favorite Button - always visible on tablet, hover on desktop, 48px touch target */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(item.id);
+                  }}
+                  disabled={isToggling}
+                  className={cn(
+                    "absolute top-3 left-[4.25rem] z-10 w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 touch-manipulation",
+                    isFavorite(item.id)
+                      ? "bg-yellow-500 text-white"
+                      : "bg-black/50 text-white lg:opacity-0 lg:group-hover:opacity-100 lg:hover:bg-black/70"
+                  )}
+                  data-testid={`button-favorite-${item.id}`}
+                >
+                  <Star className={cn("w-5 h-5", isFavorite(item.id) && "fill-current")} />
                 </button>
 
                 {/* Image */}
@@ -345,8 +399,19 @@ export default function LibraryPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={() => setIsSendModalOpen(false)} data-testid="button-cancel">Cancel</Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setIsSendModalOpen(false);
+                  setIsPDFDialogOpen(true);
+                }}
+                data-testid="button-generate-pdf-from-send"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Generate PDF Instead
+              </Button>
               <Button onClick={handleSend} disabled={!patientEmail || sendMutation.isPending} data-testid="button-send">
                 {sendMutation.isPending ? "Sending..." : "Send Email"}
               </Button>
@@ -457,25 +522,13 @@ export default function LibraryPage() {
               </Button>
               <Button 
                 onClick={() => {
-                  const content = document.getElementById('print-content')?.innerText || '';
-                  const blob = new Blob([content], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'patient-education-materials.txt';
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  toast({
-                    title: "Downloaded",
-                    description: "Content packet saved to your device.",
-                  });
+                  setIsPacketModalOpen(false);
+                  setIsPDFDialogOpen(true);
                 }}
-                data-testid="button-download-txt"
+                data-testid="button-generate-pdf"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                Generate PDF
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -566,6 +619,13 @@ export default function LibraryPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* PDF Generator Dialog */}
+        <PDFGeneratorDialog
+          open={isPDFDialogOpen}
+          onOpenChange={setIsPDFDialogOpen}
+          contentItems={contentItems.filter(item => selectedItems.includes(item.id))}
+        />
       </div>
     </DashboardLayout>
   );

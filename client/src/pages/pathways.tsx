@@ -14,9 +14,27 @@ import { getPathways, createPathway, getPatientPathways, createPatientPathway, g
 import { Plus, Route, Users, Calendar, ChevronRight, Loader2, Play, Clock, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
-import type { CarePathway, PatientPathway } from "@shared/schema";
+import type { CarePathway, PatientPathway } from "@shared/api-types";
+import { useTierEntitlement } from "@/hooks/use-feature-flags";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 export default function PathwaysPage() {
+  const { needsUpgrade, currentTier } = useTierEntitlement('care_pathways');
+  
+  if (needsUpgrade) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto py-12">
+          <UpgradePrompt
+            feature="Care Pathways"
+            requiredTier="pro"
+            currentTier={currentTier}
+            variant="card"
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
   const [selectedPathway, setSelectedPathway] = useState<CarePathway | null>(null);

@@ -1,3 +1,7 @@
+/**
+ * Architecture: Seed helpers for local or development data.
+ */
+
 import { storage } from "./storage";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
@@ -218,6 +222,14 @@ export async function seedDatabase() {
       isEnabled: true,
       value: null,
       category: "features",
+    },
+    {
+      key: "pro_tier_enabled",
+      name: "Pro Tier",
+      description: "Enable the Pro subscription tier. When disabled, only Basic tier is available for new subscriptions.",
+      isEnabled: true,
+      value: null,
+      category: "billing",
     },
   ];
 

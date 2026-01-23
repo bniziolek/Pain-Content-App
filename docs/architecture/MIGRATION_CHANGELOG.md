@@ -1,0 +1,244 @@
+# Migration Changelog
+
+## 2026-01-22 (Final Verification & Cleanup)
+
+### Summary
+- Completed final verification of 5-layer architecture migration
+- Fixed ESM module compatibility issue with TypeScript type exports
+- Cleaned up deprecated files and misleading comments
+- All 41 API tests and key E2E tests passing
+
+### Fixed
+- server/rbac.ts: Changed `PermissionName` import/export to use `import type` and `export type` syntax for proper ESM module compatibility
+
+### Removed
+- server/webhookHandlers.ts: Unused file - routes/webhooks.ts directly uses application services
+
+### Updated
+- server/routes/index.ts: Cleaned up misleading "legacy" comments, renamed to "Function-based route registrations" and "Backward-compatible alias"
+
+### Verified
+- All routes use application services (no direct storage/legacy imports)
+- Storage interface properly aligned with application services
+- Infrastructure adapters correctly wired via AppContext
+- No orphaned/unused files remain in server/ directory
+- Application boots and runs successfully
+
+---
+
+## 2026-01-22
+
+### Summary
+- Refactored routes and application services to use centralized AppContext wiring, audit request context, and typed analytics outputs.
+- Consolidated Stripe/CMS usage through context adapters and removed legacy root modules and legacy routes.
+- Implemented storage-level filtering for content recommendations and typed analytics/history returns.
+
+### Added
+- server/application/admin/create-admin-note.ts
+- server/application/admin/create-trial-user.ts
+- server/application/admin/create-user.ts
+- server/application/admin/delete-admin-note.ts
+- server/application/admin/delete-user.ts
+- server/application/admin/export-user-data.ts
+- server/application/admin/extend-subscription.ts
+- server/application/admin/get-admin-stats.ts
+- server/application/admin/get-enhanced-admin-stats.ts
+- server/application/admin/list-admin-notes.ts
+- server/application/admin/list-login-history.ts
+- server/application/admin/list-recommendation-configs.ts
+- server/application/admin/list-user-content-activity.ts
+- server/application/admin/reset-user-password.ts
+- server/application/admin/update-user-subscription.ts
+- server/application/admin/update-user.ts
+- server/application/assessment-invites/get-assessment-invite-by-token.ts
+- server/application/assessment-invites/get-assessment-invite-results-with-recommendations.ts
+- server/application/assessments/get-assessment-questions.ts
+- server/application/auth/
+- server/application/background-jobs/
+- server/application/collections/add-to-collection.ts
+- server/application/collections/get-collection-with-items.ts
+- server/application/collections/remove-from-collection.ts
+- server/application/compliance/create-data-inventory-item.ts
+- server/application/compliance/delete-data-inventory-item.ts
+- server/application/compliance/get-content-usage-analytics.ts
+- server/application/compliance/get-subscription-metrics.ts
+- server/application/compliance/get-user-activity-analytics.ts
+- server/application/compliance/update-data-inventory-item.ts
+- server/application/content-recommendations/
+- server/application/favorites/is-favorite.ts
+- server/application/feature-flags/clear-persona.ts
+- server/application/feature-flags/grant-user-permission.ts
+- server/application/feature-flags/list-accessible-feature-flags.ts
+- server/application/feature-flags/list-feature-flag-history-by-key.ts
+- server/application/feature-flags/list-feature-flag-history.ts
+- server/application/feature-flags/list-persona-history.ts
+- server/application/feature-flags/list-user-permissions.ts
+- server/application/feature-flags/remove-user-permission.ts
+- server/application/feature-flags/revoke-user-permission.ts
+- server/application/feature-flags/switch-persona.ts
+- server/application/feature-flags/update-feature-flag-admin.ts
+- server/application/onboarding/
+- server/application/password-reset/request-password-reset.ts
+- server/application/pathways/create-follow-up-rule.ts
+- server/application/pathways/create-pathway-milestone.ts
+- server/application/pathways/create-pathway.ts
+- server/application/pathways/create-patient-pathway.ts
+- server/application/pathways/delete-follow-up-rule.ts
+- server/application/pathways/delete-pathway-milestone.ts
+- server/application/pathways/delete-pathway.ts
+- server/application/pathways/list-follow-up-rules.ts
+- server/application/pathways/list-pathway-milestones.ts
+- server/application/pathways/list-patient-pathways.ts
+- server/application/pathways/update-follow-up-rule.ts
+- server/application/pathways/update-pathway-milestone.ts
+- server/application/pathways/update-pathway.ts
+- server/application/pathways/update-patient-pathway.ts
+- server/application/pdf/generate-content-pdf.ts
+- server/application/public-content/get-public-content-by-token.ts
+- server/application/public-content/track-content-time-by-token.ts
+- server/application/rbac/
+- server/application/recommendations/get-patient-recommendation.ts
+- server/application/recommendations/recommendation-engine.ts
+- server/application/stats/get-dashboard-stats.ts
+- server/application/subscription/admin-update-user-subscription.ts
+- server/application/subscription/admin-update-user-tier.ts
+- server/application/subscription/cancel-subscription.ts
+- server/application/subscription/change-subscription-tier.ts
+- server/application/subscription/create-checkout-session-flow.ts
+- server/application/subscription/create-portal-session-flow.ts
+- server/application/subscription/get-stripe-config.ts
+- server/application/subscription/get-subscription-overview.ts
+- server/application/subscription/list-enabled-feature-flags.ts
+- server/application/subscription/list-invoices.ts
+- server/application/subscription/list-plans.ts
+- server/application/subscription/resume-subscription.ts
+- server/application/webhooks/
+- server/http/
+- server/rbac-policy.ts
+- server/routes/auth.ts
+- server/routes/webhooks.ts
+- test-results/.last-run.json
+
+### Modified
+- docs/architecture/ARCHITECTURE_MIGRATION_TASKS.md
+- server/application/admin/index.ts
+- server/application/assessment-invites/complete-assessment-invite.ts
+- server/application/assessment-invites/create-assessment-invite.ts
+- server/application/assessment-invites/get-assessment-invite-results.ts
+- server/application/assessment-invites/index.ts
+- server/application/assessment-invites/list-assessment-invites.ts
+- server/application/assessments/create-assessment.ts
+- server/application/assessments/create-internal-screening.ts
+- server/application/assessments/delete-assessment.ts
+- server/application/assessments/get-assessment.ts
+- server/application/assessments/index.ts
+- server/application/assessments/list-assessments.ts
+- server/application/assessments/list-internal-screenings.ts
+- server/application/assessments/score-assessment.ts
+- server/application/assessments/update-assessment.ts
+- server/application/collections/index.ts
+- server/application/compliance/index.ts
+- server/application/compliance/list-audit-logs.ts
+- server/application/content/create-content.ts
+- server/application/content/delete-content.ts
+- server/application/content/get-content-status.ts
+- server/application/content/get-content.ts
+- server/application/content/get-frequently-used-content.ts
+- server/application/content/list-content.ts
+- server/application/content/update-content.ts
+- server/application/context-helpers.ts
+- server/application/context.ts
+- server/application/favorites/index.ts
+- server/application/feature-flags/index.ts
+- server/application/feature-flags/update-feature-flag.ts
+- server/application/index.ts
+- server/application/messaging/delete-email-connection.ts
+- server/application/messaging/get-patient-summary.ts
+- server/application/messaging/resend-content-email.ts
+- server/application/messaging/send-content-email.ts
+- server/application/messaging/update-email-delivery-mode.ts
+- server/application/password-reset/index.ts
+- server/application/pathways/get-pathway.ts
+- server/application/pathways/index.ts
+- server/application/pathways/list-pathways.ts
+- server/application/patient-portal/authenticate-patient.ts
+- server/application/patient-portal/list-patient-content.ts
+- server/application/pdf/generate-screening-pdf.ts
+- server/application/pdf/index.ts
+- server/application/public-content/index.ts
+- server/application/public-content/track-content-view.ts
+- server/application/recommendations/create-recommendation-config.ts
+- server/application/recommendations/create-recommendation-rule.ts
+- server/application/recommendations/delete-recommendation-config.ts
+- server/application/recommendations/delete-recommendation-rule.ts
+- server/application/recommendations/generate-recommendations.ts
+- server/application/recommendations/index.ts
+- server/application/recommendations/list-patient-recommendations.ts
+- server/application/recommendations/list-recommendation-configs.ts
+- server/application/recommendations/list-recommendation-rules.ts
+- server/application/recommendations/preview-recommendations.ts
+- server/application/recommendations/update-recommendation-config.ts
+- server/application/stats/get-analytics.ts
+- server/application/stats/index.ts
+- server/application/subscription/create-checkout-session.ts
+- server/application/subscription/create-portal-session.ts
+- server/application/subscription/index.ts
+- server/auth.ts
+- server/background-jobs.ts
+- server/index.ts
+- server/infrastructure/audit/audit.service.ts
+- server/rbac.ts
+- server/routes/admin.ts
+- server/routes/assessment-invites.ts
+- server/routes/assessments.ts
+- server/routes/collections.ts
+- server/routes/compliance.ts
+- server/routes/content-recommendations.ts
+- server/routes/content.ts
+- server/routes/favorites.ts
+- server/routes/feature-flags.ts
+- server/routes/index.ts
+- server/routes/messaging.ts
+- server/routes/onboarding.ts
+- server/routes/password-reset.ts
+- server/routes/pathways.ts
+- server/routes/patient-portal.ts
+- server/routes/pdf.ts
+- server/routes/public-content.ts
+- server/routes/recommendations.ts
+- server/routes/stats.ts
+- server/routes/subscription.ts
+- server/storage.ts
+- server/webhookHandlers.ts
+
+### Removed
+- server/audit.ts
+- server/contentful.ts
+- server/github.ts
+- server/gmail.ts
+- server/pdf-generator.ts
+- server/recommendation.ts
+- server/resend.ts
+- server/routes.legacy.ts
+- server/scoring.ts
+- server/stripeClient.ts
+- server/stripeService.ts
+- test-results/.playwright-artifacts-0/0f04b94b8eec84faebfb79fdda11b14e.png
+- test-results/.playwright-artifacts-0/4d776624c5475ffef10200250fa92abd.png
+- test-results/.playwright-artifacts-0/4dacb70289161979d07ba083fcef4329.png
+- test-results/.playwright-artifacts-0/cf0367113ed10f29f05b7dc32f2d44e1.png
+- test-results/.playwright-artifacts-1/074689f1b7d4a80f0d3c98fddb8ef74d.png
+- test-results/.playwright-artifacts-1/0a070eb6f9d3743dbe009242264f20e0.png
+- test-results/.playwright-artifacts-1/2161733337c2ad637dd1e6db175e7672.png
+- test-results/.playwright-artifacts-1/f852ad0293642bc8bbfeb005ba8d23a9.png
+- test-results/.playwright-artifacts-3/154c1b524cc1b64b6257df371dbc706e.png
+- test-results/.playwright-artifacts-3/7946755e2375b5ae9faaf52e906b3d5c.png
+- test-results/.playwright-artifacts-3/e772decd24fc50a89ecfc2bb5851a660.png
+- test-results/.playwright-artifacts-4/1f9e74177d53090f6acf000061f987d8.png
+- test-results/.playwright-artifacts-4/4280031b9176d529c567ba8e1464820d.png
+- test-results/.playwright-artifacts-4/5a1dbaa4a0e550cfbc658e113d5d6c18.png
+- test-results/.playwright-artifacts-4/be9089e2fcdfd30d94f68f3a166a3662.png
+- test-results/.playwright-artifacts-4/c53a2a400432fcd24fa3fde4b46acfd0.png
+
+### Tests
+- npm run check
