@@ -59,6 +59,17 @@ if (rawCacheTtl && rawCacheTtl.trim() !== "") {
 }
 const cache = new Map<string, { value: unknown; expiresAt: number }>();
 
+function cleanupExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (entry.expiresAt < now) {
+      cache.delete(key);
+    }
+  }
+}
+
+setInterval(cleanupExpiredCache, cacheTtlMs);
+
 function getCache<T>(key: string): T | undefined {
   if (!cacheTtlMs || cacheTtlMs <= 0) {
     return undefined;
