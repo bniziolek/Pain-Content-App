@@ -416,20 +416,22 @@ export class DatabaseStorage implements IStorage {
       updatedAt: item.updatedAt,
     }));
 
-    await db.insert(schema.contentItems)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.contentItems.id,
-        set: {
-          title: sql`excluded.title`,
-          summary: sql`excluded.summary`,
-          body: sql`excluded.body`,
-          tags: sql`excluded.tags`,
-          imageUrl: sql`excluded.imageUrl`,
-          readTime: sql`excluded.readTime`,
-          updatedAt: sql`excluded.updatedAt`,
-        },
-      });
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.contentItems)
+        .values(values)
+        .onConflictDoUpdate({
+          target: schema.contentItems.id,
+          set: {
+            title: sql`excluded.title`,
+            summary: sql`excluded.summary`,
+            body: sql`excluded.body`,
+            tags: sql`excluded.tags`,
+            imageUrl: sql`excluded.imageUrl`,
+            readTime: sql`excluded.readTime`,
+            updatedAt: sql`excluded.updatedAt`,
+          },
+        });
+    });
   }
 
   // Assessment methods
