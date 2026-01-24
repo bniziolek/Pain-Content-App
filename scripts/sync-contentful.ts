@@ -2,6 +2,9 @@ import { getAllContentFromContentful, isContentfulConfigured } from "../server/c
 import { pool, storage } from "../server/storage";
 
 async function syncContentful(): Promise<void> {
+  const startTime = Date.now();
+  console.log("[Contentful Sync] Starting sync...");
+
   if (!isContentfulConfigured()) {
     const missingVars: string[] = [];
     if (!process.env.CONTENTFUL_SPACE_ID) {
@@ -21,10 +24,18 @@ async function syncContentful(): Promise<void> {
     throw new Error(`Contentful client not initialized. ${detail}`);
   }
 
+  console.log("[Contentful Sync] Fetching content from Contentful...");
   const items = await getAllContentFromContentful();
+  console.log(`[Contentful Sync] Fetched ${items.length} content items from Contentful`);
+
+  console.log("[Contentful Sync] Upserting content to database...");
   await storage.upsertContentItems(items);
 
-  console.log(`[Contentful Sync] Upserted ${items.length} content items.`);
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`[Contentful Sync] Completed successfully!`);
+  console.log(`[Contentful Sync] Summary:`);
+  console.log(`  - Items synced: ${items.length}`);
+  console.log(`  - Duration: ${duration}s`);
 }
 
 syncContentful()

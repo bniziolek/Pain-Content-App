@@ -13,13 +13,6 @@ export async function listPathways(
   ctx: AppContext,
   input: ListPathwaysInput
 ): Promise<CarePathway[]> {
-  if (ctx.cms.isConfigured() && ctx.cms.getAllPathways) {
-    try {
-      return (await ctx.cms.getAllPathways()) as CarePathway[];
-    } catch (error) {
-      console.warn("CMS pathways fetch failed, falling back to database:", error);
-    }
-  }
-
+  // Read exclusively from database. Pathways are synced via `npm run contentful:sync`.
   return ctx.storage.getCarePathways(input.clinician.id);
 }
