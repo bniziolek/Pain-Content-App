@@ -12,13 +12,7 @@ import {
   insertEmailLogSchema 
 } from "@shared/schema";
 import {
-  getAllContentFromContentful,
-  getContentByIdFromContentful,
-  getAllPathwaysFromContentful,
-  getPathwayByIdFromContentful,
   isContentfulConfigured,
-  isContentfulReadEnabled,
-  ContentfulError,
 } from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
@@ -155,18 +149,8 @@ export function registerRoutes(app: Express): Server {
         await storage.updateEmailLogStatus(view.emailLogId, 'clicked');
       }
       
-      // Fetch the content
-      let content = null;
-      if (isContentfulReadEnabled()) {
-        try {
-          content = await getContentByIdFromContentful(view.contentId);
-        } catch (e) {
-          console.warn("Contentful fetch failed:", e);
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(view.contentId);
-      }
+      // Fetch the content from database (synced from Contentful)
+      const content = await storage.getContentById(view.contentId);
       
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
@@ -383,17 +367,8 @@ export function registerRoutes(app: Express): Server {
       const views = await storage.getContentViewsByEmailLogId(session.emailLogId);
       
       for (const view of views) {
-        let content = null;
-        if (isContentfulReadEnabled()) {
-          try {
-            content = await getContentByIdFromContentful(view.contentId);
-          } catch (e) {
-            console.warn("Contentful fetch failed:", e);
-          }
-        }
-        if (!content) {
-          content = await storage.getContentById(view.contentId);
-        }
+        // Fetch content from database (synced from Contentful)
+        const content = await storage.getContentById(view.contentId);
         
         if (content && !contentMap[view.contentId]) {
           contentMap[view.contentId] = {
@@ -437,20 +412,9 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
+  // ====== Content Library Routes (Database Only - synced from Contentful via npm run contentful:sync) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
     try {
-      if (isContentfulReadEnabled()) {
-        try {
-          const content = await getAllContentFromContentful();
-          res.json(content);
-          return;
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
       const content = await storage.getAllContent();
       res.json(content);
     } catch (error) {
@@ -460,19 +424,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
     try {
-      let content = null;
-      if (isContentfulReadEnabled()) {
-        try {
-          content = await getContentByIdFromContentful(req.params.id);
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(req.params.id);
-      }
+      const content = await storage.getContentById(req.params.id);
       if (!content) {
         return res.status(404).send("Content not found");
       }
@@ -492,9 +444,10 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/content/status", requireAuth, async (req, res, next) => {
     try {
       res.json({ 
-        source: isContentfulReadEnabled() ? "contentful" : "database",
+        source: "database",
         configured: isContentfulConfigured(),
-        readThroughEnabled: isContentfulReadEnabled()
+        readThroughEnabled: false,
+        note: "Content is synced from Contentful to database. Run 'npm run contentful:sync' to update."
       });
     } catch (error) {
       next(error);
@@ -1263,13 +1216,8 @@ export function registerRoutes(app: Express): Server {
       if (validated.contentIds && validated.contentIds.length > 0) {
         for (const contentId of validated.contentIds) {
           try {
-            let content = null;
-            if (isContentfulReadEnabled()) {
-              content = await getContentByIdFromContentful(contentId);
-            }
-            if (!content) {
-              content = await storage.getContentById(contentId);
-            }
+            // Fetch content from database (synced from Contentful)
+            const content = await storage.getContentById(contentId);
             
             if (content) {
               // Create a tracking entry for this content
@@ -2214,27 +2162,14 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // ====== Care Pathways Routes ======
+  // ====== Care Pathways Routes (Database Only - synced from Contentful via npm run contentful:sync) ======
   app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
       
-      // Try to get template pathways from Contentful first
-      let templatePathways: any[] = [];
-      if (isContentfulReadEnabled()) {
-        try {
-          const contentfulPathways = await getAllPathwaysFromContentful();
-          templatePathways = contentfulPathways;
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
-          }
-          templatePathways = await storage.getCarePathways();
-        }
-      } else {
-        templatePathways = await storage.getCarePathways();
-      }
+      // Get template pathways from database (synced from Contentful)
+      const templatePathways = await storage.getCarePathways();
       
       res.json({ custom: customPathways, templates: templatePathways });
     } catch (error) {
@@ -2244,22 +2179,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
-      // Try Contentful first for pathway templates
-      if (isContentfulReadEnabled()) {
-        try {
-          const contentfulPathway = await getPathwayByIdFromContentful(req.params.id);
-          if (contentfulPathway) {
-            res.json(contentfulPathway);
-            return;
-          }
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
-      
-      // Fallback to database
+      // Fetch from database (synced from Contentful)
       const pathway = await storage.getCarePathwayById(req.params.id);
       if (!pathway) {
         return res.status(404).json({ error: "Pathway not found" });

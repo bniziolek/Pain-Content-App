@@ -45,7 +45,7 @@ The application adheres to the **DriverPath Style Guide**. Key design elements i
 - **Database**: PostgreSQL
 - **Payment Processing**: Stripe (for subscription management)
 - **Email Delivery**: Gmail (via Gmail API for transactional emails)
-- **Content Management**: Contentful CMS (for managing content library and care pathways), with a fallback to PostgreSQL if not configured or unavailable.
+- **Content Management**: Contentful CMS (for managing content library and care pathways). Content is synced to PostgreSQL via `npm run contentful:sync` script. The application reads exclusively from the database, not directly from Contentful API. Run the sync script manually or schedule it to keep content up to date.
 - **UI Component Dependencies**: shadcn/ui (with Radix UI primitives), Recharts, Lucide React, Embla Carousel.
 - **Environment Variables**:
     - `DATABASE_URL`
