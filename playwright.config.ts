@@ -22,7 +22,12 @@ export default defineConfig({
     },
     {
       name: 'mobile',
-      use: { ...devices['iPhone 12'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
     },
   ],
   webServer: shouldStartWebServer

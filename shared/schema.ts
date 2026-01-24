@@ -39,6 +39,10 @@ export const users = pgTable("users", {
   state: text("state"),
   zipCode: text("zip_code"),
   
+  // Account lockout fields
+  lockedUntil: timestamp("locked_until"),
+  permanentlyLocked: boolean("permanently_locked").default(false),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -854,6 +858,7 @@ export const clinicBranding = pgTable("clinic_branding", {
   // Footer and additional options
   footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
   showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
+  showWatermark: boolean("show_watermark").default(true), // Whether to show a subtle watermark
   
   // Activation status
   isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
@@ -887,5 +892,6 @@ export const brandingRequestSchema = z.object({
   footerText: z.string().max(1000).nullable().optional()
     .or(z.literal('').transform(() => null)),
   showPoweredBy: z.boolean().nullable().optional(),
+  showWatermark: z.boolean().nullable().optional(),
 });
 export type BrandingRequest = z.infer<typeof brandingRequestSchema>;
