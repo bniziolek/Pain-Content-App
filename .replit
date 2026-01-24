@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["chromium", "glib", "nss", "nspr", "at-spi2-atk", "cups", "libdrm", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXrandr", "mesa", "pango", "cairo", "alsa-lib", "xorg.libxcb", "libxkbcommon", "xorg.libXcursor", "xorg.libXi", "xorg.libXtst", "nix-output-monitor"]
 
 [[ports]]
 localPort = 5000
@@ -41,4 +42,4 @@ waitForPort = 5000
 
 [agent]
 mockupState = "FULLSTACK"
-integrations = ["resend:1.0.0", "google-mail:1.0.0", "github:1.0.0"]
+integrations = ["resend:1.0.0", "google-mail:1.0.0", "github:1.0.0", "stripe:2.0.0"]

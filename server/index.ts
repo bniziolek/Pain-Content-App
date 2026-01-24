@@ -1,7 +1,13 @@
+/**
+ * Architecture: Server entry point and composition root; wires routes, middleware, and infrastructure.
+ */
+
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes/index";
+import { registerWebhookRoutes } from "./routes/webhooks";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { startBackgroundJobs } from "./background-jobs";
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,6 +17,9 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// Register Stripe webhook route BEFORE express.json()
+registerWebhookRoutes(app);
 
 app.use(
   express.json({
@@ -101,4 +110,6 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  await startBackgroundJobs();
 })();

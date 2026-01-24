@@ -30,6 +30,15 @@ export const users = pgTable("users", {
   // Persona switching for super admins
   activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
   
+  // Clinician demographic/profile information
+  phone: text("phone"),
+  clinicName: text("clinic_name"),
+  credentials: text("credentials"), // e.g., DPT, PT, OT, MD, etc.
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -397,6 +406,27 @@ export const dataInventory = pgTable("data_inventory", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Admin notes on user records
+export const adminNotes = pgTable("admin_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User login history for tracking
+export const loginHistory = pgTable("login_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  outcome: text("outcome").notNull().default("success"), // 'success' | 'failure'
+  failureReason: text("failure_reason"), // 'invalid_password' | 'account_locked' | etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -639,6 +669,41 @@ export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConne
 export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
 export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
 
+// Subscription tiers and entitlements
+export const SUBSCRIPTION_TIERS = {
+  free: { level: 0, name: 'Free', monthlyPrice: 0 },
+  basic: { level: 1, name: 'Basic', monthlyPrice: 19 },
+  pro: { level: 2, name: 'Pro', monthlyPrice: 29 },
+  enterprise: { level: 3, name: 'Enterprise', monthlyPrice: 99 },
+} as const;
+
+export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS;
+
+// Tier entitlement matrix - what each tier can access
+export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
+  // Core features - available to all paid tiers
+  content_library: ['basic', 'pro', 'enterprise'],
+  content_concierge: ['basic', 'pro', 'enterprise'],
+  content_packets: ['basic', 'pro', 'enterprise'],
+  internal_screenings: ['basic', 'pro', 'enterprise'],
+  
+  // Limited features - basic has limits
+  assessment_builder: ['basic', 'pro', 'enterprise'], // Basic limited to 5 assessments
+  
+  // Pro-only features
+  patient_portal: ['pro', 'enterprise'],
+  email_delivery: ['pro', 'enterprise'],
+  care_pathways: ['pro', 'enterprise'],
+  follow_up_automation: ['pro', 'enterprise'],
+  priority_support: ['pro', 'enterprise'],
+  custom_branding: ['pro', 'enterprise'],
+  
+  // Enterprise-only
+  white_label: ['enterprise'],
+  api_access: ['enterprise'],
+  sso: ['enterprise'],
+};
+
 // Feature flags - global system settings managed by super admins
 export const featureFlags = pgTable("feature_flags", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -648,6 +713,7 @@ export const featureFlags = pgTable("feature_flags", {
   isEnabled: boolean("is_enabled").notNull().default(true),
   value: text("value"), // For enum-style flags (e.g., 'email' | 'packet')
   payload: jsonb("payload"), // Additional configuration data
+  tiersAllowed: text("tiers_allowed").array().default(sql`ARRAY['basic', 'pro', 'enterprise']`), // Which tiers can access this feature
   category: text("category").default("general"), // 'general' | 'content_delivery' | 'compliance' | 'features'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -660,3 +726,124 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 });
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 export type FeatureFlag = typeof featureFlags.$inferSelect;
+
+// Admin notes schemas
+export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdminNote = z.infer<typeof insertAdminNoteSchema>;
+export type AdminNote = typeof adminNotes.$inferSelect;
+
+// Login history schemas
+export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
+export type LoginHistory = typeof loginHistory.$inferSelect;
+
+// User favorites - bookmarked content for quick access
+export const userFavorites = pgTable("user_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserFavoriteSchema = createInsertSchema(userFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
+export type UserFavorite = typeof userFavorites.$inferSelect;
+
+// Content collections - user-created content groups
+export const contentCollections = pgTable("content_collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContentCollectionSchema = createInsertSchema(contentCollections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentCollection = z.infer<typeof insertContentCollectionSchema>;
+export type ContentCollection = typeof contentCollections.$inferSelect;
+
+// Collection items - content within a collection
+export const collectionItems = pgTable("collection_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").references(() => contentCollections.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCollectionItemSchema = createInsertSchema(collectionItems).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollectionItem = z.infer<typeof insertCollectionItemSchema>;
+export type CollectionItem = typeof collectionItems.$inferSelect;
+
+// Clinic branding - custom branding for PDF content packets (Pro/Enterprise feature)
+export const clinicBranding = pgTable("clinic_branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Logo and basic info
+  logoUrl: text("logo_url"), // Uploaded clinic logo URL
+  clinicName: text("clinic_name"), // Custom display name used in branded content/PDFs
+  tagline: text("tagline"), // Optional tagline below clinic name
+  
+  // Color scheme
+  primaryColor: text("primary_color").default("#0F766E"), // Headers, main elements
+  secondaryColor: text("secondary_color").default("#f5f5f5"), // Backgrounds
+  accentColor: text("accent_color").default("#14B8A6"), // Links, highlights
+  
+  // Footer and additional options
+  footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
+  showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
+  
+  // Activation status
+  isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
+export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+// API request schema - only allows client-editable fields (excludes server-controlled fields)
+export const brandingRequestSchema = z.object({
+  logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  clinicName: z.string().max(200).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  tagline: z.string().max(500).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  footerText: z.string().max(1000).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  showPoweredBy: z.boolean().nullable().optional(),
+});
+export type BrandingRequest = z.infer<typeof brandingRequestSchema>;

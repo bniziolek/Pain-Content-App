@@ -10,7 +10,7 @@ import type {
   PatientPathway,
   ContentRecommendation,
   AuditLog
-} from "@shared/schema";
+} from "@shared/api-types";
 
 const API_BASE = "/api";
 

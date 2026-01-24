@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./lib/auth";
 import { RequireAuth, RequireSubscription, RequireAdmin } from "@/components/protected-route";
 import { TourProvider } from "@/components/product-tour";
+import { OfflineProvider } from "@/contexts/offline-context";
+import { ConnectedOfflineIndicator } from "@/components/connected-offline-indicator";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing";
@@ -36,12 +38,41 @@ import OnboardingPage from "@/pages/onboarding";
 import ContentPacketGuidePage from "@/pages/content-packet-guide";
 import RecommendationRulesPage from "@/pages/recommendation-rules";
 
+import BlogPage from "@/pages/public/blog";
+import AboutPage from "@/pages/public/about";
+import PhilosophyPage from "@/pages/public/philosophy";
+import WhyDriverPathPage from "@/pages/public/why-driverpath";
+import FeaturesPage from "@/pages/public/features";
+import PrivacyPage from "@/pages/public/privacy";
+import TermsPage from "@/pages/public/terms";
+import ContactPage from "@/pages/public/contact";
+import PricingPage from "@/pages/public/pricing";
+import CaseStudiesPage from "@/pages/public/case-studies";
+import FAQPage from "@/pages/public/faq";
+import UseCasesPage from "@/pages/public/use-cases";
+import IntegrationsPage from "@/pages/public/integrations";
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
+      
+      {/* Public Marketing Pages */}
+      <Route path="/blog" component={BlogPage} />
+      <Route path="/about" component={AboutPage} />
+      <Route path="/philosophy" component={PhilosophyPage} />
+      <Route path="/why-driverpath" component={WhyDriverPathPage} />
+      <Route path="/features" component={FeaturesPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/pricing" component={PricingPage} />
+      <Route path="/case-studies" component={CaseStudiesPage} />
+      <Route path="/faq" component={FAQPage} />
+      <Route path="/use-cases" component={UseCasesPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
@@ -204,12 +235,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TourProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </TourProvider>
+        <OfflineProvider>
+          <TourProvider>
+            <TooltipProvider>
+              <ConnectedOfflineIndicator />
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </TourProvider>
+        </OfflineProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
