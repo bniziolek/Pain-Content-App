@@ -15,7 +15,11 @@ describe('Subscription API', () => {
 
       expect(response.status).toBe(200);
       // Plans may be in response.body directly or in response.body.plans
+<<<<<<< HEAD
       const plans = Array.isArray(response.body) ? response.body : response.body.plans;
+=======
+      const plans = Array.isArray(response.body) ? response.body : response.body?.plans;
+>>>>>>> Dev_26.2
       expect(plans === undefined || Array.isArray(plans)).toBe(true);
     });
 
@@ -24,7 +28,11 @@ describe('Subscription API', () => {
 
       expect(response.status).toBe(200);
       
+<<<<<<< HEAD
       const plans = Array.isArray(response.body) ? response.body : response.body.plans;
+=======
+      const plans = Array.isArray(response.body) ? response.body : response.body?.plans;
+>>>>>>> Dev_26.2
       if (plans && plans.length > 0) {
         const plan = plans[0];
         expect(plan).toHaveProperty('id');

@@ -28,14 +28,8 @@ export async function getPublicContentByToken(
     await ctx.storage.updateEmailLogStatus(view.emailLogId, "clicked");
   }
 
-  let content: ContentItem | null = (await ctx.storage.getContentById(view.contentId)) ?? null;
-  if (!content && ctx.cms.isConfigured()) {
-    try {
-      content = (await ctx.cms.getContentById(view.contentId)) as ContentItem | null;
-    } catch (error) {
-      console.warn("CMS fetch failed:", error);
-    }
-  }
+  // Read exclusively from database. Content is synced via `npm run contentful:sync`.
+  const content: ContentItem | null = (await ctx.storage.getContentById(view.contentId)) ?? null;
 
   return {
     content: content ?? null,

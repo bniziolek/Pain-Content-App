@@ -12,10 +12,12 @@ export interface GetContentStatusInput {
 export async function getContentStatus(
   ctx: AppContext,
   _input: GetContentStatusInput
-): Promise<{ source: "contentful" | "database"; isContentfulConfigured: boolean }> {
+): Promise<{ source: "database"; isContentfulConfigured: boolean; syncAvailable: boolean }> {
+  // Application always reads from database. Content is synced via `npm run contentful:sync`.
   const isConfigured = ctx.cms.isConfigured();
   return {
-    source: isConfigured ? "contentful" : "database",
+    source: "database",
     isContentfulConfigured: isConfigured,
+    syncAvailable: isConfigured,
   };
 }
