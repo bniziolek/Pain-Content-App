@@ -47,6 +47,7 @@ export async function generateContentPdf(
         accentColor: clinicBranding.accentColor,
         footerText: clinicBranding.footerText,
         showPoweredBy: clinicBranding.showPoweredBy !== false,
+        showWatermark: clinicBranding.showWatermark !== false,
       };
     }
   }

@@ -29,6 +29,12 @@ Most requirements are already implemented. See checklist below for remaining ite
 - [x] `isActive` (boolean)
 - [x] `createdAt`, `updatedAt` (timestamps)
 
+### Branding UI & PDF Integration
+- [x] Branding settings UI includes watermark toggle
+- [x] Branding payload persists `showWatermark`
+- [x] PDF generator renders watermark when enabled
+- [x] Database updated with `show_watermark` column/default
+
 ### Tier-Based Access Control
 - [x] `custom_branding` entitlement in subscription tier matrix
 - [x] Gate access based on Pro/Enterprise subscription tier

@@ -59,6 +59,7 @@ export async function saveClinicBranding(
       accentColor: params.branding.accentColor ?? null,
       footerText: params.branding.footerText ?? null,
       showPoweredBy: params.branding.showPoweredBy ?? null,
+      showWatermark: params.branding.showWatermark ?? null,
       isActive: true,
     };
     return await ctx.storage.createClinicBranding(brandingToCreate);
