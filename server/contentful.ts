@@ -234,10 +234,6 @@ export function isContentfulConfigured(): boolean {
   return client !== null;
 }
 
-export function isContentfulReadEnabled(): boolean {
-  return client !== null && process.env.CONTENTFUL_READ_THROUGH !== "false";
-}
-
 // Care Pathway Contentful Types
 interface ContentfulPathwayMilestoneFields {
   title: string;
