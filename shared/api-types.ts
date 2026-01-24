@@ -29,6 +29,8 @@ export interface PublicUser {
   city?: string | null;
   state?: string | null;
   zipCode?: string | null;
+  lockedUntil?: ISODateString | null;
+  permanentlyLocked?: boolean;
 }
 
 export interface ContentItem {

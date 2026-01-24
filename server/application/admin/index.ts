@@ -21,3 +21,6 @@ export * from "./list-login-history";
 export * from "./list-user-content-activity";
 export * from "./export-user-data";
 export * from "./list-recommendation-configs";
+export * from "./get-user-support-overview";
+export * from "./get-user-support-timeline";
+export * from "./unlock-user-account";
