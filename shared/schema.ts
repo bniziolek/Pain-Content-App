@@ -870,6 +870,14 @@ export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omi
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
 export type ClinicBranding = typeof clinicBranding.$inferSelect;
 
+export interface SectionFormattingConfig {
+  dividerStyle: "full-page" | "inline-header" | "minimal";
+  showReadTime: boolean;
+  showTags: boolean;
+  showContentNumber: boolean;
+  pageBreakBetweenContent: boolean;
+}
+
 // API request schema - only allows client-editable fields (excludes server-controlled fields)
 export const brandingRequestSchema = z.object({
   logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()

@@ -45,6 +45,7 @@ export async function generateScreeningPdf(
     clinicianName: input.configOverrides?.clinicianName || input.clinician.name || "Your Healthcare Provider",
     patientName: input.configOverrides?.patientName || screening.patientName,
     packetTitle: input.configOverrides?.packetTitle,
+    sectionFormatting: input.configOverrides?.sectionFormatting,
   };
 
   const pdfBuffer = await generatePDF(contentItems, config);

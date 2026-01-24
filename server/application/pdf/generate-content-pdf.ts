@@ -60,6 +60,7 @@ export async function generateContentPdf(
     clinicianName: input.configOverrides?.clinicianName || input.clinician.name || "Your Healthcare Provider",
     patientName: input.patientName,
     packetTitle: input.configOverrides?.packetTitle,
+    sectionFormatting: input.configOverrides?.sectionFormatting,
     branding,
   };
 
