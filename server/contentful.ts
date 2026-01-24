@@ -211,12 +211,7 @@ export async function getContentByIdFromContentful(id: string): Promise<ContentI
   try {
     const entry = await client.getEntry<ContentfulContentItem>(id);
     const parsed = parseContentfulEntry(entry);
-  const flag = process.env.CONTENTFUL_READ_THROUGH;
-  const isDisabled =
-    typeof flag === "string" &&
-    ["false", "0", "no", "off"].includes(flag.toLowerCase());
-
-  return client !== null && !isDisabled;
+    setCache(`content:id:${id}`, parsed);
     return parsed;
   } catch (error) {
     console.error(`[Contentful] Error fetching content by ID ${id}:`, error);

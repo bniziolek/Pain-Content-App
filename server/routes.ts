@@ -485,8 +485,7 @@ export function registerRoutes(app: Express): Server {
       
       res.json(content);
     } catch (error) {
-        configured: isContentfulConfigured(),
-        contentfulReadEnabled: isContentfulReadEnabled(),
+      next(error);
     }
   });
 
