@@ -26,10 +26,8 @@ export function toPublicUser(user: User): PublicUser {
     city: user.city ?? null,
     state: user.state ?? null,
     zipCode: user.zipCode ?? null,
-    lockedUntil: (user as { lockedUntil?: Date | null }).lockedUntil
-      ? (user as { lockedUntil?: Date | null }).lockedUntil?.toISOString() ?? null
-      : null,
-    permanentlyLocked: (user as { permanentlyLocked?: boolean }).permanentlyLocked ?? false,
+    lockedUntil: user.lockedUntil ? user.lockedUntil.toISOString() : null,
+    permanentlyLocked: user.permanentlyLocked ?? false,
   };
 }
 

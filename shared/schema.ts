@@ -39,6 +39,10 @@ export const users = pgTable("users", {
   state: text("state"),
   zipCode: text("zip_code"),
   
+  // Account lockout fields
+  lockedUntil: timestamp("locked_until"),
+  permanentlyLocked: boolean("permanently_locked").default(false),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
