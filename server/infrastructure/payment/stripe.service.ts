@@ -93,6 +93,13 @@ export class StripeService {
       type: 'card',
     });
   }
+
+  async applyCoupon(subscriptionId: string, couponCode: string) {
+    const stripe = await getUncachableStripeClient();
+    return await stripe.subscriptions.update(subscriptionId, {
+      coupon: couponCode,
+    });
+  }
 }
 
 export const stripeService = new StripeService();

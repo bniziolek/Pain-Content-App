@@ -27,6 +27,8 @@ import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
 import AdminRecommendationsPage from "@/pages/admin/recommendations";
 import AdminFeatureFlagsPage from "@/pages/admin/feature-flags";
+import AdminSubscriptionsPage from "@/pages/admin/subscriptions";
+import SubscriptionDetailPage from "@/pages/admin/subscription-detail";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
@@ -122,6 +124,20 @@ function Router() {
         {() => (
           <RequireAdmin>
             <AdminFeatureFlagsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/subscriptions">
+        {() => (
+          <RequireAdmin>
+            <AdminSubscriptionsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/subscriptions/:userId">
+        {() => (
+          <RequireAdmin>
+            <SubscriptionDetailPage />
           </RequireAdmin>
         )}
       </Route>

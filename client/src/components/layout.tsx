@@ -65,6 +65,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/admin/subscriptions", label: "Subscriptions", icon: Crown },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
     { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft },
