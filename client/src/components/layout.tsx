@@ -263,7 +263,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <div className="lg:hidden absolute top-3 left-3 z-50">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="min-w-[48px] min-h-[48px] shadow-sm" data-testid="button-mobile-menu">
+            <Button variant="outline" size="icon" className="min-w-[48px] min-h-[48px] shadow-md bg-background/95 backdrop-blur-sm border-2" data-testid="button-mobile-menu">
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>

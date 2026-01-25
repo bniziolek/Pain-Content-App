@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -38,6 +38,10 @@ export const users = pgTable("users", {
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
+  
+  // Account lockout fields
+  lockedUntil: timestamp("locked_until"),
+  permanentlyLocked: boolean("permanently_locked").default(false),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -727,6 +731,48 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 
+// User feature overrides - per-user feature flag overrides set by admins
+export const userFeatureOverrides = pgTable("user_feature_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  isEnabled: boolean("is_enabled").notNull(),
+  setByAdminId: varchar("set_by_admin_id").references(() => users.id),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserFeature: uniqueIndex("user_feature_override_unique_idx").on(table.userId, table.featureFlagId),
+}));
+
+export const insertUserFeatureOverrideSchema = createInsertSchema(userFeatureOverrides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserFeatureOverride = z.infer<typeof insertUserFeatureOverrideSchema>;
+export type UserFeatureOverride = typeof userFeatureOverrides.$inferSelect;
+
+// Feature flag audit log - tracks all changes to user feature flag overrides
+export const featureFlagAuditLog = pgTable("feature_flag_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // 'enable' | 'disable' | 'reset'
+  previousValue: boolean("previous_value"), // null if no previous override existed
+  newValue: boolean("new_value"), // null if reset (removed override)
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagAuditLogSchema = createInsertSchema(featureFlagAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFeatureFlagAuditLog = z.infer<typeof insertFeatureFlagAuditLogSchema>;
+export type FeatureFlagAuditLog = typeof featureFlagAuditLog.$inferSelect;
+
 // Admin notes schemas
 export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
   id: true,
@@ -828,6 +874,14 @@ export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omi
 });
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
 export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+export interface SectionFormattingConfig {
+  dividerStyle: "full-page" | "inline-header" | "minimal";
+  showReadTime: boolean;
+  showTags: boolean;
+  showContentNumber: boolean;
+  pageBreakBetweenContent: boolean;
+}
 
 // API request schema - only allows client-editable fields (excludes server-controlled fields)
 export const brandingRequestSchema = z.object({

@@ -13,13 +13,6 @@ export async function listContent(
   ctx: AppContext,
   _input: ListContentInput
 ): Promise<ContentItem[]> {
-  if (ctx.cms.isConfigured()) {
-    try {
-      return (await ctx.cms.getAllContent()) as ContentItem[];
-    } catch (error) {
-      console.warn("CMS fetch failed, falling back to database:", error);
-    }
-  }
-
+  // Read exclusively from database. Content is synced via `npm run contentful:sync`.
   return ctx.storage.getAllContent();
 }

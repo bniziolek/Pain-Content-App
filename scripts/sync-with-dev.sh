@@ -31,13 +31,16 @@ else
   echo "No uncommitted changes."
 fi
 
-# Fetch latest from remote
+# Switch to dev branch first to avoid issues with stale/deleted remote branches
+echo "Switching to $DEV_BRANCH first..."
+git checkout $DEV_BRANCH
+
+# Fetch latest from remote (prune deleted branches)
 echo "Fetching latest from remote..."
-git fetch origin
+git fetch origin --prune
 
 # Pull latest dev branch
 echo "Pulling latest $DEV_BRANCH..."
-git checkout $DEV_BRANCH
 git pull origin $DEV_BRANCH
 
 # Switch back to feature branch and merge dev into it

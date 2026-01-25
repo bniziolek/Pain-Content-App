@@ -16,6 +16,8 @@ import {
 } from './resend.service';
 import { storage } from '../../storage';
 
+import type { EmailBrandingConfig } from '../../application/context';
+
 export type EmailProvider = 'gmail' | 'resend' | 'auto';
 
 async function recordEmailMetric(success: boolean, errorReason?: string): Promise<void> {
@@ -50,6 +52,7 @@ export interface ContentEmailData {
   }[];
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailData {
