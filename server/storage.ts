@@ -383,6 +383,36 @@ export interface IStorage {
   updateClinicBranding(userId: string, updates: Partial<schema.InsertClinicBranding>): Promise<schema.ClinicBranding | undefined>;
   deleteClinicBranding(userId: string): Promise<void>;
 
+  // Health metrics
+  getDatabasePoolStats(): Promise<{
+    totalConnections: number;
+    maxConnections: number;
+    activeConnections: number;
+    idleConnections: number;
+  }>;
+  getApiMetrics(since: Date): Promise<{
+    totalRequests: number;
+    successCount: number;
+    errorCount: number;
+    errorRate: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  }>;
+  getEmailMetrics(since: Date): Promise<{
+    totalSent: number;
+    delivered: number;
+    bounced: number;
+  }>;
+  recordHealthMetric(metric: schema.InsertHealthMetric): Promise<void>;
+  getRecentErrors(limit?: number): Promise<schema.HealthMetric[]>;
+  getSlowEndpoints(since: Date, thresholdMs?: number): Promise<{
+    endpoint: string;
+    avgResponseTime: number;
+    maxResponseTime: number;
+    requestCount: number;
+  }[]>;
+
   sessionStore: session.Store;
 }
 
@@ -2117,6 +2147,179 @@ export class DatabaseStorage implements IStorage {
   async deleteClinicBranding(userId: string): Promise<void> {
     await db.delete(schema.clinicBranding)
       .where(eq(schema.clinicBranding.userId, userId));
+  }
+
+  // Health metrics methods
+  async getDatabasePoolStats(): Promise<{
+    totalConnections: number;
+    maxConnections: number;
+    activeConnections: number;
+    idleConnections: number;
+  }> {
+    const totalConnections = pool.totalCount;
+    const idleConnections = pool.idleCount;
+    const activeConnections = totalConnections - idleConnections;
+    
+    // Get max connections from database
+    const result = await db.execute(sql`SHOW max_connections;`);
+    const maxConnections = result.rows[0] ? parseInt(result.rows[0].max_connections as string, 10) : 100;
+    
+    return {
+      totalConnections,
+      maxConnections,
+      activeConnections,
+      idleConnections,
+    };
+  }
+
+  async getApiMetrics(since: Date): Promise<{
+    totalRequests: number;
+    successCount: number;
+    errorCount: number;
+    errorRate: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  }> {
+    const metrics = await db.select()
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'api_request'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    if (metrics.length === 0) {
+      return {
+        totalRequests: 0,
+        successCount: 0,
+        errorCount: 0,
+        errorRate: 0,
+        p50: 0,
+        p95: 0,
+        p99: 0,
+      };
+    }
+
+    const responseTimes = metrics
+      .filter(m => m.value !== null)
+      .map(m => m.value!)
+      .sort((a, b) => a - b);
+
+    const successCount = metrics.filter(m => m.status === 'success').length;
+    const errorCount = metrics.filter(m => m.status === 'error').length;
+    const totalRequests = metrics.length;
+
+    // Calculate percentiles correctly
+    const calculatePercentile = (arr: number[], percentile: number): number => {
+      if (arr.length === 0) return 0;
+      const index = Math.ceil(arr.length * percentile) - 1;
+      return arr[Math.max(0, Math.min(index, arr.length - 1))];
+    };
+
+    return {
+      totalRequests,
+      successCount,
+      errorCount,
+      errorRate: totalRequests > 0 ? (errorCount / totalRequests) * 100 : 0,
+      p50: calculatePercentile(responseTimes, 0.5),
+      p95: calculatePercentile(responseTimes, 0.95),
+      p99: calculatePercentile(responseTimes, 0.99),
+    };
+  }
+
+  async getEmailMetrics(since: Date): Promise<{
+    totalSent: number;
+    delivered: number;
+    bounced: number;
+  }> {
+    const sent = await db.select({ count: count() })
+      .from(schema.emailLogs)
+      .where(gte(schema.emailLogs.sentAt, since));
+
+    // Count successfully sent emails (not bounced) as delivered
+    // Note: In the future, we should add a 'delivered' status to track actual delivery confirmation
+    const delivered = await db.select({ count: count() })
+      .from(schema.emailLogs)
+      .where(
+        and(
+          gte(schema.emailLogs.sentAt, since),
+          eq(schema.emailLogs.status, 'sent')
+        )
+      );
+
+    // For bounced, we'll use a health metric if tracked
+    const bouncedMetrics = await db.select({ count: count() })
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'email_bounced'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    return {
+      totalSent: sent[0]?.count || 0,
+      delivered: delivered[0]?.count || 0,
+      bounced: bouncedMetrics[0]?.count || 0,
+    };
+  }
+
+  async recordHealthMetric(metric: schema.InsertHealthMetric): Promise<void> {
+    await db.insert(schema.healthMetrics).values(metric);
+  }
+
+  async getRecentErrors(limit: number = 10): Promise<schema.HealthMetric[]> {
+    return await db.select()
+      .from(schema.healthMetrics)
+      .where(eq(schema.healthMetrics.status, 'error'))
+      .orderBy(desc(schema.healthMetrics.timestamp))
+      .limit(limit);
+  }
+
+  async getSlowEndpoints(since: Date, thresholdMs: number = 1000): Promise<{
+    endpoint: string;
+    avgResponseTime: number;
+    maxResponseTime: number;
+    requestCount: number;
+  }[]> {
+    const metrics = await db.select()
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'api_request'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    // Group by endpoint
+    const endpointStats = new Map<string, number[]>();
+    
+    metrics.forEach(m => {
+      if (m.value && m.metricName) {
+        if (!endpointStats.has(m.metricName)) {
+          endpointStats.set(m.metricName, []);
+        }
+        endpointStats.get(m.metricName)!.push(m.value);
+      }
+    });
+
+    const slowEndpoints = Array.from(endpointStats.entries())
+      .map(([endpoint, times]) => {
+        const avgResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
+        const maxResponseTime = Math.max(...times);
+        return {
+          endpoint,
+          avgResponseTime: Math.round(avgResponseTime),
+          maxResponseTime,
+          requestCount: times.length,
+        };
+      })
+      .filter(e => e.avgResponseTime > thresholdMs)
+      .sort((a, b) => b.avgResponseTime - a.avgResponseTime);
+
+    return slowEndpoints;
   }
 }
 

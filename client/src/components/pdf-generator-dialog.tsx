@@ -42,6 +42,13 @@ interface PDFConfig {
   coverPageMessage: string;
   includeTableOfContents: boolean;
   pageSize: "letter" | "a4";
+  sectionFormatting: {
+    dividerStyle: "full-page" | "inline-header" | "minimal";
+    showReadTime: boolean;
+    showTags: boolean;
+    showContentNumber: boolean;
+    pageBreakBetweenContent: boolean;
+  };
 }
 
 export function PDFGeneratorDialog({
@@ -57,6 +64,13 @@ export function PDFGeneratorDialog({
     coverPageMessage: "",
     includeTableOfContents: false,
     pageSize: "letter",
+    sectionFormatting: {
+      dividerStyle: "full-page",
+      showReadTime: true,
+      showTags: true,
+      showContentNumber: true,
+      pageBreakBetweenContent: true,
+    },
   });
 
   const generatePDFMutation = useMutation({
@@ -211,6 +225,103 @@ export function PDFGeneratorDialog({
                 <SelectItem value="a4">A4 (210 x 297 mm)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-4">
+            <h4 className="text-sm font-medium">Packet Formatting</h4>
+
+            <div className="space-y-2">
+              <Label htmlFor="dividerStyle">Divider Style</Label>
+              <Select
+                value={config.sectionFormatting.dividerStyle}
+                onValueChange={(value: "full-page" | "inline-header" | "minimal") =>
+                  setConfig({
+                    ...config,
+                    sectionFormatting: {
+                      ...config.sectionFormatting,
+                      dividerStyle: value,
+                    },
+                  })
+                }
+              >
+                <SelectTrigger id="dividerStyle" data-testid="select-divider-style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full-page">Full Page Divider</SelectItem>
+                  <SelectItem value="inline-header">Inline Header</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="showReadTime">Show read time</Label>
+              <Switch
+                id="showReadTime"
+                checked={config.sectionFormatting.showReadTime}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    sectionFormatting: {
+                      ...config.sectionFormatting,
+                      showReadTime: checked,
+                    },
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="showTags">Show tags</Label>
+              <Switch
+                id="showTags"
+                checked={config.sectionFormatting.showTags}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    sectionFormatting: {
+                      ...config.sectionFormatting,
+                      showTags: checked,
+                    },
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="showContentNumber">Show content numbers</Label>
+              <Switch
+                id="showContentNumber"
+                checked={config.sectionFormatting.showContentNumber}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    sectionFormatting: {
+                      ...config.sectionFormatting,
+                      showContentNumber: checked,
+                    },
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="pageBreakBetweenContent">Page break between content</Label>
+              <Switch
+                id="pageBreakBetweenContent"
+                checked={config.sectionFormatting.pageBreakBetweenContent}
+                onCheckedChange={(checked) =>
+                  setConfig({
+                    ...config,
+                    sectionFormatting: {
+                      ...config.sectionFormatting,
+                      pageBreakBetweenContent: checked,
+                    },
+                  })
+                }
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border p-4 bg-muted/50">
