@@ -2,28 +2,31 @@
  * Architecture: Infrastructure layer. Wraps external services (email, Stripe, CMS, audit) behind stable interfaces.
  */
 
-import puppeteer from 'puppeteer';
-import { marked } from 'marked';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import { PDFDocument } from 'pdf-lib';
-import type { ContentItem, SectionFormattingConfig } from '@shared/schema';
+import puppeteer from "puppeteer";
+import { marked } from "marked";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { PDFDocument } from "pdf-lib";
+import type { ContentItem, SectionFormattingConfig } from "@shared/schema";
 
 const execAsync = promisify(exec);
 
 // Security helpers for branding values
 function escapeHtml(text: string): string {
   const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
   };
   return text.replace(/[&<>"']/g, (char) => map[char]);
 }
 
-function validateColor(color: string | null | undefined, defaultColor: string): string {
+function validateColor(
+  color: string | null | undefined,
+  defaultColor: string,
+): string {
   if (!color) return defaultColor;
   // Strict hex color validation
   const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
@@ -35,7 +38,7 @@ function validateLogoUrl(url: string | null | undefined): string | null {
   try {
     const parsed = new URL(url);
     // Only allow https URLs to prevent SSRF attacks
-    if (parsed.protocol === 'https:') {
+    if (parsed.protocol === "https:") {
       return url;
     }
     return null;
@@ -57,10 +60,10 @@ function formatReadTimeLabel(readTime?: string | null): string | null {
 
 async function getChromiumPath(): Promise<string> {
   try {
-    const { stdout } = await execAsync('which chromium');
+    const { stdout } = await execAsync("which chromium");
     return stdout.trim();
   } catch {
-    return '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+    return "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium";
   }
 }
 
@@ -78,8 +81,8 @@ export interface PDFBrandingConfig {
 }
 
 export interface PDFGenerationConfig {
-  pageSize: 'letter' | 'a4';
-  orientation: 'portrait' | 'landscape';
+  pageSize: "letter" | "a4";
+  orientation: "portrait" | "landscape";
   margins: { top: string; right: string; bottom: string; left: string };
   includeTableOfContents: boolean;
   coverPageMessage?: string;
@@ -91,7 +94,7 @@ export interface PDFGenerationConfig {
 }
 
 const defaultSectionFormatting: SectionFormattingConfig = {
-  dividerStyle: 'full-page',
+  dividerStyle: "full-page",
   showReadTime: true,
   showTags: true,
   showContentNumber: true,
@@ -99,19 +102,22 @@ const defaultSectionFormatting: SectionFormattingConfig = {
 };
 
 const defaultConfig: PDFGenerationConfig = {
-  pageSize: 'letter',
-  orientation: 'portrait',
-  margins: { top: '0.75in', right: '0.75in', bottom: '0.75in', left: '0.75in' },
+  pageSize: "letter",
+  orientation: "portrait",
+  margins: { top: "0.75in", right: "0.75in", bottom: "0.75in", left: "0.75in" },
   includeTableOfContents: false,
 };
 
 function generateTableOfContents(items: ContentItem[]): string {
-  if (items.length === 0) return '';
-  
-  const tocItems = items.map((item, index) => 
-    `<li><a href="#content-${index}" class="toc-link">${escapeHtml(item.title)}</a></li>`
-  ).join('\n');
-  
+  if (items.length === 0) return "";
+
+  const tocItems = items
+    .map(
+      (item, index) =>
+        `<li><a href="#content-${index}" class="toc-link">${escapeHtml(item.title)}</a></li>`,
+    )
+    .join("\n");
+
   return `
     <div class="table-of-contents">
       <h2>Table of Contents</h2>
@@ -126,42 +132,50 @@ function generateTableOfContents(items: ContentItem[]): string {
 function generateCoverPage(
   config: PDFGenerationConfig,
   itemCount: number,
-  includePageBreak: boolean = true
+  includePageBreak: boolean = true,
 ): string {
-  const date = new Date().toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const date = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
-  
-  const title = config.packetTitle || 'Your Personalized Health Education';
+
+  const title = config.packetTitle || "Your Personalized Health Education";
   const branding = config.branding;
-  
+
   // Sanitize and validate branding values
   const validatedLogoUrl = validateLogoUrl(branding?.logoUrl);
-  const clinicName = branding?.clinicName ? escapeHtml(branding.clinicName) : 'DriverPath';
-  const tagline = branding?.tagline ? escapeHtml(branding.tagline) : (branding?.clinicName ? '' : 'Evidence-Based Patient Education');
-  
+  const clinicName = branding?.clinicName
+    ? escapeHtml(branding.clinicName)
+    : "DriverPath";
+  const tagline = branding?.tagline
+    ? escapeHtml(branding.tagline)
+    : branding?.clinicName
+      ? ""
+      : "Evidence-Based Patient Education";
+
   // Determine logo/header content based on branding
-  const logoSection = validatedLogoUrl 
+  const logoSection = validatedLogoUrl
     ? `<img src="${validatedLogoUrl}" alt="${clinicName}" class="logo-image" style="max-width: 300px; max-height: 150px;" />
        <h1 style="margin-top: 1rem;">${clinicName}</h1>`
     : `<h1>${clinicName}</h1>`;
-  
+
   // Determine footer text
-  let footerContent = '';
+  let footerContent = "";
   if (branding?.footerText) {
     footerContent = escapeHtml(branding.footerText);
   } else if (branding?.showPoweredBy !== false) {
-    footerContent = branding?.clinicName ? 'Powered by DriverPath' : 'Powered by DriverPath';
+    footerContent = branding?.clinicName
+      ? "Powered by DriverPath"
+      : "Powered by DriverPath";
   }
-  
+
   return `
     <div class="cover-page">
       <header class="cover-header">
         <div class="logo">
           ${logoSection}
-          ${tagline ? `<p class="tagline">${tagline}</p>` : ''}
+          ${tagline ? `<p class="tagline">${tagline}</p>` : ""}
         </div>
       </header>
       
@@ -169,25 +183,29 @@ function generateCoverPage(
         <h1 class="packet-title">${escapeHtml(title)}</h1>
         
         <div class="cover-details">
-          ${config.patientName ? `<p class="patient-name">Prepared for: <strong>${escapeHtml(config.patientName)}</strong></p>` : ''}
-          ${config.clinicianName ? `<p class="clinician-name">Curated by: <strong>${escapeHtml(config.clinicianName)}</strong></p>` : ''}
+          ${config.patientName ? `<p class="patient-name">Prepared for: <strong>${escapeHtml(config.patientName)}</strong></p>` : ""}
+          ${config.clinicianName ? `<p class="clinician-name">Curated by: <strong>${escapeHtml(config.clinicianName)}</strong></p>` : ""}
           <p class="date">Generated on: ${date}</p>
-          <p class="item-count">${itemCount} educational resource${itemCount !== 1 ? 's' : ''} included</p>
+          <p class="item-count">${itemCount} educational resource${itemCount !== 1 ? "s" : ""} included</p>
         </div>
         
-        ${config.coverPageMessage ? `
+        ${
+          config.coverPageMessage
+            ? `
           <div class="cover-message">
             <h3>A note from your provider:</h3>
             <p>${escapeHtml(config.coverPageMessage)}</p>
           </div>
-        ` : ''}
+        `
+            : ""
+        }
       </main>
       
       <footer class="cover-footer">
-        ${footerContent ? `<p>${footerContent}</p>` : ''}
+        ${footerContent ? `<p>${footerContent}</p>` : ""}
       </footer>
     </div>
-    ${includePageBreak ? '<div class="page-break"></div>' : ''}
+    ${includePageBreak ? '<div class="page-break"></div>' : ""}
   `;
 }
 
@@ -196,30 +214,44 @@ function generateDividerPage(
   index: number,
   total: number,
   formatting: SectionFormattingConfig,
-  forcePageBreakBefore: boolean
+  forcePageBreakBefore: boolean,
 ): string {
-  if (formatting.dividerStyle !== 'full-page') {
-    return '';
+  if (formatting.dividerStyle !== "full-page") {
+    return "";
   }
 
   const readTimeLabel = formatReadTimeLabel(item.readTime);
-  const dividerClass = forcePageBreakBefore ? 'divider-page divider-page--break-before' : 'divider-page';
+  const dividerClass = forcePageBreakBefore
+    ? "divider-page divider-page--break-before"
+    : "divider-page";
 
   return `
     <section class="${dividerClass}">
-      ${formatting.showContentNumber ? `
+      ${
+        formatting.showContentNumber
+          ? `
         <p class="divider-number">Section ${index + 1} of ${total}</p>
-      ` : ''}
+      `
+          : ""
+      }
       <h2 class="divider-title">${escapeHtml(item.title)}</h2>
-      ${item.summary ? `<p class="divider-summary">${escapeHtml(item.summary)}</p>` : ''}
-      ${formatting.showReadTime && readTimeLabel ? `
+      ${item.summary ? `<p class="divider-summary">${escapeHtml(item.summary)}</p>` : ""}
+      ${
+        formatting.showReadTime && readTimeLabel
+          ? `
         <p class="divider-meta">${escapeHtml(readTimeLabel)}</p>
-      ` : ''}
-      ${formatting.showTags && item.tags && item.tags.length > 0 ? `
+      `
+          : ""
+      }
+      ${
+        formatting.showTags && item.tags && item.tags.length > 0
+          ? `
         <div class="divider-tags">
-          ${item.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+          ${item.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
         </div>
-      ` : ''}
+      `
+          : ""
+      }
     </section>
   `;
 }
@@ -227,23 +259,25 @@ function generateDividerPage(
 function generateInlineHeader(
   item: ContentItem,
   index: number,
-  formatting: SectionFormattingConfig
+  formatting: SectionFormattingConfig,
 ): string {
-  if (formatting.dividerStyle !== 'inline-header') {
-    return '';
+  if (formatting.dividerStyle !== "inline-header") {
+    return "";
   }
 
   return `
     <header class="inline-header">
       <div class="inline-title">
-        ${formatting.showContentNumber ? `<span class="content-number">${index + 1}</span>` : ''}
+        ${formatting.showContentNumber ? `<span class="content-number">${index + 1}</span>` : ""}
         <h2 class="content-title">${escapeHtml(item.title)}</h2>
       </div>
       <div class="inline-meta">
-        ${formatting.showReadTime && item.readTime ? `<span>${escapeHtml(item.readTime)} read</span>` : ''}
-        ${formatting.showTags && item.tags && item.tags.length > 0
-          ? `<span>${item.tags.map(tag => escapeHtml(tag)).join(' • ')}</span>`
-          : ''}
+        ${formatting.showReadTime && item.readTime ? `<span>${escapeHtml(item.readTime)} read</span>` : ""}
+        ${
+          formatting.showTags && item.tags && item.tags.length > 0
+            ? `<span>${item.tags.map((tag) => escapeHtml(tag)).join(" • ")}</span>`
+            : ""
+        }
       </div>
       <div class="inline-divider"></div>
     </header>
@@ -254,70 +288,96 @@ function generateContentSection(
   item: ContentItem,
   index: number,
   total: number,
-  formatting: SectionFormattingConfig
+  formatting: SectionFormattingConfig,
 ): string {
-  const bodyHtml = marked(item.body || '');
+  const bodyHtml = marked(item.body || "");
   const validatedImageUrl = validateLogoUrl(item.imageUrl);
-  const showHeader = formatting.dividerStyle !== 'inline-header';
-  const showReadTime = formatting.dividerStyle !== 'full-page' && formatting.showReadTime;
-  const showTags = formatting.dividerStyle !== 'full-page' && formatting.showTags;
-  const showContentNumber = formatting.dividerStyle !== 'full-page' && formatting.showContentNumber;
+  const showHeader = formatting.dividerStyle !== "inline-header";
+  const showReadTime =
+    formatting.dividerStyle !== "full-page" && formatting.showReadTime;
+  const showTags =
+    formatting.dividerStyle !== "full-page" && formatting.showTags;
+  const showContentNumber =
+    formatting.dividerStyle !== "full-page" && formatting.showContentNumber;
   const readTimeLabel = formatReadTimeLabel(item.readTime);
-  const forceDividerBreakBefore = formatting.dividerStyle === 'full-page' &&
+  const forceDividerBreakBefore =
+    formatting.dividerStyle === "full-page" &&
     !formatting.pageBreakBetweenContent &&
     index > 0;
-  
+
   return `
     ${generateDividerPage(item, index, total, formatting, forceDividerBreakBefore)}
     <article id="content-${index}" class="content-item">
       ${generateInlineHeader(item, index, formatting)}
-      ${showHeader ? `
+      ${
+        showHeader
+          ? `
         <header class="content-header">
           <div class="content-title-row">
-            ${showContentNumber ? `<span class="content-number">${index + 1}</span>` : ''}
+            ${showContentNumber ? `<span class="content-number">${index + 1}</span>` : ""}
             <h2 class="content-title">${escapeHtml(item.title)}</h2>
           </div>
-          ${showReadTime && readTimeLabel ? `<span class="read-time">${escapeHtml(readTimeLabel)}</span>` : ''}
+          ${showReadTime && readTimeLabel ? `<span class="read-time">${escapeHtml(readTimeLabel)}</span>` : ""}
         </header>
-      ` : ''}
+      `
+          : ""
+      }
       
-      ${validatedImageUrl ? `
+      ${
+        validatedImageUrl
+          ? `
         <div class="content-image">
           <img src="${validatedImageUrl}" alt="${escapeHtml(item.title)}" />
         </div>
-      ` : ''}
+      `
+          : ""
+      }
       
-      ${item.summary ? `
+      ${
+        item.summary
+          ? `
         <div class="content-summary">
           <p>${escapeHtml(item.summary)}</p>
         </div>
-      ` : ''}
+      `
+          : ""
+      }
       
       <div class="content-body">
         ${bodyHtml}
       </div>
       
-      ${showTags && item.tags && item.tags.length > 0 ? `
+      ${
+        showTags && item.tags && item.tags.length > 0
+          ? `
         <div class="content-tags">
-          ${item.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+          ${item.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
         </div>
-      ` : ''}
+      `
+          : ""
+      }
     </article>
   `;
 }
 
-function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: SectionFormattingConfig): string {
+function buildHtml(
+  bodyHtml: string,
+  config: PDFGenerationConfig,
+  formatting: SectionFormattingConfig,
+): string {
   // Validate and sanitize branding colors or use defaults
   const branding = config.branding;
-  const primaryColor = validateColor(branding?.primaryColor, '#0F766E');
-  const secondaryColor = validateColor(branding?.secondaryColor, '#f5f5f5');
-  const accentColor = validateColor(branding?.accentColor, '#14B8A6');
+  const primaryColor = validateColor(branding?.primaryColor, "#0F766E");
+  const secondaryColor = validateColor(branding?.secondaryColor, "#f5f5f5");
+  const accentColor = validateColor(branding?.accentColor, "#14B8A6");
   const showWatermark = Boolean(branding) && branding?.showWatermark !== false;
-  const watermarkText = branding?.clinicName ? escapeHtml(branding.clinicName) : 'DriverPath';
+  const watermarkText = branding?.clinicName
+    ? escapeHtml(branding.clinicName)
+    : "DriverPath";
   const watermarkHtml = showWatermark
     ? `<div class="pdf-watermark">${watermarkText}</div>`
-    : '';
-  
+    : "";
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -761,66 +821,86 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
   `;
 }
 
-function generateContentHtml(items: ContentItem[], config: PDFGenerationConfig, formatting: SectionFormattingConfig): string {
-  const contentSections = items.map((item, index) => {
-    const sectionHtml = generateContentSection(item, index, items.length, formatting);
-    const shouldBreak = formatting.pageBreakBetweenContent && index < items.length - 1;
-    return `${sectionHtml}${shouldBreak ? '<div class="page-break"></div>' : ''}`;
-  }).join('\n');
+function generateContentHtml(
+  items: ContentItem[],
+  config: PDFGenerationConfig,
+  formatting: SectionFormattingConfig,
+): string {
+  const contentSections = items
+    .map((item, index) => {
+      const sectionHtml = generateContentSection(
+        item,
+        index,
+        items.length,
+        formatting,
+      );
+      const shouldBreak =
+        formatting.pageBreakBetweenContent && index < items.length - 1;
+      return `${sectionHtml}${shouldBreak ? '<div class="page-break"></div>' : ""}`;
+    })
+    .join("\n");
 
   const bodyHtml = `
-    ${config.includeTableOfContents ? generateTableOfContents(items) : ''}
+    ${config.includeTableOfContents ? generateTableOfContents(items) : ""}
     ${contentSections}
   `;
 
   return buildHtml(bodyHtml, config, formatting);
 }
 
-function generateCoverHtml(config: PDFGenerationConfig, itemCount: number, formatting: SectionFormattingConfig): string {
+function generateCoverHtml(
+  config: PDFGenerationConfig,
+  itemCount: number,
+  formatting: SectionFormattingConfig,
+): string {
   const bodyHtml = generateCoverPage(config, itemCount, false);
   return buildHtml(bodyHtml, config, formatting);
 }
 
 export async function generatePDF(
   items: ContentItem[],
-  config: Partial<PDFGenerationConfig> = {}
+  config: Partial<PDFGenerationConfig> = {},
 ): Promise<Buffer> {
   const finalConfig: PDFGenerationConfig = { ...defaultConfig, ...config };
   const formatting: SectionFormattingConfig = {
     ...defaultSectionFormatting,
     ...(finalConfig.sectionFormatting || {}),
   };
-  
+
   const chromiumPath = await getChromiumPath();
-  console.log('Using Chromium at:', chromiumPath);
-  
+  console.log("Using Chromium at:", chromiumPath);
+
   const browser = await puppeteer.launch({
     headless: true,
     executablePath: chromiumPath,
     args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--single-process',
-      '--no-zygote',
-      '--disable-extensions',
-      '--disable-background-networking',
-      '--disable-sync',
-      '--disable-translate',
-      '--metrics-recording-only',
-      '--no-first-run',
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--single-process",
+      "--no-zygote",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--disable-sync",
+      "--disable-translate",
+      "--metrics-recording-only",
+      "--no-first-run",
     ],
   });
-  
+
   try {
     const page = await browser.newPage();
     const coverHtml = generateCoverHtml(finalConfig, items.length, formatting);
     const contentHtml = generateContentHtml(items, finalConfig, formatting);
 
-    const headerTitle = escapeHtml(finalConfig.packetTitle || 'Patient Education Packet');
-    const footerClinicName = escapeHtml(finalConfig.branding?.clinicName || 'DriverPath');
+    const headerTitle = escapeHtml(
+      finalConfig.packetTitle || "Patient Education Packet",
+    );
+    const footerClinicName = escapeHtml(
+      finalConfig.branding?.clinicName || "DriverPath",
+    );
     const headerTemplate = `
       <div style="font-size:8px; color:#666; width:100%; padding:0 0.5in; display:flex; justify-content:flex-end;">
         <span>${headerTitle}</span>
@@ -833,25 +913,25 @@ export async function generatePDF(
       </div>
     `;
 
-    await page.setContent(coverHtml, { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
+    await page.setContent(coverHtml, {
+      waitUntil: "networkidle0",
+      timeout: 30000,
     });
     const coverPdfBuffer = await page.pdf({
-      format: finalConfig.pageSize === 'letter' ? 'Letter' : 'A4',
-      landscape: finalConfig.orientation === 'landscape',
+      format: finalConfig.pageSize === "letter" ? "Letter" : "A4",
+      landscape: finalConfig.orientation === "landscape",
       printBackground: true,
       margin: finalConfig.margins,
       displayHeaderFooter: false,
     });
 
-    await page.setContent(contentHtml, { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
+    await page.setContent(contentHtml, {
+      waitUntil: "networkidle0",
+      timeout: 30000,
     });
     const contentPdfBuffer = await page.pdf({
-      format: finalConfig.pageSize === 'letter' ? 'Letter' : 'A4',
-      landscape: finalConfig.orientation === 'landscape',
+      format: finalConfig.pageSize === "letter" ? "Letter" : "A4",
+      landscape: finalConfig.orientation === "landscape",
       printBackground: true,
       margin: finalConfig.margins,
       displayHeaderFooter: true,
@@ -862,12 +942,18 @@ export async function generatePDF(
     const mergedPdf = await PDFDocument.create();
     const coverDoc = await PDFDocument.load(coverPdfBuffer);
     const contentDoc = await PDFDocument.load(contentPdfBuffer);
-    const coverPages = await mergedPdf.copyPages(coverDoc, coverDoc.getPageIndices());
+    const coverPages = await mergedPdf.copyPages(
+      coverDoc,
+      coverDoc.getPageIndices(),
+    );
     coverPages.forEach((pageItem) => mergedPdf.addPage(pageItem));
-    const contentPages = await mergedPdf.copyPages(contentDoc, contentDoc.getPageIndices());
+    const contentPages = await mergedPdf.copyPages(
+      contentDoc,
+      contentDoc.getPageIndices(),
+    );
     contentPages.forEach((pageItem) => mergedPdf.addPage(pageItem));
     const mergedBytes = await mergedPdf.save();
-    
+
     return Buffer.from(mergedBytes);
   } finally {
     await browser.close();
@@ -876,8 +962,8 @@ export async function generatePDF(
 
 export function generateFilename(patientName?: string): string {
   const timestamp = new Date().toISOString().slice(0, 10);
-  const sanitizedName = patientName 
-    ? patientName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-    : 'patient';
+  const sanitizedName = patientName
+    ? patientName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()
+    : "patient";
   return `driverpath-${sanitizedName}-${timestamp}.pdf`;
 }
