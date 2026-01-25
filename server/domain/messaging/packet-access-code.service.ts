@@ -8,6 +8,13 @@
 const AMBIGUOUS_CHARS = ['0', 'O', '1', 'l', 'I'];
 const ALLOWED_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
+// Ensure that the allowed character set never includes ambiguous characters.
+for (const ambiguousChar of AMBIGUOUS_CHARS) {
+  if (ALLOWED_CHARS.includes(ambiguousChar)) {
+    throw new Error(`ALLOWED_CHARS must not contain ambiguous character: '${ambiguousChar}'`);
+  }
+}
+
 const PREFIXES = ['HEAL', 'PAIN', 'MOVE', 'FLEX', 'CARE', 'WELL', 'FLOW', 'EASE'];
 
 export interface PacketCodeValidationResult {

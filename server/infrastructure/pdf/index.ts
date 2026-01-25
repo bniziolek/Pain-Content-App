@@ -12,5 +12,6 @@ export {
 export {
   generateQRCodeDataUrl,
   buildLookupUrl,
+  getBaseUrl,
   type QRCodeOptions,
 } from './qr-code';

@@ -22,6 +22,7 @@ export interface PublicLookupContentItem {
   imageUrl: string | null;
   readTime: string | null;
   tags: string[];
+  body: string;
 }
 
 export interface PublicLookupResult {
@@ -48,6 +49,7 @@ function mapContentToPublic(content: ContentItem): PublicLookupContentItem {
     imageUrl: content.imageUrl,
     readTime: content.readTime,
     tags: content.tags || [],
+    body: content.body,
   };
 }
 
@@ -85,7 +87,9 @@ export async function publicLookup(
   const contentItems = await Promise.all(
     contentIds.map((id: string) => ctx.storage.getContentById(id))
   );
-  const validContent = contentItems.filter(Boolean) as ContentItem[];
+  
+  // Filter out null/undefined values (deleted or non-existent content)
+  const validContent = contentItems.filter((item): item is ContentItem => Boolean(item));
 
   const clinician = await ctx.storage.getUser(accessCode!.clinicianId);
 

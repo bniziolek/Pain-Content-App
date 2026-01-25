@@ -43,12 +43,14 @@ export async function generateQRCodeDataUrl(
 }
 
 export function buildLookupUrl(code: string, baseUrl?: string): string {
-  const base = baseUrl || (
-    process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'https://driverpath.com'
-  );
+  const base = baseUrl || getBaseUrl();
   return `${base}/lookup?code=${encodeURIComponent(code)}`;
+}
+
+export function getBaseUrl(): string {
+  return process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      : 'https://driverpath.com';
 }
