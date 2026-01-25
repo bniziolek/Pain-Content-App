@@ -78,7 +78,7 @@ function StatusBadge({ status }: { status: "healthy" | "degraded" | "error" | "u
 }
 
 export default function HealthDashboard() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -86,6 +86,8 @@ export default function HealthDashboard() {
       setLocation("/dashboard");
     }
   }, [user, setLocation]);
+
+  const isAdmin = !!user && user.role === "admin";
 
   const { data: health, isLoading } = useQuery<HealthOverview>({
     queryKey: ["admin-health-overview"],
@@ -95,9 +97,10 @@ export default function HealthDashboard() {
       return res.json();
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !loading && isAdmin,
   });
 
-  if (isLoading) {
+  if (loading || isLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
