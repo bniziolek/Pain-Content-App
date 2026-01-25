@@ -5,6 +5,7 @@ import { BASE_URL, createAuthenticatedAgent } from '../utils';
 describe('Packet Access Codes API', () => {
   let agent: ReturnType<typeof request.agent>;
   let contentId: string;
+  let userId: string;
 
   beforeAll(async () => {
     agent = await createAuthenticatedAgent();
@@ -12,6 +13,12 @@ describe('Packet Access Codes API', () => {
     const contentResponse = await agent.get('/api/content');
     if (contentResponse.body.length > 0) {
       contentId = contentResponse.body[0].id;
+    }
+
+    // Get the current user's ID
+    const userResponse = await agent.get('/api/user');
+    if (userResponse.body) {
+      userId = userResponse.body.id;
     }
   });
 
@@ -139,6 +146,68 @@ describe('Packet Access Codes API', () => {
 
       expect(lookupLower.status).toBe(200);
       expect(lookupLower.body.valid).toBe(true);
+    });
+
+    it('should return 410 for expired access code', async () => {
+      if (!contentId || !userId) {
+        return;
+      }
+
+      // Create an expired code directly in the database
+      const { db } = await import('../../server/db');
+      const { packetAccessCodes } = await import('../../shared/schema');
+      
+      const expiredDate = new Date();
+      expiredDate.setDate(expiredDate.getDate() - 1); // Yesterday
+      
+      const expiredCode = 'TEST-EXPR';
+      await db.insert(packetAccessCodes).values({
+        code: expiredCode,
+        clinicianId: userId,
+        contentIds: [contentId],
+        expiresAt: expiredDate,
+        isActive: true,
+      });
+
+      // Lookup should fail with expired reason
+      const lookupResponse = await request(BASE_URL)
+        .get(`/api/public/lookup/${expiredCode}`);
+
+      expect(lookupResponse.status).toBe(410);
+      expect(lookupResponse.body.valid).toBe(false);
+      expect(lookupResponse.body.reason).toBe('expired');
+      expect(lookupResponse.body.error).toContain('expired');
+    });
+
+    it('should return 410 for inactive access code', async () => {
+      if (!contentId || !userId) {
+        return;
+      }
+
+      // Create an inactive code directly in the database
+      const { db } = await import('../../server/db');
+      const { packetAccessCodes } = await import('../../shared/schema');
+      
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 90);
+      
+      const inactiveCode = 'TEST-INAC';
+      await db.insert(packetAccessCodes).values({
+        code: inactiveCode,
+        clinicianId: userId,
+        contentIds: [contentId],
+        expiresAt: futureDate,
+        isActive: false,
+      });
+
+      // Lookup should fail with inactive reason
+      const lookupResponse = await request(BASE_URL)
+        .get(`/api/public/lookup/${inactiveCode}`);
+
+      expect(lookupResponse.status).toBe(410);
+      expect(lookupResponse.body.valid).toBe(false);
+      expect(lookupResponse.body.reason).toBe('inactive');
+      expect(lookupResponse.body.error).toContain('inactive');
     });
   });
 });
