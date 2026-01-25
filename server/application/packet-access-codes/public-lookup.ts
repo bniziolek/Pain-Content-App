@@ -89,9 +89,7 @@ export async function publicLookup(
   );
   
   // Filter out null/undefined values (deleted or non-existent content)
-  const validContent = contentItems.filter((item): item is ContentItem => {
-    return item !== null && item !== undefined;
-  });
+  const validContent = contentItems.filter((item): item is ContentItem => Boolean(item));
 
   const clinician = await ctx.storage.getUser(accessCode!.clinicianId);
 

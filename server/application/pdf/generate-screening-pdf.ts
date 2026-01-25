@@ -4,7 +4,7 @@
 
 import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
-import { generatePDF, generateFilename, generateQRCodeDataUrl, buildLookupUrl, type PDFGenerationConfig } from "../../infrastructure/pdf";
+import { generatePDF, generateFilename, generateQRCodeDataUrl, buildLookupUrl, getBaseUrl, type PDFGenerationConfig } from "../../infrastructure/pdf";
 import { generateAccessCode } from "../packet-access-codes/generate-access-code";
 
 export interface GenerateScreeningPdfInput {
@@ -63,10 +63,7 @@ export async function generateScreeningPdf(
 
     const qrUrl = buildLookupUrl(accessCode);
     qrCodeDataUrl = await generateQRCodeDataUrl(qrUrl);
-    
-    // Extract base URL from the lookup URL for display purposes
-    const url = new URL(qrUrl);
-    lookupUrl = `${url.origin}/lookup`;
+    lookupUrl = `${getBaseUrl()}/lookup`;
   }
 
   const config: PDFGenerationConfig = {

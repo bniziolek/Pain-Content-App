@@ -142,8 +142,8 @@ export default function LookupPage() {
       // Fetch typically throws TypeError on network failure
       if (error instanceof TypeError) {
         errorMessage = "Network error. Please check your connection and try again.";
-      } else if (error instanceof Error && error.message) {
-        errorMessage = error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message || errorMessage;
       }
 
       setResult({
