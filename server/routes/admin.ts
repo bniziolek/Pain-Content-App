@@ -15,6 +15,7 @@ import {
   extendSubscription,
   getAdminStats,
   getEnhancedAdminStats,
+  getHealthOverview,
   getUser,
   listAdminNotes,
   listAllRecommendationConfigs,
@@ -255,6 +256,17 @@ router.get("/recommendation-configs", requireAdmin, async (req, res, next) => {
   try {
     const configs = await listAllRecommendationConfigs(appContext);
     res.json(configs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ====== System Health ======
+
+router.get("/health/overview", requireAdmin, async (req, res, next) => {
+  try {
+    const health = await getHealthOverview(appContext);
+    res.json(health);
   } catch (error) {
     next(error);
   }
