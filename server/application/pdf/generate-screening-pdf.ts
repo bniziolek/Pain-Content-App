@@ -4,17 +4,22 @@
 
 import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
-import { generatePDF, generateFilename, type PDFGenerationConfig } from "../../infrastructure/pdf";
+import { generatePDF, generateFilename, generateQRCodeDataUrl, buildLookupUrl, getBaseUrl, type PDFGenerationConfig } from "../../infrastructure/pdf";
+import { generateAccessCode } from "../packet-access-codes/generate-access-code";
 
 export interface GenerateScreeningPdfInput {
   clinician: User;
   screeningId: string;
   configOverrides?: Partial<PDFGenerationConfig>;
+  includeAccessCode?: boolean;
+  accessCodeExpirationDays?: number;
 }
 
 export interface GenerateScreeningPdfResult {
   pdfBuffer: Buffer;
   filename: string;
+  accessCode?: string;
+  accessCodeExpiresAt?: Date;
 }
 
 export async function generateScreeningPdf(
@@ -36,6 +41,31 @@ export async function generateScreeningPdf(
     return null;
   }
 
+  let accessCode: string | undefined;
+  let accessCodeExpiresAt: Date | undefined;
+  let qrCodeDataUrl: string | undefined;
+  let lookupUrl: string | undefined;
+
+  if (input.includeAccessCode) {
+    const result = await generateAccessCode(
+      ctx,
+      auditContext,
+      {
+        clinician: input.clinician,
+        screeningId: input.screeningId,
+        contentIds: contentIds as string[],
+        expirationDays: input.accessCodeExpirationDays ?? 90,
+      }
+    );
+    
+    accessCode = result.code;
+    accessCodeExpiresAt = result.expiresAt;
+
+    const qrUrl = buildLookupUrl(accessCode);
+    qrCodeDataUrl = await generateQRCodeDataUrl(qrUrl);
+    lookupUrl = `${getBaseUrl()}/lookup`;
+  }
+
   const config: PDFGenerationConfig = {
     pageSize: input.configOverrides?.pageSize ?? "letter",
     orientation: "portrait",
@@ -46,6 +76,9 @@ export async function generateScreeningPdf(
     patientName: input.configOverrides?.patientName || screening.patientName,
     packetTitle: input.configOverrides?.packetTitle,
     sectionFormatting: input.configOverrides?.sectionFormatting,
+    accessCode,
+    qrCodeDataUrl,
+    lookupUrl,
   };
 
   const pdfBuffer = await generatePDF(contentItems, config);
@@ -60,8 +93,10 @@ export async function generateScreeningPdf(
       patientName: screening.patientName,
       contentCount: contentItems.length,
       pageSize: config.pageSize,
+      includeAccessCode: !!input.includeAccessCode,
+      accessCode,
     },
   });
   
-  return { pdfBuffer, filename };
+  return { pdfBuffer, filename, accessCode, accessCodeExpiresAt };
 }

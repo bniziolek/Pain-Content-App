@@ -91,6 +91,9 @@ export interface PDFGenerationConfig {
   packetTitle?: string;
   branding?: PDFBrandingConfig;
   sectionFormatting?: SectionFormattingConfig;
+  accessCode?: string;
+  qrCodeDataUrl?: string;
+  lookupUrl?: string;
 }
 
 const defaultSectionFormatting: SectionFormattingConfig = {
@@ -188,6 +191,24 @@ function generateCoverPage(
           <p class="date">Generated on: ${date}</p>
           <p class="item-count">${itemCount} educational resource${itemCount !== 1 ? "s" : ""} included</p>
         </div>
+        
+        ${
+          config.accessCode
+            ? `
+          <div class="access-code-section">
+            <h3>Access Digital Content</h3>
+            <p class="access-instructions">Scan the QR code or visit <strong>${config.lookupUrl || "driverpath.com/lookup"}</strong> and enter your access code:</p>
+            <div class="access-code-content">
+              ${config.qrCodeDataUrl ? `<img src="${config.qrCodeDataUrl}" alt="QR Code" class="qr-code" />` : ""}
+              <div class="code-display">
+                <span class="access-code">${escapeHtml(config.accessCode)}</span>
+              </div>
+            </div>
+            <p class="access-note">Access videos, interactive content, and additional resources from this packet online.</p>
+          </div>
+        `
+            : ""
+        }
         
         ${
           config.coverPageMessage
@@ -505,6 +526,65 @@ function buildHtml(
       color: var(--primary-color);
       margin-bottom: 0.5rem;
       font-size: 0.875rem;
+    }
+
+    .access-code-section {
+      background: linear-gradient(135deg, var(--secondary-color), #f8fafc);
+      border: 2px solid var(--primary-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+
+    .access-code-section h3 {
+      color: var(--primary-color);
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .access-instructions {
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      color: #475569;
+    }
+
+    .access-code-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      margin: 1rem 0;
+    }
+
+    .qr-code {
+      width: 100px;
+      height: 100px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .code-display {
+      background: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      border: 2px dashed var(--primary-color);
+    }
+
+    .access-code {
+      font-family: "Courier New", monospace;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      letter-spacing: 0.1em;
+    }
+
+    .access-note {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.75rem;
+      font-style: italic;
     }
     
     .cover-footer {

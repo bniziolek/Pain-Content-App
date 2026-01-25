@@ -23,7 +23,9 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       includeTableOfContents = false,
       coverPageMessage,
       clinicianName,
-      sectionFormatting
+      sectionFormatting,
+      includeAccessCode = false,
+      accessCodeExpirationDays = 90,
     } = req.body;
 
     const result = await generateScreeningPdf(appContext, buildAuditRequestContext(req), {
@@ -36,9 +38,16 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
         clinicianName,
         sectionFormatting,
       },
+      includeAccessCode,
+      accessCodeExpirationDays,
     });
     if (!result) {
       return res.status(404).json({ error: "Screening or content not found" });
+    }
+
+    if (includeAccessCode && result.accessCode) {
+      res.setHeader('X-Access-Code', result.accessCode);
+      res.setHeader('X-Access-Code-Expires', result.accessCodeExpiresAt?.toISOString() || '');
     }
 
     res.setHeader('Content-Type', 'application/pdf');

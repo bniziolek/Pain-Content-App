@@ -54,6 +54,7 @@ import CaseStudiesPage from "@/pages/public/case-studies";
 import FAQPage from "@/pages/public/faq";
 import UseCasesPage from "@/pages/public/use-cases";
 import IntegrationsPage from "@/pages/public/integrations";
+import LookupPage from "@/pages/public/lookup";
 
 function Router() {
   return (
@@ -76,6 +77,7 @@ function Router() {
       <Route path="/faq" component={FAQPage} />
       <Route path="/use-cases" component={UseCasesPage} />
       <Route path="/integrations" component={IntegrationsPage} />
+      <Route path="/lookup" component={LookupPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
