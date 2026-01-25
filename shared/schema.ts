@@ -812,6 +812,7 @@ export const clinicBranding = pgTable("clinic_branding", {
   // Footer and additional options
   footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
   showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
+  showWatermark: boolean("show_watermark").default(true), // Whether to show a subtle watermark
   
   // Activation status
   isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
