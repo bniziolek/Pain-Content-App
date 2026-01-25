@@ -58,6 +58,16 @@ export interface AuditLogger {
   logSystemAction(action: string, options?: AuditActionOptions): Promise<void>;
 }
 
+export interface EmailBrandingConfig {
+  logoUrl?: string | null;
+  clinicName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  footerText?: string | null;
+  showPoweredBy?: boolean;
+}
+
 export interface ContentEmailParams {
   toEmail: string;
   subject: string;
@@ -71,6 +81,7 @@ export interface ContentEmailParams {
   }>;
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailParams {

@@ -7,6 +7,18 @@ interface SwipeNavigationOptions {
   enabled?: boolean;
 }
 
+const INTERACTIVE_SELECTORS = [
+  'a', 'button', 'input', 'textarea', 'select',
+  '[role="button"]', '[role="link"]', '[onclick]',
+  '[data-testid*="card"]', '[data-testid*="button"]', '[data-testid*="link"]',
+  '.card', '.btn', '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+function isInteractiveElement(element: EventTarget | null): boolean {
+  if (!element || !(element instanceof Element)) return false;
+  return element.closest(INTERACTIVE_SELECTORS) !== null;
+}
+
 export function useSwipeNavigation({
   routes,
   threshold = 100,
@@ -16,6 +28,8 @@ export function useSwipeNavigation({
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
+  const touchStartTime = useRef(0);
+  const touchStartTarget = useRef<EventTarget | null>(null);
 
   const getCurrentIndex = useCallback(() => {
     return routes.findIndex((route) => location === route || location.startsWith(route + "/"));
@@ -44,6 +58,10 @@ export function useSwipeNavigation({
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
+      // Initialize touchEndX to touchStartX so that taps without touchmove events result in diffX = 0
+      touchEndX.current = e.touches[0].clientX;
+      touchStartTime.current = Date.now();
+      touchStartTarget.current = e.target;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -53,8 +71,22 @@ export function useSwipeNavigation({
     const handleTouchEnd = (e: TouchEvent) => {
       const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
       const diffX = Math.abs(touchStartX.current - touchEndX.current);
+      const touchDuration = Date.now() - touchStartTime.current;
       
-      if (diffX > diffY * 2 && diffX > threshold / 2) {
+      // Don't trigger swipe navigation if:
+      // 1. Touch started on an interactive element (links, buttons, cards, etc.)
+      // 2. Touch was too short (likely a tap, not a swipe) - require at least 200ms for better accessibility
+      // 3. Horizontal movement isn't significantly greater than vertical
+      // 4. Horizontal movement doesn't exceed the threshold
+      if (isInteractiveElement(touchStartTarget.current)) {
+        return;
+      }
+      
+      if (touchDuration < 200) {
+        return;
+      }
+      
+      if (diffX > diffY * 2 && diffX > threshold) {
         handleSwipe();
       }
     };

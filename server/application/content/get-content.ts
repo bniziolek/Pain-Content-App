@@ -15,15 +15,8 @@ export async function getContent(
   ctx: AppContext,
   input: GetContentInput
 ): Promise<ContentItem | null> {
-  let content: ContentItem | null = (await ctx.storage.getContentById(input.contentId)) ?? null;
-
-  if (!content && ctx.cms.isConfigured()) {
-    try {
-      content = (await ctx.cms.getContentById(input.contentId)) as ContentItem | null;
-    } catch (error) {
-      console.warn("CMS fetch failed, falling back to database:", error);
-    }
-  }
+  // Read exclusively from database. Content is synced via `npm run contentful:sync`.
+  const content: ContentItem | null = (await ctx.storage.getContentById(input.contentId)) ?? null;
 
   if (content) {
     await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_access', {

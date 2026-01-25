@@ -167,7 +167,7 @@ export default function LibraryPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div></div>
           {selectedItems.length > 0 && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-6 right-6 sm:static z-50">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+2rem)] right-4 sm:static z-40">
               {isPacketMode ? (
                 <Button onClick={() => setIsPacketModalOpen(true)} size="lg" className="shadow-xl" data-testid="button-download-packet">
                   <Download className="w-4 h-4 mr-2" />

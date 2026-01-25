@@ -25,3 +25,6 @@ export * from "./list-subscriptions";
 export * from "./get-subscription-details";
 export * from "./apply-coupon";
 export * from "./cancel-user-subscription";
+export * from "./get-user-support-overview";
+export * from "./get-user-support-timeline";
+export * from "./unlock-user-account";

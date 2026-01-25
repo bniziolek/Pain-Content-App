@@ -36,17 +36,8 @@ export async function listPatientContent(
 
   const contentMap: Record<string, any> = {};
   for (const view of contentViews) {
-    let content: any = null;
-    if (ctx.cms.isConfigured()) {
-      try {
-        content = await ctx.cms.getContentById(view.contentId);
-      } catch (error) {
-        console.warn("CMS fetch failed:", error);
-      }
-    }
-    if (!content) {
-      content = await ctx.storage.getContentById(view.contentId);
-    }
+    // Read exclusively from database. Content is synced via `npm run contentful:sync`.
+    const content = await ctx.storage.getContentById(view.contentId);
 
     if (content && !contentMap[view.contentId]) {
       contentMap[view.contentId] = {

@@ -1,0 +1,135 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e3]:
+      - button [ref=e5]:
+        - img
+      - main [ref=e6]:
+        - generic [ref=e8]:
+          - generic [ref=e9]: Pull down to refresh
+          - generic [ref=e10]:
+            - generic [ref=e11]:
+              - generic [ref=e12]:
+                - heading "Dashboard" [level=1] [ref=e13]
+                - paragraph [ref=e14]: Welcome back, Admin User.
+              - button [ref=e15]:
+                - img
+            - link "Send Content" [ref=e17] [cursor=pointer]:
+              - /url: /library
+              - button "Send Content" [ref=e18]:
+                - img
+                - text: Send Content
+          - generic [ref=e20]:
+            - generic [ref=e21]:
+              - img [ref=e23]
+              - generic [ref=e25]:
+                - paragraph [ref=e26]: Unlock Care Pathways, Email Delivery, and Follow-up Automation with Pro
+                - paragraph [ref=e27]: Get more powerful features for your practice
+            - link "Upgrade to Pro" [ref=e28] [cursor=pointer]:
+              - /url: /subscription?upgrade=true
+              - button "Upgrade to Pro" [ref=e29]
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e32]:
+                - generic [ref=e33]: Content Sends
+                - img [ref=e34]
+              - generic [ref=e37]:
+                - generic [ref=e38]: "0"
+                - paragraph [ref=e39]: +0% from last week
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - generic [ref=e42]: Content Read Rate
+                - img [ref=e43]
+              - generic [ref=e45]:
+                - generic [ref=e46]: 0%
+                - paragraph [ref=e47]: Emails opened by patients
+            - generic [ref=e48]:
+              - generic [ref=e49]:
+                - generic [ref=e50]: Completion Rate
+                - img [ref=e51]
+              - generic [ref=e54]:
+                - generic [ref=e55]: 0%
+                - paragraph [ref=e56]: Avg. assessment finish
+            - generic [ref=e57]:
+              - generic [ref=e58]:
+                - generic [ref=e59]: Top Focus Area
+                - img [ref=e60]
+              - generic [ref=e63]:
+                - generic "N/A" [ref=e64]
+                - paragraph [ref=e65]: Most frequent result
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - generic [ref=e68]: Activity Overview
+              - generic [ref=e69]: Content sends over the last 7 days
+            - generic [ref=e71]:
+              - img [ref=e72]
+              - paragraph [ref=e75]: No activity yet this week
+              - paragraph [ref=e76]: Send content to patients to see your activity here
+          - generic [ref=e77]:
+            - generic [ref=e78]:
+              - generic [ref=e80]: Recent Activity
+              - generic [ref=e81]:
+                - generic [ref=e82]:
+                  - img [ref=e83]
+                  - paragraph [ref=e86]: No recent activity
+                - link "View All History" [ref=e87] [cursor=pointer]:
+                  - /url: /history
+                  - button "View All History" [ref=e88]:
+                    - text: View All History
+                    - img
+            - generic [ref=e89]:
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - img [ref=e92]
+                  - generic [ref=e94]: Action Needed
+                - generic [ref=e95]: Patients who haven't opened content
+              - generic [ref=e97]:
+                - img [ref=e98]
+                - paragraph [ref=e101]: All caught up!
+                - paragraph [ref=e102]: No patients need follow-up right now
+      - navigation [ref=e103]:
+        - generic [ref=e104]:
+          - link "Dashboard" [ref=e105] [cursor=pointer]:
+            - /url: /admin/dashboard
+            - generic [ref=e106]:
+              - img [ref=e107]
+              - generic [ref=e110]: Dashboard
+          - link "Users" [ref=e111] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e112]:
+              - img [ref=e113]
+              - generic [ref=e118]: Users
+          - link "Content" [ref=e119] [cursor=pointer]:
+            - /url: /library
+            - generic [ref=e120]:
+              - img [ref=e121]
+              - generic [ref=e123]: Content
+          - link "Settings" [ref=e124] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=e125]:
+              - img [ref=e126]
+              - generic [ref=e129]: Settings
+  - generic [ref=e131]:
+    - generic [ref=e132]:
+      - generic [ref=e133]:
+        - generic [ref=e134]:
+          - img [ref=e136]
+          - generic [ref=e138]: Step 1 of 6
+        - button [ref=e139]:
+          - img
+      - generic [ref=e140]: Welcome to Your Dashboard
+    - generic [ref=e142]: This is your home base. See your activity stats, recent sends, and patients needing follow-up all in one place.
+    - generic [ref=e143]:
+      - button "Back" [disabled]:
+        - img
+        - text: Back
+      - generic [ref=e144]:
+        - button "Skip" [ref=e145]
+        - button "Next" [ref=e146]:
+          - text: Next
+          - img
+```

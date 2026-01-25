@@ -15,6 +15,8 @@ import {
   isResendConfigured,
 } from './resend.service';
 
+import type { EmailBrandingConfig } from '../../application/context';
+
 export type EmailProvider = 'gmail' | 'resend' | 'auto';
 
 export interface ContentEmailData {
@@ -30,6 +32,7 @@ export interface ContentEmailData {
   }[];
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailData {

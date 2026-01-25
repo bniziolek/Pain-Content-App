@@ -1,0 +1,90 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - button [ref=e5]:
+      - img
+    - main [ref=e6]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - heading "Content Library" [level=1] [ref=e11]
+            - paragraph [ref=e12]: Curated education modules for your patients.
+          - link "Guide Me to Create Packet" [ref=e14] [cursor=pointer]:
+            - /url: /content-packet-guide
+            - button "Guide Me to Create Packet" [ref=e15]:
+              - img
+              - text: Guide Me to Create Packet
+        - button "Send 1 Items" [ref=e17]:
+          - img
+          - text: Send 1 Items
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - img [ref=e20]
+            - textbox "Search by title or tag..." [ref=e23]
+          - button "Favorites" [ref=e24]:
+            - img
+            - text: Favorites
+          - button "Filters" [ref=e25]:
+            - img
+            - text: Filters
+        - generic [ref=e27]: Showing 2 of 2 items
+        - generic [ref=e28]: Pull down to refresh
+        - generic [ref=e29]:
+          - generic [ref=e30] [cursor=pointer]:
+            - img [ref=e32]
+            - button [ref=e34]:
+              - img [ref=e35]
+            - button [ref=e38]:
+              - img [ref=e39]
+            - generic [ref=e43]: 5 mins
+            - generic [ref=e44]:
+              - 'heading "Pain basics: what pain is (and what it is not)" [level=3] [ref=e45]'
+              - paragraph [ref=e46]: Pain is a protective signal. It can stay on even after tissues heal. This lesson helps you separate pain from damage and focus on what moves you forward.
+              - generic [ref=e47]:
+                - generic [ref=e48]: pain
+                - generic [ref=e49]: education
+                - generic [ref=e50]: neuroscience
+                - generic [ref=e51]: biopsychosocial
+          - generic [ref=e52] [cursor=pointer]:
+            - img [ref=e54]
+            - button [ref=e56]:
+              - img [ref=e57]
+            - button [ref=e60]:
+              - img [ref=e61]
+            - generic [ref=e63]:
+              - img "I am a test content" [ref=e64]
+              - generic [ref=e65]: "5"
+            - generic [ref=e66]:
+              - heading "I am a test content" [level=3] [ref=e67]
+              - paragraph [ref=e68]: I like to test things and this is a test content item
+              - generic [ref=e69]:
+                - generic [ref=e70]: test
+                - generic [ref=e71]: contentitem
+                - generic [ref=e72]: tag testing
+    - navigation [ref=e73]:
+      - generic [ref=e74]:
+        - link "Dashboard" [ref=e75] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e76]:
+            - img [ref=e77]
+            - generic [ref=e80]: Dashboard
+        - link "Users" [ref=e81] [cursor=pointer]:
+          - /url: /admin/users
+          - generic [ref=e82]:
+            - img [ref=e83]
+            - generic [ref=e88]: Users
+        - link "Content" [ref=e89] [cursor=pointer]:
+          - /url: /library
+          - generic [ref=e90]:
+            - img [ref=e91]
+            - generic [ref=e93]: Content
+        - link "Settings" [ref=e94] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e95]:
+            - img [ref=e96]
+            - generic [ref=e99]: Settings
+```

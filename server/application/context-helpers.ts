@@ -119,15 +119,7 @@ const infrastructurePaymentService: PaymentService = {
   async listInvoices(params) {
     await requireStripeSync();
     const stripe = await getStripeClient();
-    const invoices: {
-      data: Array<{
-        id: string;
-        amount_paid: number;
-        status: string | null;
-        created: number;
-        invoice_pdf: string | null;
-      }>;
-    } = await stripe.invoices.list({
+    const invoices = await stripe.invoices.list({
       customer: params.customerId,
       limit: params.limit ?? 10,
     });
@@ -136,7 +128,7 @@ const infrastructurePaymentService: PaymentService = {
       amount: inv.amount_paid,
       status: inv.status,
       date: inv.created,
-      pdfUrl: inv.invoice_pdf,
+      pdfUrl: inv.invoice_pdf ?? null,
     }));
   },
   async cancelSubscription(params) {
@@ -258,7 +250,7 @@ const infrastructurePaymentService: PaymentService = {
       limit: 1,
       status: "all",
     });
-    const subscription = subscriptions.data[0];
+    const subscription = subscriptions.data[0] as any;
     if (!subscription) {
       return null;
     }

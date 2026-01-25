@@ -1,0 +1,59 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: DriverPath
+      - generic [ref=e11]:
+        - link "Admin Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e13]:
+            - img [ref=e14]
+            - text: Admin Dashboard
+        - link "User Management" [ref=e17] [cursor=pointer]:
+          - /url: /admin/users
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: User Management
+        - link "Assessments" [ref=e24] [cursor=pointer]:
+          - /url: /assessments
+          - generic [ref=e25]:
+            - img [ref=e26]
+            - text: Assessments
+        - link "Recommendation Rules" [ref=e29] [cursor=pointer]:
+          - /url: /admin/recommendations
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - text: Recommendation Rules
+        - link "Feature Flags" [ref=e34] [cursor=pointer]:
+          - /url: /admin/feature-flags
+          - generic [ref=e35]:
+            - img [ref=e36]
+            - text: Feature Flags
+        - link "Content Oversight" [ref=e39] [cursor=pointer]:
+          - /url: /library
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - text: Content Oversight
+        - link "Settings" [ref=e43] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e44]:
+            - img [ref=e45]
+            - text: Settings
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e51]: AD
+          - generic [ref=e52]:
+            - generic [ref=e53]: Admin User
+            - generic [ref=e54]: Administrator
+        - button "Sign Out" [ref=e55]:
+          - img
+          - text: Sign Out
+    - main [ref=e56]:
+      - img [ref=e59]
+```
