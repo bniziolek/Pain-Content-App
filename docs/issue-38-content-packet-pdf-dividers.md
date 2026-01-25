@@ -25,7 +25,7 @@ What's missing:
 
 ### Phase 1: Backend - Section Formatting Configuration
 
-**Task 1.1: Add Configuration Types**
+#### Task 1.1: Add Configuration Types
 - File: `shared/schema.ts`
 - Add `SectionFormattingConfig` interface:
   ```typescript
@@ -39,14 +39,14 @@ What's missing:
   ```
 - Add to PDF generation options
 
-**Task 1.2: Update PDF Generator**
+#### Task 1.2: Update PDF Generator
 - File: `server/infrastructure/pdf/pdf-generator.ts`
 - Add divider page template rendering
 - Add inline header template rendering
 - Implement configurable section formatting
 - Add running headers/footers with page numbers
 
-**Task 1.3: Add Print Optimization CSS**
+#### Task 1.3: Add Print Optimization CSS
 - Add `@media print` styles for:
   - Page break control
   - Orphan/widow prevention
@@ -54,7 +54,7 @@ What's missing:
 
 ### Phase 2: HTML Templates
 
-**Task 2.1: Create Divider Page Template**
+#### Task 2.1: Create Divider Page Template
 - Full-page divider with:
   - Content number (e.g., "1 of 5")
   - Content title
@@ -62,13 +62,13 @@ What's missing:
   - Read time
   - Topic tags as badges
 
-**Task 2.2: Create Inline Header Template**
+#### Task 2.2: Create Inline Header Template
 - Compact header with:
   - Horizontal rule
   - Bold section title
   - Metadata bar
 
-**Task 2.3: Content Body Formatting**
+#### Task 2.3: Content Body Formatting
 - Consistent typography (headings, paragraphs, lists)
 - Image handling with captions
 - Blockquote styling for key points
@@ -76,24 +76,24 @@ What's missing:
 
 ### Phase 3: Frontend - Configuration UI
 
-**Task 3.1: Add Packet Formatting Section**
+#### Task 3.1: Add Packet Formatting Section
 - Location: PDF generation dialog/modal
 - Add "Packet Formatting" accordion/section
 
-**Task 3.2: Divider Style Selector**
+#### Task 3.2: Divider Style Selector
 - Radio buttons or dropdown for:
   - Full Page (recommended)
   - Inline Header
   - Minimal
 
-**Task 3.3: Formatting Options**
+#### Task 3.3: Formatting Options
 - Checkboxes for:
   - Show read time
   - Show tags
   - Show content numbers
   - Page break between content
 
-**Task 3.4: Preview Toggle (Optional)**
+#### Task 3.4: Preview Toggle (Optional)
 - Preview button to see formatting before generating
 
 ## Task Checklist
