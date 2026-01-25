@@ -87,6 +87,8 @@ export default function HealthDashboard() {
     }
   }, [user, setLocation]);
 
+  const isAdmin = !!user && user.role === "admin";
+
   const { data: health, isLoading } = useQuery<HealthOverview>({
     queryKey: ["admin-health-overview"],
     queryFn: async () => {
@@ -95,6 +97,7 @@ export default function HealthDashboard() {
       return res.json();
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: isAdmin,
   });
 
   if (isLoading) {
