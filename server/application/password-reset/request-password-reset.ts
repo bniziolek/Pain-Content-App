@@ -23,7 +23,12 @@ export async function requestPasswordReset(
     throw new Error("Email service not configured for password resets");
   }
 
-  const resetLink = `${input.baseUrl}/forgot-password?token=${tokenResult.token}`;
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      : input.baseUrl;
+  const resetLink = `${baseUrl}/forgot-password?token=${encodeURIComponent(tokenResult.token)}`;
 
   await ctx.email.sendPasswordResetEmail({
     toEmail: input.email,

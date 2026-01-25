@@ -676,9 +676,9 @@ export class DatabaseStorage implements IStorage {
             summary: sql`excluded.summary`,
             body: sql`excluded.body`,
             tags: sql`excluded.tags`,
-            imageUrl: sql`excluded.imageUrl`,
-            readTime: sql`excluded.readTime`,
-            updatedAt: sql`excluded.updatedAt`,
+            imageUrl: sql`excluded.image_url`,
+            readTime: sql`excluded.read_time`,
+            updatedAt: sql`excluded.updated_at`,
           },
         });
     });
@@ -1661,21 +1661,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride> {
-    const existing = await db.select().from(schema.userFeatureOverrides)
-      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
-    
-    if (existing.length > 0) {
-      const [updated] = await db.update(schema.userFeatureOverrides)
-        .set({ isEnabled, setByAdminId: adminId, reason, updatedAt: new Date() })
-        .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)))
-        .returning();
-      return updated;
-    }
-    
-    const [created] = await db.insert(schema.userFeatureOverrides)
+    const [result] = await db.insert(schema.userFeatureOverrides)
       .values({ userId, featureFlagId, isEnabled, setByAdminId: adminId, reason })
+      .onConflictDoUpdate({
+        target: [schema.userFeatureOverrides.userId, schema.userFeatureOverrides.featureFlagId],
+        set: { isEnabled, setByAdminId: adminId, reason, updatedAt: new Date() },
+      })
       .returning();
-    return created;
+    return result;
   }
 
   async deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void> {

@@ -11,12 +11,10 @@ import {
   insertInternalScreeningSchema,
   insertEmailLogSchema 
 } from "@shared/schema";
-import {
-  isContentfulConfigured,
-} from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
-import { logClinicianAction, logPatientAction } from "./audit";
-import { scoreAssessmentResponse } from "./scoring";
+import { isContentfulConfigured } from "./infrastructure/contentful/contentful.service";
+import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./infrastructure/email/gmail.service";
+import { logClinicianAction, logPatientAction } from "./infrastructure/audit/audit.service";
+import { scoreAssessmentResponse } from "./domain/scoring";
 import { 
   getRecommendationsWithFallback, 
   createRecommendationRule, 
@@ -29,7 +27,8 @@ import {
   previewRecommendations,
   generateRecommendations,
   savePatientRecommendation
-} from "./recommendation";
+} from "./domain/recommendation";
+import type { User } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -69,9 +68,13 @@ export function registerRoutes(app: Express): Server {
         // Store the token
         await storage.createPasswordResetToken(user.id, token, expiresAt);
         
-        // Send the reset email
-        const baseUrl = req.headers.origin || `https://${req.headers.host}`;
-        const resetLink = `${baseUrl}/forgot-password?token=${token}`;
+        // Send the reset email using trusted base URL
+        const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : process.env.REPLIT_DOMAINS 
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+            : req.headers.origin || `https://${req.headers.host}`;
+        const resetLink = `${baseUrl}/forgot-password?token=${encodeURIComponent(token)}`;
         
         await sendPasswordResetEmail({
           toEmail: email,
@@ -2581,17 +2584,12 @@ export function registerRoutes(app: Express): Server {
 
       const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_switch', toPersona }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { action: 'persona_switch', toPersona },
+        outcome: 'success',
+      });
 
       res.json({ 
         message: `Switched to ${toPersona} persona`,
@@ -2608,17 +2606,12 @@ export function registerRoutes(app: Express): Server {
       const user = req.user as User;
       await storage.clearPersona(user.id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_clear' }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { action: 'persona_clear' },
+        outcome: 'success',
+      });
 
       res.json({ message: "Persona cleared, back to super admin view" });
     } catch (error) {
@@ -2665,17 +2658,12 @@ export function registerRoutes(app: Express): Server {
         expiresAt ? new Date(expiresAt) : undefined
       );
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_grant', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_grant', permissionName, targetUserId: userId },
+        outcome: 'success',
+      });
 
       res.json(grant);
     } catch (error) {
@@ -2695,17 +2683,12 @@ export function registerRoutes(app: Express): Server {
 
       const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_revoke', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_revoke', permissionName, targetUserId: userId },
+        outcome: 'success',
+      });
 
       res.json(revoke);
     } catch (error) {
@@ -2719,17 +2702,12 @@ export function registerRoutes(app: Express): Server {
       const { userId, id } = req.params;
       await storage.removeUserPermission(id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId },
+        outcome: 'success',
+      });
 
       res.json({ message: "Permission override removed" });
     } catch (error) {

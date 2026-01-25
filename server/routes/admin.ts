@@ -306,10 +306,13 @@ router.get("/health/overview", requireAdmin, async (req, res, next) => {
   try {
     const health = await getHealthOverview(appContext);
     res.json(health);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ====== Subscription Management Admin ======
 
-// List all subscriptions with filters
 router.get("/subscriptions", requireAdmin, async (req, res, next) => {
   try {
     const { status, tier, startDate, endDate, searchQuery } = req.query;
@@ -323,6 +326,10 @@ router.get("/subscriptions", requireAdmin, async (req, res, next) => {
     });
     
     res.json(subscriptions);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ====== User Support Dashboard ======
 
@@ -374,6 +381,11 @@ router.get("/subscriptions/:userId", requireAdmin, async (req, res, next) => {
     }
     
     res.json(details);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/users/:userId/unlock", requireAdmin, async (req, res, next) => {
   try {
     const result = await unlockUserAccount(appContext, {
@@ -460,6 +472,11 @@ router.post("/subscriptions/:userId/apply-coupon", requireAdmin, async (req, res
     }
     
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (req, res, next) => {
   try {
     const { enabled, reason } = req.body;
@@ -514,6 +531,11 @@ router.post("/subscriptions/:userId/cancel", requireAdmin, async (req, res, next
     }
     
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, async (req, res, next) => {
   try {
     const adminId = req.user?.id;

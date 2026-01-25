@@ -133,7 +133,9 @@ function Router() {
         {() => (
           <RequireAdmin>
             <AdminHealthDashboard />
-
+          </RequireAdmin>
+        )}
+      </Route>
       <Route path="/admin/subscriptions">
         {() => (
           <RequireAdmin>
@@ -145,7 +147,6 @@ function Router() {
         {() => (
           <RequireAdmin>
             <SubscriptionDetailPage />
-
           </RequireAdmin>
         )}
       </Route>
