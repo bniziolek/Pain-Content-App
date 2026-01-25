@@ -15,6 +15,7 @@ import {
   extendSubscription,
   getAdminStats,
   getEnhancedAdminStats,
+  getHealthOverview,
   getUser,
   getUserSupportOverview,
   getUserSupportTimeline,
@@ -292,6 +293,14 @@ router.get("/recommendation-configs", requireAdmin, async (req, res, next) => {
   }
 });
 
+<<<<<<< HEAD
+// ====== System Health ======
+
+router.get("/health/overview", requireAdmin, async (req, res, next) => {
+  try {
+    const health = await getHealthOverview(appContext);
+    res.json(health);
+=======
 // ====== User Support Dashboard ======
 
 router.get("/users/:userId/support-overview", requireAdmin, async (req, res, next) => {
@@ -468,6 +477,7 @@ router.get("/users/:userId/feature-flags/audit", requireAdmin, async (req, res, 
   try {
     const auditLog = await appContext.storage.getFeatureFlagAuditLog(req.params.userId);
     res.json(auditLog);
+>>>>>>> replit/issue-38
   } catch (error) {
     next(error);
   }
