@@ -22,6 +22,7 @@ export interface PublicLookupContentItem {
   imageUrl: string | null;
   readTime: string | null;
   tags: string[];
+  body: string;
 }
 
 export interface PublicLookupResult {
@@ -48,6 +49,7 @@ function mapContentToPublic(content: ContentItem): PublicLookupContentItem {
     imageUrl: content.imageUrl,
     readTime: content.readTime,
     tags: content.tags || [],
+    body: content.body,
   };
 }
 

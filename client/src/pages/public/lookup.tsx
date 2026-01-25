@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Loader2, Search, BookOpen, Video, Sparkles, Clock, ArrowRight, AlertCircle, CheckCircle } from "lucide-react";
+import { Activity, Loader2, Search, BookOpen, Video, Sparkles, Clock, ArrowRight, AlertCircle, CheckCircle, X } from "lucide-react";
 
 interface ContentItem {
   id: string;
@@ -13,6 +13,7 @@ interface ContentItem {
   imageUrl: string | null;
   readTime: string | null;
   tags: string[];
+  body?: string;
 }
 
 interface LookupResult {
@@ -35,11 +36,20 @@ function ContentTypeIcon({ type }: { type: string }) {
   }
 }
 
-function ContentCard({ content }: { content: ContentItem }) {
+function ContentCard({ content, onCardClick }: { content: ContentItem; onCardClick: (contentId: string) => void }) {
   return (
     <Card 
       className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
       data-testid={`card-content-${content.id}`}
+      onClick={() => onCardClick(content.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onCardClick(content.id);
+        }
+      }}
     >
       <div className="flex">
         {content.imageUrl && (
@@ -87,14 +97,16 @@ export default function LookupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<LookupResult | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
 
-  useEffect(() => {
-    if (urlCode) {
-      handleLookup(urlCode);
+  const handleContentClick = (contentId: string) => {
+    const content = result?.content?.find(c => c.id === contentId);
+    if (content) {
+      setSelectedContent(content);
     }
-  }, [urlCode]);
+  };
 
-  const handleLookup = async (lookupCode?: string) => {
+  const handleLookup = useCallback(async (lookupCode?: string) => {
     const codeToLookup = (lookupCode || code).trim().toUpperCase();
     
     if (!codeToLookup) {
@@ -106,18 +118,48 @@ export default function LookupPage() {
     
     try {
       const response = await fetch(`/api/public/lookup/${encodeURIComponent(codeToLookup)}`);
+      
+      if (!response.ok) {
+        let errorMessage = "An unexpected error occurred. Please try again.";
+
+        if (response.status >= 500) {
+          errorMessage = "Server error. Please try again later.";
+        } else if (response.status === 404) {
+          errorMessage = "Code not found. Please check the code and try again.";
+        } else if (response.status >= 400 && response.status < 500) {
+          errorMessage = "There was a problem with your request. Please verify the code and try again.";
+        }
+
+        throw new Error(errorMessage);
+      }
+
       const data = await response.json();
       
       setResult(data);
-    } catch (error) {
+    } catch (error: unknown) {
+      let errorMessage = "An unexpected error occurred. Please try again.";
+
+      // Fetch typically throws TypeError on network failure
+      if (error instanceof TypeError) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (error instanceof Error && error.message) {
+        errorMessage = error.message;
+      }
+
       setResult({
         valid: false,
-        error: "Unable to connect. Please try again.",
+        error: errorMessage,
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [code]);
+
+  useEffect(() => {
+    if (urlCode) {
+      handleLookup(urlCode);
+    }
+  }, [urlCode, handleLookup]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,11 +210,13 @@ export default function LookupPage() {
                 className="text-center text-lg font-mono tracking-wider uppercase"
                 maxLength={10}
                 data-testid="input-access-code"
+                aria-label="Access code"
               />
               <Button 
                 type="submit" 
                 disabled={isLoading || code.length < 4}
                 data-testid="button-lookup"
+                aria-label={isLoading ? "Loading" : "Look Up"}
               >
                 {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -197,7 +241,7 @@ export default function LookupPage() {
                 
                 <div className="space-y-4">
                   {result.content.map((item) => (
-                    <ContentCard key={item.id} content={item} />
+                    <ContentCard key={item.id} content={item} onCardClick={handleContentClick} />
                   ))}
                 </div>
                 
@@ -254,6 +298,81 @@ export default function LookupPage() {
           <p>Powered by DriverPath - Evidence-Based Patient Education</p>
         </div>
       </footer>
+
+      {/* Content viewer modal */}
+      {selectedContent && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedContent(null)}
+        >
+          <div 
+            className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ContentTypeIcon type={selectedContent.type} />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                  {selectedContent.type}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedContent(null)}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {selectedContent.imageUrl && (
+              <div className="w-full h-64 overflow-hidden">
+                <img
+                  src={selectedContent.imageUrl}
+                  alt={selectedContent.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
+            <div className="px-6 py-6">
+              <h2 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 mb-4">
+                {selectedContent.title}
+              </h2>
+              
+              {selectedContent.readTime && (
+                <div className="flex items-center gap-1 mb-4 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{selectedContent.readTime}</span>
+                </div>
+              )}
+              
+              {selectedContent.tags && selectedContent.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {selectedContent.tags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-teal-100 text-teal-700 text-xs rounded-full"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              
+              <div className="prose prose-lg max-w-none">
+                <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                  {selectedContent.summary}
+                </p>
+                <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                  {selectedContent.body}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
