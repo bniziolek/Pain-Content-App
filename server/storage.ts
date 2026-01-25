@@ -413,6 +413,13 @@ export interface IStorage {
     requestCount: number;
   }[]>;
 
+  // Packet access codes
+  createPacketAccessCode(code: schema.InsertPacketAccessCode): Promise<schema.PacketAccessCode>;
+  getPacketAccessCodeByCode(code: string): Promise<schema.PacketAccessCode | undefined>;
+  getPacketAccessCodesByClinicianId(clinicianId: string): Promise<schema.PacketAccessCode[]>;
+  incrementPacketAccessCount(code: string): Promise<void>;
+  deactivatePacketAccessCode(id: string): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -2313,6 +2320,41 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.avgResponseTime - a.avgResponseTime);
 
     return slowEndpoints;
+  }
+
+  // Packet access codes
+  async createPacketAccessCode(codeData: schema.InsertPacketAccessCode): Promise<schema.PacketAccessCode> {
+    const [result] = await db.insert(schema.packetAccessCodes).values(codeData).returning();
+    return result;
+  }
+
+  async getPacketAccessCodeByCode(code: string): Promise<schema.PacketAccessCode | undefined> {
+    const [result] = await db.select()
+      .from(schema.packetAccessCodes)
+      .where(eq(sql`lower(${schema.packetAccessCodes.code})`, code.toLowerCase()));
+    return result;
+  }
+
+  async getPacketAccessCodesByClinicianId(clinicianId: string): Promise<schema.PacketAccessCode[]> {
+    return await db.select()
+      .from(schema.packetAccessCodes)
+      .where(eq(schema.packetAccessCodes.clinicianId, clinicianId))
+      .orderBy(desc(schema.packetAccessCodes.createdAt));
+  }
+
+  async incrementPacketAccessCount(code: string): Promise<void> {
+    await db.update(schema.packetAccessCodes)
+      .set({
+        accessCount: sql`${schema.packetAccessCodes.accessCount} + 1`,
+        lastAccessedAt: new Date(),
+      })
+      .where(eq(sql`lower(${schema.packetAccessCodes.code})`, code.toLowerCase()));
+  }
+
+  async deactivatePacketAccessCode(id: string): Promise<void> {
+    await db.update(schema.packetAccessCodes)
+      .set({ isActive: false })
+      .where(eq(schema.packetAccessCodes.id, id));
   }
 }
 

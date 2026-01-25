@@ -8,3 +8,9 @@ export {
   type PDFGenerationConfig,
   type PDFBrandingConfig,
 } from './pdf-generator';
+
+export {
+  generateQRCodeDataUrl,
+  buildLookupUrl,
+  type QRCodeOptions,
+} from './qr-code';

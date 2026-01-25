@@ -31,6 +31,7 @@ import { registerPasswordResetRoutes } from "./password-reset";
 import { registerPublicContentRoutes } from "./public-content";
 import { registerPatientPortalRoutes } from "./patient-portal";
 import { registerAuthRoutes } from "./auth";
+import { packetAccessCodesRouter, registerPublicAccessCodeRoutes } from "./packet-access-codes";
 
 // Feature flag middleware factory
 const createFeatureFlagMiddleware = () => {
@@ -105,6 +106,10 @@ export function registerRoutes(app: Express): Server {
 
   // ====== PDF Generation ======
   app.use("/api", pdfRouter);
+
+  // ====== Packet Access Codes ======
+  app.use("/api/packets", packetAccessCodesRouter);
+  registerPublicAccessCodeRoutes(app);
 
   // ====== Compliance & Audit ======
   app.use("/api", complianceRouter);

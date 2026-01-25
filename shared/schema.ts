@@ -921,3 +921,31 @@ export const insertHealthMetricSchema = createInsertSchema(healthMetrics).omit({
 });
 export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
 export type HealthMetric = typeof healthMetrics.$inferSelect;
+
+// Packet access codes - for quick lookup of digital content from printed PDFs
+export const packetAccessCodes = pgTable("packet_access_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 10 }).notNull().unique(),
+  internalScreeningId: varchar("internal_screening_id").references(() => internalScreenings.id),
+  clinicianId: varchar("clinician_id").references(() => users.id).notNull(),
+  contentIds: text("content_ids").array().notNull(),
+  
+  // Access tracking
+  accessCount: integer("access_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  // Expiration
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPacketAccessCodeSchema = createInsertSchema(packetAccessCodes).omit({
+  id: true,
+  accessCount: true,
+  lastAccessedAt: true,
+  createdAt: true,
+});
+export type InsertPacketAccessCode = z.infer<typeof insertPacketAccessCodeSchema>;
+export type PacketAccessCode = typeof packetAccessCodes.$inferSelect;
