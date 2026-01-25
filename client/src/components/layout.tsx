@@ -15,7 +15,8 @@ import {
   Route,
   Sparkles,
   ToggleLeft,
-  Crown
+  Crown,
+  HeartPulse
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
+    { href: "/admin/health", label: "System Health", icon: HeartPulse },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
     { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft },
@@ -188,6 +190,7 @@ function BottomNav() {
   const bottomLinks = isAdmin ? [
     { href: "/admin/dashboard", label: "Dashboard", icon: ShieldCheck },
     { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/health", label: "Health", icon: HeartPulse },
     { href: "/library", label: "Content", icon: Library },
     { href: "/settings", label: "Settings", icon: Settings },
   ] : [
@@ -232,7 +235,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isEnabled = (key: string) => featureFlags[key]?.isEnabled ?? false;
   
   const swipeRoutes = isAdmin
-    ? ["/admin/dashboard", "/admin/users", "/library", "/settings"]
+    ? ["/admin/dashboard", "/admin/users", "/admin/health", "/library", "/settings"]
     : [
         "/dashboard",
         "/library",

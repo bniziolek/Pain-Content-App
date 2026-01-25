@@ -875,6 +875,14 @@ export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omi
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
 export type ClinicBranding = typeof clinicBranding.$inferSelect;
 
+export interface SectionFormattingConfig {
+  dividerStyle: "full-page" | "inline-header" | "minimal";
+  showReadTime: boolean;
+  showTags: boolean;
+  showContentNumber: boolean;
+  pageBreakBetweenContent: boolean;
+}
+
 // API request schema - only allows client-editable fields (excludes server-controlled fields)
 export const brandingRequestSchema = z.object({
   logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()
@@ -895,3 +903,21 @@ export const brandingRequestSchema = z.object({
   showWatermark: z.boolean().nullable().optional(),
 });
 export type BrandingRequest = z.infer<typeof brandingRequestSchema>;
+
+// System health metrics - tracks API and system performance
+export const healthMetrics = pgTable("health_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricType: text("metric_type").notNull(), // 'api_request' | 'database_query' | 'email_sent' | 'email_bounced' | 'external_service'
+  metricName: text("metric_name").notNull(), // Endpoint path, service name, etc.
+  value: integer("value"), // Numeric value (response time in ms, count, etc.)
+  status: text("status"), // 'success' | 'error' | 'timeout'
+  metadata: jsonb("metadata"), // Additional context (error messages, query details, etc.)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertHealthMetricSchema = createInsertSchema(healthMetrics).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
+export type HealthMetric = typeof healthMetrics.$inferSelect;

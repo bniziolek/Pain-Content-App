@@ -29,3 +29,4 @@ export * from "./compliance";
 export * from "./pdf";
 export * from "./onboarding";
 export * from "./branding";
+export * from "./health";

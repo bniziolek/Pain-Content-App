@@ -22,7 +22,8 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       pageSize = 'letter',
       includeTableOfContents = false,
       coverPageMessage,
-      clinicianName
+      clinicianName,
+      sectionFormatting
     } = req.body;
 
     const result = await generateScreeningPdf(appContext, buildAuditRequestContext(req), {
@@ -33,6 +34,7 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
         includeTableOfContents,
         coverPageMessage,
         clinicianName,
+        sectionFormatting,
       },
     });
     if (!result) {
@@ -57,7 +59,8 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       coverPageMessage,
       clinicianName,
       patientName,
-      packetTitle
+      packetTitle,
+      sectionFormatting
     } = req.body;
 
     if (!contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
@@ -74,6 +77,7 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
         coverPageMessage,
         clinicianName,
         packetTitle,
+        sectionFormatting,
       },
     });
     if (!result) {

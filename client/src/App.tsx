@@ -27,6 +27,7 @@ import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
 import AdminRecommendationsPage from "@/pages/admin/recommendations";
 import AdminFeatureFlagsPage from "@/pages/admin/feature-flags";
+import AdminHealthDashboard from "@/pages/admin/health";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
@@ -122,6 +123,13 @@ function Router() {
         {() => (
           <RequireAdmin>
             <AdminFeatureFlagsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/health">
+        {() => (
+          <RequireAdmin>
+            <AdminHealthDashboard />
           </RequireAdmin>
         )}
       </Route>
