@@ -269,6 +269,27 @@ const infrastructurePaymentService: PaymentService = {
         : undefined,
     };
   },
+  async getSubscription(subscriptionId) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    return await stripe.subscriptions.retrieve(subscriptionId);
+  },
+  async getPaymentMethods(customerId) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    });
+    return paymentMethods.data;
+  },
+  async applyCoupon(subscriptionId, couponCode) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    return await stripe.subscriptions.update(subscriptionId, {
+      coupon: couponCode,
+    });
+  },
   async runSync(options) {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {

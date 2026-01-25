@@ -21,3 +21,7 @@ export * from "./list-login-history";
 export * from "./list-user-content-activity";
 export * from "./export-user-data";
 export * from "./list-recommendation-configs";
+export * from "./list-subscriptions";
+export * from "./get-subscription-details";
+export * from "./apply-coupon";
+export * from "./cancel-user-subscription";

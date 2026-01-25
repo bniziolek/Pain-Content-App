@@ -5,8 +5,11 @@
 import { Router } from "express";
 import { requireAdmin } from "../auth";
 import {
+  applyCoupon,
+  cancelUserSubscription,
   createAdminNote,
   createAppContext,
+  createAppContextWithInfrastructure,
   createTrialUser,
   createUser,
   deleteAdminNote,
@@ -15,10 +18,12 @@ import {
   extendSubscription,
   getAdminStats,
   getEnhancedAdminStats,
+  getSubscriptionDetails,
   getUser,
   listAdminNotes,
   listAllRecommendationConfigs,
   listLoginHistory,
+  listSubscriptions,
   listUserContentActivity,
   listUsers,
   resetUserPassword,
@@ -29,6 +34,7 @@ import { toPublicUser, toPublicUsers } from "../serializers/user";
 
 const router = Router();
 const appContext = createAppContext();
+const appContextWithInfrastructure = createAppContextWithInfrastructure();
 
 // Create user
 router.post("/users", requireAdmin, async (req, res, next) => {
@@ -255,6 +261,80 @@ router.get("/recommendation-configs", requireAdmin, async (req, res, next) => {
   try {
     const configs = await listAllRecommendationConfigs(appContext);
     res.json(configs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ====== Subscription Management Admin ======
+
+// List all subscriptions with filters
+router.get("/subscriptions", requireAdmin, async (req, res, next) => {
+  try {
+    const { status, tier, startDate, endDate, searchQuery } = req.query;
+    
+    const subscriptions = await listSubscriptions(appContextWithInfrastructure, {
+      status: status as any,
+      tier: tier as any,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      searchQuery: searchQuery as string,
+    });
+    
+    res.json(subscriptions);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get detailed subscription information
+router.get("/subscriptions/:userId", requireAdmin, async (req, res, next) => {
+  try {
+    const details = await getSubscriptionDetails(appContextWithInfrastructure, {
+      userId: req.params.userId,
+    });
+    
+    if (!details) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json(details);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Apply coupon to subscription
+router.post("/subscriptions/:userId/apply-coupon", requireAdmin, async (req, res, next) => {
+  try {
+    const { couponCode } = req.body;
+    
+    if (!couponCode) {
+      return res.status(400).json({ error: "Coupon code is required" });
+    }
+    
+    const result = await applyCoupon(appContextWithInfrastructure, {
+      userId: req.params.userId,
+      couponCode,
+    });
+    
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Cancel user subscription (admin)
+router.post("/subscriptions/:userId/cancel", requireAdmin, async (req, res, next) => {
+  try {
+    const { immediate } = req.body;
+    
+    const result = await cancelUserSubscription(appContextWithInfrastructure, {
+      userId: req.params.userId,
+      immediate: immediate === true,
+    });
+    
+    res.json(result);
   } catch (error) {
     next(error);
   }
