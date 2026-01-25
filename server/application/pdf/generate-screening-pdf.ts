@@ -5,7 +5,7 @@
 import type { AppContext, AuditRequestContext } from "../context";
 import type { User } from "@shared/schema";
 import { generatePDF, generateFilename, generateQRCodeDataUrl, buildLookupUrl, type PDFGenerationConfig } from "../../infrastructure/pdf";
-import { generatePacketAccessCode, calculateExpirationDate } from "../../domain/messaging/packet-access-code.service";
+import { generateAccessCode } from "../packet-access-codes/generate-access-code";
 
 export interface GenerateScreeningPdfInput {
   clinician: User;
@@ -47,44 +47,26 @@ export async function generateScreeningPdf(
   let lookupUrl: string | undefined;
 
   if (input.includeAccessCode) {
-    const expirationDays = input.accessCodeExpirationDays ?? 90;
-    accessCodeExpiresAt = calculateExpirationDate(expirationDays);
+    const result = await generateAccessCode(
+      ctx,
+      auditContext,
+      {
+        clinician: input.clinician,
+        screeningId: input.screeningId,
+        contentIds: contentIds as string[],
+        expirationDays: input.accessCodeExpirationDays ?? 90,
+      }
+    );
     
-    let generatedCode: string;
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    do {
-      generatedCode = generatePacketAccessCode();
-      const existing = await ctx.storage.getPacketAccessCodeByCode(generatedCode);
-      if (!existing) break;
-      attempts++;
-    } while (attempts < maxAttempts);
-    
-    if (attempts >= maxAttempts) {
-      throw new Error("Failed to generate unique access code");
-    }
-    
-    accessCode = generatedCode!;
-    
-    await ctx.storage.createPacketAccessCode({
-      code: accessCode,
-      clinicianId: input.clinician.id,
-      internalScreeningId: input.screeningId,
-      contentIds: contentIds as string[],
-      expiresAt: accessCodeExpiresAt,
-      isActive: true,
-    });
+    accessCode = result.code;
+    accessCodeExpiresAt = result.expiresAt;
 
     const qrUrl = buildLookupUrl(accessCode);
     qrCodeDataUrl = await generateQRCodeDataUrl(qrUrl);
     
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'https://driverpath.com';
-    lookupUrl = `${baseUrl}/lookup`;
+    // Extract base URL from the lookup URL for display purposes
+    const url = new URL(qrUrl);
+    lookupUrl = `${url.origin}/lookup`;
   }
 
   const config: PDFGenerationConfig = {
