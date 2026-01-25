@@ -10,6 +10,7 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "contentful:sync": "tsx scripts/sync-contentful.ts",
     "capture:screenshots": "scripts/capture-screenshots.sh"
   },
   "dependencies": {

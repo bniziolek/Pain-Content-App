@@ -1,0 +1,103 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - button [ref=e5]:
+      - img
+    - main [ref=e6]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - heading "Settings" [level=1] [ref=e10]
+          - paragraph [ref=e11]: Manage your account and preferences.
+        - generic [ref=e12]:
+          - tablist [ref=e13]:
+            - tab "Profile" [selected] [ref=e14]
+            - tab "Email Delivery" [ref=e15]
+            - tab "Branding" [ref=e16]:
+              - img [ref=e17]
+              - text: Branding
+              - img [ref=e23]
+            - tab "Subscription & Billing" [ref=e25]
+            - tab "Notifications" [ref=e26]
+            - tab "Help & Tips" [ref=e27]
+          - tabpanel "Profile" [ref=e28]:
+            - generic [ref=e30]:
+              - generic [ref=e31]:
+                - generic [ref=e32]: Profile Information
+                - generic [ref=e33]: Update your personal and practice details. This information may appear on content packets sent to patients.
+              - generic [ref=e34]:
+                - generic [ref=e35]:
+                  - heading "Personal Information" [level=3] [ref=e36]
+                  - generic [ref=e37]:
+                    - generic [ref=e38]:
+                      - text: Full Name
+                      - textbox "Full Name" [ref=e39]:
+                        - /placeholder: Dr. Jane Smith
+                        - text: Admin User
+                    - generic [ref=e40]:
+                      - text: Credentials
+                      - textbox "Credentials" [ref=e41]:
+                        - /placeholder: DPT, OCS
+                  - generic [ref=e42]:
+                    - generic [ref=e43]:
+                      - text: Email Address
+                      - textbox "Email Address" [ref=e44]:
+                        - /placeholder: jane.smith@example.com
+                        - text: admin@driverpath.com
+                      - paragraph [ref=e45]: This is used for login. Changing it will update your login credentials.
+                    - generic [ref=e46]:
+                      - text: Phone Number
+                      - textbox "Phone Number" [ref=e47]:
+                        - /placeholder: (555) 123-4567
+                - generic [ref=e48]:
+                  - heading "Practice Information" [level=3] [ref=e49]
+                  - generic [ref=e50]:
+                    - text: Clinic / Practice Name
+                    - textbox "Clinic / Practice Name" [ref=e51]:
+                      - /placeholder: Summit Physical Therapy
+                  - generic [ref=e52]:
+                    - text: Street Address
+                    - textbox "Street Address" [ref=e53]:
+                      - /placeholder: 123 Main Street, Suite 100
+                  - generic [ref=e54]:
+                    - generic [ref=e55]:
+                      - text: City
+                      - textbox "City" [ref=e56]:
+                        - /placeholder: Denver
+                    - generic [ref=e57]:
+                      - text: State
+                      - textbox "State" [ref=e58]:
+                        - /placeholder: CO
+                    - generic [ref=e59]:
+                      - text: ZIP Code
+                      - textbox "ZIP Code" [ref=e60]:
+                        - /placeholder: "80202"
+              - button "Save Changes" [ref=e62]:
+                - img
+                - text: Save Changes
+    - navigation [ref=e63]:
+      - generic [ref=e64]:
+        - link "Dashboard" [ref=e65] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e66]:
+            - img [ref=e67]
+            - generic [ref=e70]: Dashboard
+        - link "Users" [ref=e71] [cursor=pointer]:
+          - /url: /admin/users
+          - generic [ref=e72]:
+            - img [ref=e73]
+            - generic [ref=e78]: Users
+        - link "Content" [ref=e79] [cursor=pointer]:
+          - /url: /library
+          - generic [ref=e80]:
+            - img [ref=e81]
+            - generic [ref=e83]: Content
+        - link "Settings" [ref=e84] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e85]:
+            - img [ref=e86]
+            - generic [ref=e89]: Settings
+```

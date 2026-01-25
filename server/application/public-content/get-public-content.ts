@@ -25,12 +25,8 @@ export async function getPublicContent(
     return { content: null, emailLog: null };
   }
   
-  let content = await ctx.storage.getContentById(input.contentId);
-  
-  if (!content && ctx.cms.isConfigured()) {
-    const cmsContent = await ctx.cms.getContentById(input.contentId);
-    content = cmsContent as ContentItem | null ?? undefined;
-  }
+  // Read exclusively from database. Content is synced via `npm run contentful:sync`.
+  const content = await ctx.storage.getContentById(input.contentId);
   
   return { 
     content: content ?? null, 

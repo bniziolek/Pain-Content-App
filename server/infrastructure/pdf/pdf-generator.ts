@@ -74,6 +74,7 @@ export interface PDFBrandingConfig {
   accentColor?: string | null;
   footerText?: string | null;
   showPoweredBy?: boolean;
+  showWatermark?: boolean;
 }
 
 export interface PDFGenerationConfig {
@@ -311,7 +312,16 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
   const primaryColor = validateColor(branding?.primaryColor, '#0F766E');
   const secondaryColor = validateColor(branding?.secondaryColor, '#f5f5f5');
   const accentColor = validateColor(branding?.accentColor, '#14B8A6');
+<<<<<<< HEAD
 
+=======
+  const showWatermark = Boolean(branding) && branding?.showWatermark !== false;
+  const watermarkText = branding?.clinicName ? escapeHtml(branding.clinicName) : 'DriverPath';
+  const watermarkHtml = showWatermark
+    ? `<div class="pdf-watermark">${watermarkText}</div>`
+    : '';
+  
+>>>>>>> Dev_26.2
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -337,6 +347,27 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
       line-height: 1.6;
       color: #1a1a1a;
       font-size: 11pt;
+      position: relative;
+    }
+
+    .pdf-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-24deg);
+      font-size: 72px;
+      color: rgba(0, 0, 0, 0.05);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .pdf-content {
+      position: relative;
+      z-index: 1;
     }
     
     .page-break {
@@ -724,8 +755,18 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
     }
   </style>
 </head>
+<<<<<<< HEAD
 <body class="divider-style-${formatting.dividerStyle}">
   ${bodyHtml}
+=======
+<body>
+  ${watermarkHtml}
+  <div class="pdf-content">
+    ${generateCoverPage(config, items.length)}
+    ${config.includeTableOfContents ? generateTableOfContents(items) : ''}
+    ${contentSections}
+  </div>
+>>>>>>> Dev_26.2
 </body>
 </html>
   `;
