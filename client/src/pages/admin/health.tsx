@@ -171,7 +171,8 @@ export default function HealthDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{health.api.recentRequests.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Last hour • {health.api.errorRate?.toFixed(2)}% error rate
+                Last hour
+                {health.api.errorRate != null && ` • ${health.api.errorRate.toFixed(2)}% error rate`}
               </p>
             </CardContent>
           </Card>
