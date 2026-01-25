@@ -845,6 +845,7 @@ export const brandingRequestSchema = z.object({
   footerText: z.string().max(1000).nullable().optional()
     .or(z.literal('').transform(() => null)),
   showPoweredBy: z.boolean().nullable().optional(),
+  showWatermark: z.boolean().nullable().optional(),
 });
 export type BrandingRequest = z.infer<typeof brandingRequestSchema>;
 
