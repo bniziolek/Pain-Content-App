@@ -122,7 +122,6 @@ describe('Admin API', () => {
     });
   });
 
-<<<<<<< HEAD
   describe('GET /api/admin/health/overview', () => {
     it('should return health overview data', async () => {
       const response = await agent.get('/api/admin/health/overview');
@@ -184,7 +183,9 @@ describe('Admin API', () => {
 
       // Should require authentication (401 or 403)
       expect([401, 403]).toContain(response.status);
-=======
+    });
+  });
+
   describe('GET /api/admin/enhanced-stats', () => {
     it('should return enhanced admin stats', async () => {
       const response = await agent.get('/api/admin/enhanced-stats');
@@ -538,7 +539,6 @@ describe('Admin API', () => {
       if (response.status === 200) {
         expect(Array.isArray(response.body)).toBe(true);
       }
->>>>>>> replit/issue-38
     });
   });
 });
