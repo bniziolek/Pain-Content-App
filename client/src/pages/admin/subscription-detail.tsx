@@ -12,8 +12,6 @@ import {
   CreditCard, 
   Loader2, 
   ArrowLeft, 
-  Calendar, 
-  DollarSign, 
   FileText,
   Gift,
   XCircle,
@@ -28,8 +26,7 @@ import {
   getSubscriptionDetails, 
   applyCouponToSubscription, 
   cancelUserSubscription,
-  extendUserSubscription,
-  type SubscriptionDetails 
+  extendUserSubscription
 } from "@/api/admin";
 import { format } from "date-fns";
 

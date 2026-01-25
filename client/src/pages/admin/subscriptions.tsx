@@ -1,16 +1,13 @@
 import { useState, useMemo } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  CreditCard, 
   Loader2, 
   Filter, 
   Search, 
@@ -18,14 +15,11 @@ import {
   CheckCircle, 
   XCircle, 
   Clock,
-  TrendingUp,
-  Users,
-  DollarSign
+  Users
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { listSubscriptions, type SubscriptionListItem } from "@/api/admin";
-import { formatDistanceToNow, format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { listSubscriptions } from "@/api/admin";
+import { format } from "date-fns";
 
 // Time constants
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -48,8 +42,6 @@ const TIER_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 export default function AdminSubscriptionsPage() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
   // Filters

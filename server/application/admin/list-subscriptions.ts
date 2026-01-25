@@ -3,8 +3,6 @@
  */
 
 import type { AppContext } from "../context";
-import { eq, and, gte, lte, sql, or, like } from "drizzle-orm";
-import { users } from "@shared/schema";
 
 // Configuration constants
 const TRIAL_ENDING_SOON_DAYS = 14;
@@ -34,66 +32,64 @@ export async function listSubscriptions(
   ctx: AppContext,
   input: ListSubscriptionsInput
 ): Promise<SubscriptionListItem[]> {
-  const conditions = [];
+  // Get all users from storage
+  let users = await ctx.storage.getAllUsers();
 
-  // Filter by status
+  // Apply filters in memory
   if (input.status) {
     if (input.status === "trial") {
       // Trial users have active status and period end within next TRIAL_ENDING_SOON_DAYS
       const trialEndDate = new Date(Date.now() + TRIAL_ENDING_SOON_DAYS * 24 * 60 * 60 * 1000);
-      conditions.push(
-        and(
-          eq(users.subscriptionStatus, "active"),
-          lte(users.subscriptionPeriodEnd, trialEndDate)
-        )
+      users = users.filter(u => 
+        u.subscriptionStatus === "active" && 
+        u.subscriptionPeriodEnd && 
+        u.subscriptionPeriodEnd <= trialEndDate
       );
     } else {
-      conditions.push(eq(users.subscriptionStatus, input.status));
+      users = users.filter(u => u.subscriptionStatus === input.status);
     }
   }
 
-  // Filter by tier
   if (input.tier) {
-    conditions.push(eq(users.subscriptionTier, input.tier));
+    users = users.filter(u => u.subscriptionTier === input.tier);
   }
 
-  // Filter by date range (subscription period end)
   if (input.startDate) {
-    conditions.push(gte(users.subscriptionPeriodEnd, input.startDate));
-  }
-  if (input.endDate) {
-    conditions.push(lte(users.subscriptionPeriodEnd, input.endDate));
+    users = users.filter(u => u.subscriptionPeriodEnd && u.subscriptionPeriodEnd >= input.startDate!);
   }
 
-  // Filter by search query (email or name)
+  if (input.endDate) {
+    users = users.filter(u => u.subscriptionPeriodEnd && u.subscriptionPeriodEnd <= input.endDate!);
+  }
+
   if (input.searchQuery && input.searchQuery.trim()) {
-    const searchPattern = `%${input.searchQuery.trim()}%`;
-    conditions.push(
-      or(
-        like(users.email, searchPattern),
-        like(users.name, searchPattern)
-      )
+    const searchLower = input.searchQuery.trim().toLowerCase();
+    users = users.filter(u => 
+      u.email.toLowerCase().includes(searchLower) ||
+      (u.name && u.name.toLowerCase().includes(searchLower))
     );
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  // Map to SubscriptionListItem format and sort
+  const results: SubscriptionListItem[] = users.map(u => ({
+    userId: u.id,
+    email: u.email,
+    name: u.name,
+    subscriptionStatus: u.subscriptionStatus,
+    subscriptionTier: u.subscriptionTier,
+    subscriptionPeriodEnd: u.subscriptionPeriodEnd,
+    stripeCustomerId: u.stripeCustomerId,
+    stripeSubscriptionId: u.stripeSubscriptionId,
+    createdAt: u.createdAt,
+    lastLogin: u.lastLogin,
+  }));
 
-  const results = await ctx.db
-    .select({
-      userId: users.id,
-      email: users.email,
-      name: users.name,
-      subscriptionStatus: users.subscriptionStatus,
-      subscriptionTier: users.subscriptionTier,
-      subscriptionPeriodEnd: users.subscriptionPeriodEnd,
-      stripeCustomerId: users.stripeCustomerId,
-      stripeSubscriptionId: users.stripeSubscriptionId,
-      createdAt: users.createdAt,
-      lastLogin: users.lastLogin,
-    })
-    .from(users)
-    .where(whereClause)
-    .orderBy(users.subscriptionPeriodEnd);
+  // Sort by subscription period end
+  results.sort((a, b) => {
+    if (!a.subscriptionPeriodEnd) return 1;
+    if (!b.subscriptionPeriodEnd) return -1;
+    return a.subscriptionPeriodEnd.getTime() - b.subscriptionPeriodEnd.getTime();
+  });
 
   return results;
 }

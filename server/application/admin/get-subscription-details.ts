@@ -3,8 +3,6 @@
  */
 
 import type { AppContext } from "../context";
-import { eq } from "drizzle-orm";
-import { users } from "@shared/schema";
 
 export interface GetSubscriptionDetailsInput {
   userId: string;
@@ -43,12 +41,8 @@ export async function getSubscriptionDetails(
   ctx: AppContext,
   input: GetSubscriptionDetailsInput
 ): Promise<SubscriptionDetails | null> {
-  // Get user from database
-  const [user] = await ctx.db
-    .select()
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
+  // Get user from storage
+  const user = await ctx.storage.getUser(input.userId);
 
   if (!user) {
     return null;

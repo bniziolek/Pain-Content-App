@@ -3,8 +3,6 @@
  */
 
 import type { AppContext } from "../context";
-import { eq } from "drizzle-orm";
-import { users } from "@shared/schema";
 
 export interface CancelUserSubscriptionInput {
   userId: string;
@@ -22,12 +20,8 @@ export async function cancelUserSubscription(
   ctx: AppContext,
   input: CancelUserSubscriptionInput
 ): Promise<CancelUserSubscriptionResult> {
-  // Get user from database
-  const [user] = await ctx.db
-    .select()
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
+  // Get user from storage
+  const user = await ctx.storage.getUser(input.userId);
 
   if (!user) {
     return {
@@ -52,20 +46,29 @@ export async function cancelUserSubscription(
 
   try {
     const cancelAtPeriodEnd = !input.immediate;
-    const subscription = await ctx.payment.cancelSubscription(
-      user.stripeSubscriptionId,
-      cancelAtPeriodEnd
-    );
+    
+    // Get subscription info before canceling
+    let periodEnd: Date | undefined;
+    try {
+      const subscription = await ctx.payment.getSubscription(user.stripeSubscriptionId);
+      if (subscription && subscription.current_period_end) {
+        periodEnd = new Date(subscription.current_period_end * 1000);
+      }
+    } catch (error) {
+      console.error("Error fetching subscription details:", error);
+    }
+    
+    // Cancel the subscription
+    await ctx.payment.cancelSubscription({
+      subscriptionId: user.stripeSubscriptionId,
+      cancelAtPeriodEnd,
+    });
 
     // Update user in database
     const newStatus = input.immediate ? "canceled" : user.subscriptionStatus;
-    await ctx.db
-      .update(users)
-      .set({ 
-        subscriptionStatus: newStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, input.userId));
+    await ctx.storage.updateUserSubscription(user.id, {
+      subscriptionStatus: newStatus,
+    });
 
     return {
       success: true,
@@ -73,9 +76,7 @@ export async function cancelUserSubscription(
         ? "Subscription canceled immediately" 
         : "Subscription will be canceled at period end",
       canceledAt: new Date(),
-      endsAt: subscription.current_period_end 
-        ? new Date(subscription.current_period_end * 1000) 
-        : undefined,
+      endsAt: periodEnd,
     };
   } catch (error) {
     console.error("Error canceling subscription:", error);

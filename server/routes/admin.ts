@@ -318,6 +318,13 @@ router.post("/subscriptions/:userId/apply-coupon", requireAdmin, async (req, res
       couponCode,
     });
     
+    // Return appropriate status code based on result
+    if (!result.success) {
+      const isNotFound = /not found/i.test(result.message);
+      const statusCode = isNotFound ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+    
     res.json(result);
   } catch (error) {
     next(error);
@@ -333,6 +340,11 @@ router.post("/subscriptions/:userId/cancel", requireAdmin, async (req, res, next
       userId: req.params.userId,
       immediate: immediate === true,
     });
+    
+    // Return appropriate status code based on result
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
     
     res.json(result);
   } catch (error) {
