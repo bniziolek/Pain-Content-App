@@ -64,19 +64,21 @@ app.use((req, res, next) => {
 
       log(logLine);
       
-      // Record API health metrics (fire-and-forget)
-      storage.recordHealthMetric({
-        metricType: "api_request",
-        metricName: path,
-        value: duration,
-        status: res.statusCode < 400 ? "success" : "error",
-        metadata: {
-          method: req.method,
-          statusCode: res.statusCode,
-        },
-      }).catch((err) => {
-        console.error("Failed to record health metric:", err);
-      });
+      // Record API health metrics (fire-and-forget) - can be disabled via DISABLE_HEALTH_METRICS env var
+      if (process.env.DISABLE_HEALTH_METRICS !== 'true') {
+        storage.recordHealthMetric({
+          metricType: "api_request",
+          metricName: path,
+          value: duration,
+          status: res.statusCode < 400 ? "success" : "error",
+          metadata: {
+            method: req.method,
+            statusCode: res.statusCode,
+          },
+        }).catch((err) => {
+          console.error("Failed to record health metric:", err);
+        });
+      }
     }
   });
 

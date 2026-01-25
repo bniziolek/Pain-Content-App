@@ -153,74 +153,29 @@ SELECT * FROM health_metrics LIMIT 1;
   - Verify error messages display properly
   - Check loading states work correctly
 
-### 3. Metrics Collection Implementation 📊 MEDIUM PRIORITY
+### 3. Metrics Collection Implementation 📊 COMPLETED ✅
 
-Currently, the infrastructure is in place but **no metrics are being recorded**. Need to add:
+**Status**: Metrics collection is now implemented and active.
 
-#### API Request Tracking
+#### API Request Tracking ✅ IMPLEMENTED
 
-Add middleware to record API requests:
+API request metrics are automatically recorded in `server/index.ts` (lines 67-79). Every API request records:
+- Request path
+- Response time (ms)
+- Status code
+- HTTP method
+- Success/error status
 
-**Location**: `server/index.ts` (around line 45-69 where request logging exists)
+**Performance Consideration**: Health metrics are recorded for every API request, which adds a database write per request. To prevent performance issues under high load:
+- Use environment variable `DISABLE_HEALTH_METRICS=true` to disable collection in production if needed
+- Consider implementing sampling (e.g., record only 10% of requests) for high-traffic deployments
+- Future enhancement: Batch writes or use a time-series database
 
-```typescript
-// After existing logging middleware
-app.use(async (req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  
-  res.on('finish', async () => {
-    const duration = Date.now() - start;
-    
-    // Only record API requests
-    if (path.startsWith('/api')) {
-      try {
-        await storage.recordHealthMetric({
-          metricType: 'api_request',
-          metricName: path,
-          value: duration,
-          status: res.statusCode < 400 ? 'success' : 'error',
-          metadata: {
-            method: req.method,
-            statusCode: res.statusCode,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to record health metric:', error);
-      }
-    }
-  });
-  
-  next();
-});
-```
+#### Email Tracking ✅ IMPLEMENTED
 
-#### Email Tracking
-
-Add hooks in email service:
-
-**Location**: `server/infrastructure/email/email-adapter.ts`
-
-After successful email send:
-```typescript
-await storage.recordHealthMetric({
-  metricType: 'email_sent',
-  metricName: 'email_delivery',
-  value: 1,
-  status: 'success',
-});
-```
-
-On bounce/failure:
-```typescript
-await storage.recordHealthMetric({
-  metricType: 'email_bounced',
-  metricName: 'email_delivery',
-  value: 1,
-  status: 'error',
-  metadata: { reason: bounceReason },
-});
-```
+Email send and bounce metrics are recorded in `server/infrastructure/email/email-adapter.ts`:
+- Email sent events are recorded after successful delivery
+- Email bounce events are recorded when bounces are detected
 
 ### 4. Data Retention Strategy 🗄️ MEDIUM PRIORITY
 
@@ -246,6 +201,8 @@ setInterval(cleanupOldHealthMetrics, 24 * 60 * 60 * 1000);
 Create monthly partitions for the `healthMetrics` table.
 
 ### 5. Future Enhancements 🚀 LOW PRIORITY
+
+These features can be added in future iterations:
 
 These were identified but not implemented:
 

@@ -19,6 +19,11 @@ import { storage } from '../../storage';
 export type EmailProvider = 'gmail' | 'resend' | 'auto';
 
 async function recordEmailMetric(success: boolean, errorReason?: string): Promise<void> {
+  // Can be disabled via DISABLE_HEALTH_METRICS env var
+  if (process.env.DISABLE_HEALTH_METRICS === 'true') {
+    return;
+  }
+  
   try {
     await storage.recordHealthMetric({
       metricType: success ? 'email_sent' : 'email_bounced',
