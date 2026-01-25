@@ -83,9 +83,7 @@ export async function getSubscriptionDetails(
       if (user.stripeSubscriptionId) {
         const subscription = await ctx.payment.getSubscription(user.stripeSubscriptionId);
         if (subscription && subscription.default_payment_method) {
-          const paymentMethodId = typeof subscription.default_payment_method === 'string' 
-            ? subscription.default_payment_method 
-            : subscription.default_payment_method.id;
+          const paymentMethodId = subscription.default_payment_method?.id || subscription.default_payment_method;
           
           const paymentMethods = await ctx.payment.getPaymentMethods(user.stripeCustomerId);
           const defaultPM = paymentMethods.find(pm => pm.id === paymentMethodId);

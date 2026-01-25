@@ -27,6 +27,11 @@ import { useToast } from "@/hooks/use-toast";
 import { listSubscriptions, type SubscriptionListItem } from "@/api/admin";
 import { formatDistanceToNow, format } from "date-fns";
 
+// Time constants
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const TRIAL_ENDING_SOON_DAYS = 14;
+const EXPIRING_SOON_DAYS = 7;
+
 const STATUS_CONFIG: Record<string, { label: string; className: string; icon: typeof CheckCircle }> = {
   active: { label: "Active", className: "bg-green-100 text-green-700 border-green-200", icon: CheckCircle },
   inactive: { label: "Inactive", className: "bg-gray-100 text-gray-700 border-gray-200", icon: XCircle },
@@ -69,13 +74,13 @@ export default function AdminSubscriptionsPage() {
     const pastDueCount = subscriptions.filter(s => s.subscriptionStatus === "past_due").length;
     const canceledCount = subscriptions.filter(s => s.subscriptionStatus === "canceled").length;
     
-    // Trial users (active with period end within next 14 days)
+    // Trial users (active with period end within next TRIAL_ENDING_SOON_DAYS)
     const now = new Date();
     const trialCount = subscriptions.filter(s => {
       if (s.subscriptionStatus !== "active" || !s.subscriptionPeriodEnd) return false;
       const periodEnd = new Date(s.subscriptionPeriodEnd);
-      const daysUntilEnd = (periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return daysUntilEnd <= 14 && daysUntilEnd > 0;
+      const daysUntilEnd = (periodEnd.getTime() - now.getTime()) / MS_PER_DAY;
+      return daysUntilEnd <= TRIAL_ENDING_SOON_DAYS && daysUntilEnd > 0;
     }).length;
 
     return {
@@ -92,8 +97,8 @@ export default function AdminSubscriptionsPage() {
     if (!periodEnd) return false;
     const end = new Date(periodEnd);
     const now = new Date();
-    const daysUntilEnd = (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-    return daysUntilEnd <= 7 && daysUntilEnd > 0;
+    const daysUntilEnd = (end.getTime() - now.getTime()) / MS_PER_DAY;
+    return daysUntilEnd <= EXPIRING_SOON_DAYS && daysUntilEnd > 0;
   };
 
   if (isLoading) {

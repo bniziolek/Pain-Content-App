@@ -6,6 +6,9 @@ import type { AppContext } from "../context";
 import { eq, and, gte, lte, sql, or, like } from "drizzle-orm";
 import { users } from "@shared/schema";
 
+// Configuration constants
+const TRIAL_ENDING_SOON_DAYS = 14;
+
 export interface ListSubscriptionsInput {
   status?: "active" | "inactive" | "past_due" | "canceled" | "trial";
   tier?: "free" | "basic" | "pro" | "enterprise";
@@ -36,11 +39,12 @@ export async function listSubscriptions(
   // Filter by status
   if (input.status) {
     if (input.status === "trial") {
-      // Trial users have active status and period end within next 14 days
+      // Trial users have active status and period end within next TRIAL_ENDING_SOON_DAYS
+      const trialEndDate = new Date(Date.now() + TRIAL_ENDING_SOON_DAYS * 24 * 60 * 60 * 1000);
       conditions.push(
         and(
           eq(users.subscriptionStatus, "active"),
-          lte(users.subscriptionPeriodEnd, new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
+          lte(users.subscriptionPeriodEnd, trialEndDate)
         )
       );
     } else {
