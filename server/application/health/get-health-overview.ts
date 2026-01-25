@@ -52,9 +52,7 @@ export async function getHealthOverview(
   const environment = process.env.NODE_ENV || "development";
 
   // Database health
-  let databaseHealth: HealthOverview["database"] = {
-    status: "healthy",
-  };
+  let databaseHealth: HealthOverview["database"];
 
   try {
     const dbStart = Date.now();

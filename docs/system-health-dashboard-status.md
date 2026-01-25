@@ -112,7 +112,7 @@ npx drizzle-kit push
 **Verification**:
 ```sql
 -- Verify table exists
-SELECT * FROM healthMetrics LIMIT 1;
+SELECT * FROM health_metrics LIMIT 1;
 ```
 
 ### 2. Manual Testing 🧪 HIGH PRIORITY

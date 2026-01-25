@@ -1,12 +1,11 @@
 import { DashboardLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Database, Mail, Server, TrendingUp, AlertCircle, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Activity, Database, Mail, Server, TrendingUp, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface HealthOverview {
   system: {
@@ -40,8 +39,8 @@ interface HealthOverview {
     bounceRate: number;
   };
   externalServices: {
-    stripe: { status: "healthy" | "unknown"; lastChecked?: Date };
-    contentful: { status: "healthy" | "unknown"; lastChecked?: Date };
+    stripe: { status: "healthy" | "unknown"; lastChecked?: string };
+    contentful: { status: "healthy" | "unknown"; lastChecked?: string };
   };
 }
 
