@@ -312,16 +312,12 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
   const primaryColor = validateColor(branding?.primaryColor, '#0F766E');
   const secondaryColor = validateColor(branding?.secondaryColor, '#f5f5f5');
   const accentColor = validateColor(branding?.accentColor, '#14B8A6');
-<<<<<<< HEAD
-
-=======
   const showWatermark = Boolean(branding) && branding?.showWatermark !== false;
   const watermarkText = branding?.clinicName ? escapeHtml(branding.clinicName) : 'DriverPath';
   const watermarkHtml = showWatermark
     ? `<div class="pdf-watermark">${watermarkText}</div>`
     : '';
   
->>>>>>> Dev_26.2
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -755,18 +751,11 @@ function buildHtml(bodyHtml: string, config: PDFGenerationConfig, formatting: Se
     }
   </style>
 </head>
-<<<<<<< HEAD
 <body class="divider-style-${formatting.dividerStyle}">
-  ${bodyHtml}
-=======
-<body>
   ${watermarkHtml}
   <div class="pdf-content">
-    ${generateCoverPage(config, items.length)}
-    ${config.includeTableOfContents ? generateTableOfContents(items) : ''}
-    ${contentSections}
+    ${bodyHtml}
   </div>
->>>>>>> Dev_26.2
 </body>
 </html>
   `;
