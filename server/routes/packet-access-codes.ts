@@ -24,35 +24,6 @@ const generateCodeSchema = z.object({
   expirationDays: z.number().min(1).max(365).optional(),
 });
 
-router.post("/:screeningId/generate-access-code", requireSubscription, async (req, res, next) => {
-  try {
-    const { screeningId } = req.params;
-    const { contentIds, expirationDays } = req.body;
-
-    if (!contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
-      return res.status(400).json({ error: "Content IDs required" });
-    }
-
-    const result = await generateAccessCode(
-      appContext,
-      buildAuditRequestContext(req),
-      {
-        clinician: req.user!,
-        screeningId,
-        contentIds,
-        expirationDays,
-      }
-    );
-
-    res.json({
-      code: result.code,
-      expiresAt: result.expiresAt.toISOString(),
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
 router.post("/generate-access-code", requireSubscription, async (req, res, next) => {
   try {
     const validation = generateCodeSchema.safeParse(req.body);
@@ -87,12 +58,27 @@ router.post("/generate-access-code", requireSubscription, async (req, res, next)
 
 export { router as packetAccessCodesRouter };
 
+// Simple in-memory rate limiter for public lookup endpoint
+// NOTE: This implementation has limitations:
+// - Does not persist across server restarts
+// - Will not work correctly in multi-instance deployments
+// For production, consider using a distributed rate limiting solution (e.g., Redis-based)
+// or an existing Express middleware like 'express-rate-limit'
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 
+function cleanupExpiredRateLimitEntries(now: number): void {
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
+  cleanupExpiredRateLimitEntries(now);
   const entry = rateLimitMap.get(ip);
   
   if (!entry || now > entry.resetTime) {

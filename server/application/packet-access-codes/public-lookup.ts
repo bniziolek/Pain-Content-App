@@ -87,7 +87,11 @@ export async function publicLookup(
   const contentItems = await Promise.all(
     contentIds.map((id: string) => ctx.storage.getContentById(id))
   );
-  const validContent = contentItems.filter(Boolean) as ContentItem[];
+  
+  // Filter out null/undefined values (deleted or non-existent content)
+  const validContent = contentItems.filter((item): item is ContentItem => {
+    return item !== null && item !== undefined;
+  });
 
   const clinician = await ctx.storage.getUser(accessCode!.clinicianId);
 
