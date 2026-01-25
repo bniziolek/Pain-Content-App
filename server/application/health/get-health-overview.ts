@@ -3,9 +3,6 @@
  */
 
 import type { AppContext } from "../context";
-import pg from "pg";
-
-const { Pool } = pg;
 
 interface HealthOverview {
   system: {

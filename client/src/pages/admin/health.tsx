@@ -244,7 +244,7 @@ export default function HealthDashboard() {
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Total Requests</p>
                 <p className="text-2xl font-bold">{health.api.recentRequests.toLocaleString()}</p>
-                <p className="text-xs text-success-foreground">
+                <p className="text-xs text-green-600">
                   ✓ {health.api.successCount?.toLocaleString() || 0} successful
                 </p>
               </div>
@@ -294,7 +294,7 @@ export default function HealthDashboard() {
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Delivered</p>
                 <p className="text-2xl font-bold">{health.email.delivered.toLocaleString()}</p>
-                <p className="text-xs text-success-foreground">
+                <p className="text-xs text-green-600">
                   {health.email.deliveryRate.toFixed(1)}% delivery rate
                 </p>
               </div>

@@ -2056,8 +2056,8 @@ export class DatabaseStorage implements IStorage {
     idleConnections: number;
   }> {
     const totalConnections = pool.totalCount;
-    const activeConnections = pool.waitingCount;
     const idleConnections = pool.idleCount;
+    const activeConnections = totalConnections - idleConnections;
     
     // Get max connections from database
     const result = await db.execute(sql`SHOW max_connections;`);
@@ -2110,18 +2110,21 @@ export class DatabaseStorage implements IStorage {
     const errorCount = metrics.filter(m => m.status === 'error').length;
     const totalRequests = metrics.length;
 
-    const p50Index = Math.floor(responseTimes.length * 0.5);
-    const p95Index = Math.floor(responseTimes.length * 0.95);
-    const p99Index = Math.floor(responseTimes.length * 0.99);
+    // Calculate percentiles correctly
+    const calculatePercentile = (arr: number[], percentile: number): number => {
+      if (arr.length === 0) return 0;
+      const index = Math.ceil(arr.length * percentile) - 1;
+      return arr[Math.max(0, Math.min(index, arr.length - 1))];
+    };
 
     return {
       totalRequests,
       successCount,
       errorCount,
       errorRate: totalRequests > 0 ? (errorCount / totalRequests) * 100 : 0,
-      p50: responseTimes[p50Index] || 0,
-      p95: responseTimes[p95Index] || 0,
-      p99: responseTimes[p99Index] || 0,
+      p50: calculatePercentile(responseTimes, 0.5),
+      p95: calculatePercentile(responseTimes, 0.95),
+      p99: calculatePercentile(responseTimes, 0.99),
     };
   }
 
@@ -2134,12 +2137,14 @@ export class DatabaseStorage implements IStorage {
       .from(schema.emailLogs)
       .where(gte(schema.emailLogs.sentAt, since));
 
+    // Count successfully sent emails (not bounced) as delivered
+    // Note: In the future, we should add a 'delivered' status to track actual delivery confirmation
     const delivered = await db.select({ count: count() })
       .from(schema.emailLogs)
       .where(
         and(
           gte(schema.emailLogs.sentAt, since),
-          eq(schema.emailLogs.status, 'opened')
+          eq(schema.emailLogs.status, 'sent')
         )
       );
 
