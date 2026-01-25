@@ -5,8 +5,11 @@
 import { Router } from "express";
 import { requireAdmin } from "../auth";
 import {
+  applyCoupon,
+  cancelUserSubscription,
   createAdminNote,
   createAppContext,
+  createAppContextWithInfrastructure,
   createTrialUser,
   createUser,
   deleteAdminNote,
@@ -16,12 +19,14 @@ import {
   getAdminStats,
   getEnhancedAdminStats,
   getHealthOverview,
+  getSubscriptionDetails,
   getUser,
   getUserSupportOverview,
   getUserSupportTimeline,
   listAdminNotes,
   listAllRecommendationConfigs,
   listLoginHistory,
+  listSubscriptions,
   listUserContentActivity,
   listUserPermissions,
   listUsers,
@@ -34,6 +39,7 @@ import { toPublicUser, toPublicUsers } from "../serializers/user";
 
 const router = Router();
 const appContext = createAppContext();
+const appContextWithInfrastructure = createAppContextWithInfrastructure();
 
 // Create user
 router.post("/users", requireAdmin, async (req, res, next) => {
@@ -293,14 +299,31 @@ router.get("/recommendation-configs", requireAdmin, async (req, res, next) => {
   }
 });
 
-<<<<<<< HEAD
+
 // ====== System Health ======
 
 router.get("/health/overview", requireAdmin, async (req, res, next) => {
   try {
     const health = await getHealthOverview(appContext);
     res.json(health);
-=======
+
+// ====== Subscription Management Admin ======
+
+// List all subscriptions with filters
+router.get("/subscriptions", requireAdmin, async (req, res, next) => {
+  try {
+    const { status, tier, startDate, endDate, searchQuery } = req.query;
+    
+    const subscriptions = await listSubscriptions(appContextWithInfrastructure, {
+      status: status as any,
+      tier: tier as any,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      searchQuery: searchQuery as string,
+    });
+    
+    res.json(subscriptions);
+
 // ====== User Support Dashboard ======
 
 router.get("/users/:userId/support-overview", requireAdmin, async (req, res, next) => {
@@ -339,6 +362,18 @@ router.get("/users/:userId/support-timeline", requireAdmin, async (req, res, nex
   }
 });
 
+// Get detailed subscription information
+router.get("/subscriptions/:userId", requireAdmin, async (req, res, next) => {
+  try {
+    const details = await getSubscriptionDetails(appContextWithInfrastructure, {
+      userId: req.params.userId,
+    });
+    
+    if (!details) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json(details);
 router.post("/users/:userId/unlock", requireAdmin, async (req, res, next) => {
   try {
     const result = await unlockUserAccount(appContext, {
@@ -403,6 +438,28 @@ router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) 
   }
 });
 
+// Apply coupon to subscription
+router.post("/subscriptions/:userId/apply-coupon", requireAdmin, async (req, res, next) => {
+  try {
+    const { couponCode } = req.body;
+    
+    if (!couponCode) {
+      return res.status(400).json({ error: "Coupon code is required" });
+    }
+    
+    const result = await applyCoupon(appContextWithInfrastructure, {
+      userId: req.params.userId,
+      couponCode,
+    });
+    
+    // Return appropriate status code based on result
+    if (!result.success) {
+      const isNotFound = /not found/i.test(result.message);
+      const statusCode = isNotFound ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+    
+    res.json(result);
 router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (req, res, next) => {
   try {
     const { enabled, reason } = req.body;
@@ -441,6 +498,22 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
   }
 });
 
+// Cancel user subscription (admin)
+router.post("/subscriptions/:userId/cancel", requireAdmin, async (req, res, next) => {
+  try {
+    const { immediate } = req.body;
+    
+    const result = await cancelUserSubscription(appContextWithInfrastructure, {
+      userId: req.params.userId,
+      immediate: immediate === true,
+    });
+    
+    // Return appropriate status code based on result
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    
+    res.json(result);
 router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, async (req, res, next) => {
   try {
     const adminId = req.user?.id;
@@ -477,7 +550,6 @@ router.get("/users/:userId/feature-flags/audit", requireAdmin, async (req, res, 
   try {
     const auditLog = await appContext.storage.getFeatureFlagAuditLog(req.params.userId);
     res.json(auditLog);
->>>>>>> replit/issue-38
   } catch (error) {
     next(error);
   }

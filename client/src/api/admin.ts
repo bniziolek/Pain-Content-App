@@ -33,6 +33,48 @@ export interface LoginHistoryEntry {
   createdAt: string;
 }
 
+export interface SubscriptionListItem {
+  userId: string;
+  email: string;
+  name: string | null;
+  subscriptionStatus: string | null;
+  subscriptionTier: string | null;
+  subscriptionPeriodEnd: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  createdAt: string;
+  lastLogin: string | null;
+}
+
+export interface BillingRecord {
+  id: string;
+  amount: number;
+  status: string | null;
+  date: number;
+  pdfUrl: string | null;
+}
+
+export interface PaymentMethodInfo {
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+}
+
+export interface SubscriptionDetails {
+  userId: string;
+  email: string;
+  name: string | null;
+  subscriptionStatus: string | null;
+  subscriptionTier: string | null;
+  subscriptionPeriodEnd: string | null;
+  subscriptionStartDate: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  billingHistory: BillingRecord[];
+  paymentMethod: PaymentMethodInfo | null;
+}
+
 // User Management
 export async function getUsers(): Promise<PublicUser[]> {
   return fetchAPI("/admin/users");
@@ -171,4 +213,41 @@ export async function getAuditLogs(filters?: { userId?: string; action?: string;
   if (filters?.action) params.set("action", filters.action);
   if (filters?.limit) params.set("limit", String(filters.limit));
   return fetchAPI(`/audit-logs?${params.toString()}`);
+}
+
+// Subscription Management
+export async function listSubscriptions(filters?: {
+  status?: string;
+  tier?: string;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}): Promise<SubscriptionListItem[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.tier) params.set("tier", filters.tier);
+  if (filters?.startDate) params.set("startDate", filters.startDate);
+  if (filters?.endDate) params.set("endDate", filters.endDate);
+  if (filters?.searchQuery) params.set("searchQuery", filters.searchQuery);
+  return fetchAPI(`/admin/subscriptions?${params.toString()}`);
+}
+
+export async function getSubscriptionDetails(userId: string): Promise<SubscriptionDetails> {
+  return fetchAPI(`/admin/subscriptions/${userId}`);
+}
+
+export async function applyCouponToSubscription(userId: string, couponCode: string): Promise<{ success: boolean; message: string }> {
+  return fetchAPI(`/admin/subscriptions/${userId}/apply-coupon`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ couponCode }),
+  });
+}
+
+export async function cancelUserSubscription(userId: string, immediate?: boolean): Promise<{ success: boolean; message: string }> {
+  return fetchAPI(`/admin/subscriptions/${userId}/cancel`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ immediate }),
+  });
 }

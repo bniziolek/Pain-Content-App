@@ -136,6 +136,9 @@ export interface PaymentService {
     currentPeriodEnd?: Date;
   } | null>;
   runSync?(options: { webhookUrl?: string }): Promise<void>;
+  getSubscription(subscriptionId: string): Promise<any>;
+  getPaymentMethods(customerId: string): Promise<any[]>;
+  applyCoupon(subscriptionId: string, couponCode: string): Promise<any>;
 }
 
 export interface AppContext {
