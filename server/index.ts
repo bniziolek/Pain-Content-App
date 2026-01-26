@@ -9,6 +9,11 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { startBackgroundJobs } from "./background-jobs";
 import { storage } from "./storage";
+import { validateEnv } from "./env-validation";
+import { setupGracefulShutdown } from "./graceful-shutdown";
+
+// Validate environment variables before anything else
+validateEnv();
 
 const app = express();
 const httpServer = createServer(app);
@@ -127,6 +132,12 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  // Setup graceful shutdown for containerized environments
+  setupGracefulShutdown(server, async () => {
+    // Add cleanup tasks here (close DB pools, flush logs, etc.)
+    log("Cleaning up resources...");
+  });
 
   await startBackgroundJobs();
 })();

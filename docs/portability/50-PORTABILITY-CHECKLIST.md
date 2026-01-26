@@ -2,46 +2,48 @@
 
 Use this checklist to drive the migration work and to validate ongoing compliance.
 
+**Last reviewed:** 2024-01-26
+
 ## Repo and commands
-- [ ] README has install/run/test/build instructions
-- [ ] One command standard exists (Makefile/justfile/scripts)
-- [ ] `setup`, `dev`, `test`, `build`, `start` all exist
+- [x] README has install/run/test/build instructions
+- [x] One command standard exists (Makefile/justfile/scripts)
+- [x] `setup`, `dev`, `test`, `build`, `start` all exist
 
 ## Networking
-- [ ] App binds to `0.0.0.0`
-- [ ] App reads `PORT` from env
+- [x] App binds to `0.0.0.0`
+- [x] App reads `PORT` from env
 
 ## Configuration and secrets
-- [ ] All config is env-driven
-- [ ] `.env.example` exists and is complete
-- [ ] Secrets are not in code or committed files
-- [ ] App fails fast with clear env var validation
+- [x] All config is env-driven
+- [x] `.env.example` exists and is complete
+- [x] Secrets are not in code or committed files
+- [x] App fails fast with clear env var validation
 
 ## Dependencies
-- [ ] Lock files committed
-- [ ] Runtime version pinned (Node/Python)
-- [ ] System deps defined in Dockerfile
+- [x] Lock files committed
+- [x] Runtime version pinned (Node/Python)
+- [x] System deps defined in Dockerfile
 
 ## State and persistence
-- [ ] Database uses `DATABASE_URL`
-- [ ] Migrations exist and run headless
-- [ ] No local disk persistence required in production
-- [ ] Storage uses an external provider or adapter
+- [x] Database uses `DATABASE_URL`
+- [x] Migrations exist and run headless
+- [x] No local disk persistence required in production
+- [x] Storage uses an external provider or adapter
 
 ## Background work
-- [ ] Jobs can run as a separate process
-- [ ] Schedules are defined outside the app server (host scheduler or worker)
+- [x] Jobs can run as a separate process
+- [x] Schedules are defined outside the app server (host scheduler or worker)
 
 ## Observability
-- [ ] `/health` endpoint exists
-- [ ] Logs go to stdout/stderr
-- [ ] Graceful shutdown works (SIGTERM)
+- [x] `/health` endpoint exists
+- [x] Logs go to stdout/stderr
+- [x] Graceful shutdown works (SIGTERM)
 
 ## CI/CD
-- [ ] CI runs lint, test, build
-- [ ] Optional: CI runs docker build check
+- [x] CI runs lint, test, build
+- [x] Optional: CI runs docker build check
 
 ## Deployment docs
-- [ ] Generic host deployment guide exists
-- [ ] Env var list documented
-- [ ] Migration steps documented (if applicable)
+- [x] Generic host deployment guide exists
+- [x] Env var list documented
+- [x] Migration steps documented (if applicable)
