@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth, useSubscriptionStatus } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
@@ -56,11 +56,9 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
 }
 
 export function RequireSubscription({ children }: { children: React.ReactNode }) {
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading } = useAuth();
   const { isActive } = useSubscriptionStatus();
   const [, setLocation] = useLocation();
-  const [isWaitingForSubscription, setIsWaitingForSubscription] = useState(false);
-  const [pollCount, setPollCount] = useState(0);
 
   const urlParams = new URLSearchParams(window.location.search);
   const isFromCheckout = urlParams.get("subscription") === "success";
@@ -72,38 +70,18 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   }, [user, loading, setLocation]);
 
   useEffect(() => {
-    if (!loading && user && !isActive && isFromCheckout && pollCount < 10) {
-      setIsWaitingForSubscription(true);
-      const timer = setTimeout(async () => {
-        await refreshUser();
-        setPollCount((c) => c + 1);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-    
-    if (!loading && user && isActive && isFromCheckout) {
-      setIsWaitingForSubscription(false);
-    }
-  }, [loading, user, isActive, isFromCheckout, pollCount, refreshUser]);
-
-  useEffect(() => {
-    if (!loading && user && !isWaitingForSubscription) {
+    if (!loading && user) {
       const isAdmin = user.role === "admin";
       if (!isActive && !isAdmin && !isFromCheckout) {
         setLocation("/subscription?reason=no_subscription");
-      } else if (!isActive && !isAdmin && isFromCheckout && pollCount >= 10) {
-        setLocation("/subscription?reason=checkout_pending");
       }
     }
-  }, [user, loading, isActive, isWaitingForSubscription, isFromCheckout, pollCount, setLocation]);
+  }, [user, loading, isActive, isFromCheckout, setLocation]);
 
-  if (loading || isWaitingForSubscription) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        {isWaitingForSubscription && (
-          <p className="text-muted-foreground">Activating your subscription...</p>
-        )}
       </div>
     );
   }
@@ -113,7 +91,7 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   }
 
   const isAdmin = user.role === "admin";
-  if (!isActive && !isAdmin) {
+  if (!isActive && !isAdmin && !isFromCheckout) {
     return null;
   }
 
