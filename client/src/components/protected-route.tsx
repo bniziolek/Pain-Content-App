@@ -61,7 +61,17 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   const [, setLocation] = useLocation();
 
   const urlParams = new URLSearchParams(window.location.search);
-  const isFromCheckout = urlParams.get("subscription") === "success";
+  const isFromCheckoutUrl = urlParams.get("subscription") === "success";
+  
+  if (isFromCheckoutUrl) {
+    sessionStorage.setItem("checkout_pending", "true");
+  }
+  
+  const hasCheckoutPending = sessionStorage.getItem("checkout_pending") === "true";
+  
+  if (isActive && hasCheckoutPending) {
+    sessionStorage.removeItem("checkout_pending");
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -72,11 +82,11 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!loading && user) {
       const isAdmin = user.role === "admin";
-      if (!isActive && !isAdmin && !isFromCheckout) {
+      if (!isActive && !isAdmin && !hasCheckoutPending) {
         setLocation("/subscription?reason=no_subscription");
       }
     }
-  }, [user, loading, isActive, isFromCheckout, setLocation]);
+  }, [user, loading, isActive, hasCheckoutPending, setLocation]);
 
   if (loading) {
     return (
@@ -91,7 +101,7 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   }
 
   const isAdmin = user.role === "admin";
-  if (!isActive && !isAdmin && !isFromCheckout) {
+  if (!isActive && !isAdmin && !hasCheckoutPending) {
     return null;
   }
 
