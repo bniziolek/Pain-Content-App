@@ -72,6 +72,7 @@ export default function SubscriptionPage() {
   const searchParams = new URLSearchParams(searchString);
   const reason = searchParams.get("reason");
   const showNoSubscriptionAlert = reason === "no_subscription";
+  const showCheckoutPendingAlert = reason === "checkout_pending";
 
   useEffect(() => {
     fetchPlans();
@@ -243,6 +244,17 @@ export default function SubscriptionPage() {
             <AlertDescription>
               You need an active subscription to access the platform features. 
               Please choose a plan below to continue using DriverPath.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showCheckoutPendingAlert && (
+          <Alert className="max-w-2xl mx-auto border-amber-200 bg-amber-50" data-testid="alert-checkout-pending">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800">Payment Processing</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Your payment is being processed. This usually takes just a few moments.
+              If your subscription isn't activated within a few minutes, please try refreshing the page or contact support.
             </AlertDescription>
           </Alert>
         )}
