@@ -510,9 +510,11 @@ export default function SubscriptionPage() {
         )}
 
         <div className="text-center space-y-4 pt-8">
-          <p className="text-sm text-muted-foreground">
-            All plans include a 14-day free trial. Cancel anytime.
-          </p>
+          {!showNoSubscriptionAlert && (
+            <p className="text-sm text-muted-foreground">
+              All plans include a 14-day free trial. Cancel anytime.
+            </p>
+          )}
           <Button variant="ghost" asChild>
             <Link href="/dashboard">
               ← Back to Dashboard
