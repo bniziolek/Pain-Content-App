@@ -7,13 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Loader2, 
-  Filter, 
-  Search, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Loader2,
+  Filter,
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
   Clock,
   Users
 } from "lucide-react";
@@ -65,7 +65,7 @@ export default function AdminSubscriptionsPage() {
     const activeCount = subscriptions.filter(s => s.subscriptionStatus === "active").length;
     const pastDueCount = subscriptions.filter(s => s.subscriptionStatus === "past_due").length;
     const canceledCount = subscriptions.filter(s => s.subscriptionStatus === "canceled").length;
-    
+
     // Trial users (active with period end within next TRIAL_ENDING_SOON_DAYS)
     const now = new Date();
     const trialCount = subscriptions.filter(s => {
@@ -233,7 +233,7 @@ export default function AdminSubscriptionsPage() {
                   const expiringSoon = isExpiringSoon(sub.subscriptionPeriodEnd);
 
                   return (
-                    <TableRow 
+                    <TableRow
                       key={sub.userId}
                       data-testid={`subscription-row-${sub.userId}`}
                       className="cursor-pointer hover:bg-muted/50"
@@ -257,7 +257,7 @@ export default function AdminSubscriptionsPage() {
                           <div className="flex items-center gap-2">
                             <span>{format(new Date(sub.subscriptionPeriodEnd), "MMM d, yyyy")}</span>
                             {expiringSoon && (
-                              <AlertTriangle className="w-4 h-4 text-orange-500" title="Expiring soon" />
+                              <AlertTriangle className="w-4 h-4 text-orange-500" />
                             )}
                           </div>
                         ) : (

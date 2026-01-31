@@ -46,7 +46,7 @@ export async function cancelUserSubscription(
 
   try {
     const cancelAtPeriodEnd = !input.immediate;
-    
+
     // Get subscription info before canceling
     let periodEnd: Date | undefined;
     try {
@@ -57,7 +57,7 @@ export async function cancelUserSubscription(
     } catch (error) {
       console.error("Error fetching subscription details:", error);
     }
-    
+
     // Cancel the subscription
     await ctx.payment.cancelSubscription({
       subscriptionId: user.stripeSubscriptionId,
@@ -67,13 +67,13 @@ export async function cancelUserSubscription(
     // Update user in database
     const newStatus = input.immediate ? "canceled" : user.subscriptionStatus;
     await ctx.storage.updateUserSubscription(user.id, {
-      subscriptionStatus: newStatus,
+      subscriptionStatus: newStatus ?? undefined,
     });
 
     return {
       success: true,
-      message: input.immediate 
-        ? "Subscription canceled immediately" 
+      message: input.immediate
+        ? "Subscription canceled immediately"
         : "Subscription will be canceled at period end",
       canceledAt: new Date(),
       endsAt: periodEnd,
