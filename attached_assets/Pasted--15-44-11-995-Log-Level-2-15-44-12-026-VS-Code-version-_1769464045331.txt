@@ -1,0 +1,80 @@
+[15:44:11.995] Log Level: 2
+[15:44:12.026] VS Code version: 1.108.1
+[15:44:12.026] Remote-SSH version: remote-ssh@0.122.0
+[15:44:12.026] win32 x64
+[15:44:12.032] SSH Resolver called for "ssh-remote+149602d7-24bd-4694-9c97-b77d6b695dc1@149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev:22", attempt 1
+[15:44:12.037] remote.SSH.useLocalServer = false
+[15:44:12.037] remote.SSH.useExecServer = true
+[15:44:12.037] remote.SSH.bindHost = {}
+[15:44:12.038] remote.SSH.showLoginTerminal = false
+[15:44:12.038] remote.SSH.remotePlatform = {}
+[15:44:12.038] remote.SSH.path = 
+[15:44:12.038] remote.SSH.configFile = 
+[15:44:12.038] remote.SSH.useFlock = true
+[15:44:12.038] remote.SSH.lockfilesInTmp = false
+[15:44:12.038] remote.SSH.localServerDownload = auto
+[15:44:12.038] remote.SSH.remoteServerListenOnSocket = false
+[15:44:12.039] remote.SSH.defaultExtensions = []
+[15:44:12.039] remote.SSH.defaultExtensionsIfInstalledLocally = []
+[15:44:12.039] remote.SSH.loglevel = 2
+[15:44:12.039] remote.SSH.enableDynamicForwarding = true
+[15:44:12.039] remote.SSH.enableRemoteCommand = false
+[15:44:12.039] remote.SSH.serverPickPortsFromRange = {}
+[15:44:12.039] remote.SSH.serverInstallPath = {}
+[15:44:12.039] remote.SSH.permitPtyAllocation = false
+[15:44:12.039] remote.SSH.preferredLocalPortRange = undefined
+[15:44:12.040] remote.SSH.useCurlAndWgetConfigurationFiles = false
+[15:44:12.040] remote.SSH.experimental.chat = true
+[15:44:12.040] remote.SSH.experimental.enhancedSessionLogs = true
+[15:44:12.040] remote.SSH.httpProxy = {"*":""}
+[15:44:12.040] remote.SSH.httpsProxy = {"*":""}
+[15:44:12.057] SSH Resolver called for host: 149602d7-24bd-4694-9c97-b77d6b695dc1@149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev
+[15:44:12.057] Setting up SSH remote "149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev"
+[15:44:12.070] Using commit id "585eba7c0c34fd6b30faac7c62a42050bfbc0086" and quality "stable" for server
+[15:44:12.070] Extensions to install: 
+[15:44:12.075] Install and start server if needed
+[15:44:14.401] Checking ssh with "C:\Python310\Scripts\ssh.exe -V"
+[15:44:14.403] Got error from ssh: spawn C:\Python310\Scripts\ssh.exe ENOENT
+[15:44:14.404] Checking ssh with "C:\Python310\ssh.exe -V"
+[15:44:14.405] Got error from ssh: spawn C:\Python310\ssh.exe ENOENT
+[15:44:14.405] Checking ssh with "C:\WINDOWS\system32\ssh.exe -V"
+[15:44:14.406] Got error from ssh: spawn C:\WINDOWS\system32\ssh.exe ENOENT
+[15:44:14.406] Checking ssh with "C:\WINDOWS\ssh.exe -V"
+[15:44:14.407] Got error from ssh: spawn C:\WINDOWS\ssh.exe ENOENT
+[15:44:14.408] Checking ssh with "C:\WINDOWS\System32\Wbem\ssh.exe -V"
+[15:44:14.409] Got error from ssh: spawn C:\WINDOWS\System32\Wbem\ssh.exe ENOENT
+[15:44:14.409] Checking ssh with "C:\WINDOWS\System32\WindowsPowerShell\v1.0\ssh.exe -V"
+[15:44:14.410] Got error from ssh: spawn C:\WINDOWS\System32\WindowsPowerShell\v1.0\ssh.exe ENOENT
+[15:44:14.410] Checking ssh with "C:\WINDOWS\System32\OpenSSH\ssh.exe -V"
+[15:44:14.449] > OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2
+
+[15:44:14.456] Running script with connection command: "C:\WINDOWS\System32\OpenSSH\ssh.exe" -T -D 62244 -p 22 "149602d7-24bd-4694-9c97-b77d6b695dc1@149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev" sh
+[15:44:14.458] Generated SSH command: 'type "C:\Users\brian\AppData\Local\Temp\vscode-linux-multi-line-command-149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev-524484149.sh" | "C:\WINDOWS\System32\OpenSSH\ssh.exe" -T -D 62244 -p 22 "149602d7-24bd-4694-9c97-b77d6b695dc1@149602d7-24bd-4694-9c97-b77d6b695dc1-00-24nr4vrzik44u.kirk.replit.dev" sh'
+[15:44:14.458] Using connect timeout of 17 seconds
+[15:44:14.459] Terminal shell path: C:\WINDOWS\System32\cmd.exe
+[15:44:14.721] > 
+[15:44:14.721] Got some output, clearing connection timeout
+[15:44:14.747] > 
+[15:44:14.779] > Bad permissions. Try removing permissions for user: ACER-LAPTOP\\CodexSandboxUsers (S-1-5-21-1918893141-153191069-3707636441-1002) on file C:/Users/brian/.ssh/config.
+[15:44:14.787] > Bad owner or permissions on C:\\Users\\brian/.ssh/config
+[15:44:14.809] > The process tried to write to a nonexistent pipe.
+[15:44:16.075] "install" terminal command done
+[15:44:16.076] Install terminal quit with output: Bad owner or permissions on C:\\Users\\brian/.ssh/config
+[15:44:16.076] Received install output: Bad owner or permissions on C:\\Users\\brian/.ssh/config
+[15:44:16.078] WARN: $PLATFORM is undefined in installation script output.  Errors may be dropped.
+[15:44:16.079] Failed to parse remote port from server output
+[15:44:16.082] Resolver error: Error
+    at y.Create (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:745163)
+    at t.handleInstallOutput (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:743244)
+    at t.tryInstall (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:866494)
+    at async c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:825206
+    at async t.withShowDetailsEvent (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:828461)
+    at async A (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:821668)
+    at async t.resolve (c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:825858)
+    at async c:\Users\brian\.vscode\extensions\ms-vscode-remote.remote-ssh-0.122.0\out\extension.js:2:1117225
+[15:44:16.091] ------
+
+
+
+
+[15:44:16.092] No hints found in the recent session.
