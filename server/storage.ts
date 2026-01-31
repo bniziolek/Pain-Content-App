@@ -5,9 +5,9 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
-import { 
-  type User, 
-  type InsertUser, 
+import {
+  type User,
+  type InsertUser,
   type ContentItem,
   type InsertContentItem,
   type AssessmentInvite,
@@ -100,9 +100,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(userId: string, updates: { 
-    name?: string; 
-    email?: string; 
+  updateUser(userId: string, updates: {
+    name?: string;
+    email?: string;
     role?: string;
     phone?: string;
     clinicName?: string;
@@ -116,7 +116,7 @@ export interface IStorage {
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
   updateLastLogin(userId: string): Promise<void>;
   updateUserSubscription(
-    userId: string, 
+    userId: string,
     subscription: {
       stripeCustomerId?: string;
       stripeSubscriptionId?: string;
@@ -126,7 +126,7 @@ export interface IStorage {
   ): Promise<void>;
   updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
   updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void>;
-  
+
   // Stripe-related
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   getTierFromPriceId(priceId: string): Promise<string | null>;
@@ -156,11 +156,11 @@ export interface IStorage {
   createAssessment(assessment: InsertAssessment): Promise<Assessment>;
   updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined>;
   deleteAssessment(id: string): Promise<void>;
-  
+
   // Assessment responses
   createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse>;
   getAssessmentResponseByInviteId(inviteId: string): Promise<AssessmentResponse | undefined>;
-  
+
   // Assessment invites
   createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
   getAssessmentInviteById(id: string): Promise<AssessmentInvite | undefined>;
@@ -277,14 +277,14 @@ export interface IStorage {
   assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission>;
   removePermissionFromRole(role: string, permissionId: string): Promise<void>;
   hasPermission(role: string, permissionName: string): Promise<boolean>;
-  
+
   // User-level permission overrides
   getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null>;
   getUserPermissions(userId: string): Promise<schema.UserPermission[]>;
   grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission>;
   revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission>;
   removeUserPermission(id: string): Promise<void>;
-  
+
   // Persona switching
   switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch>;
   clearPersona(userId: string): Promise<void>;
@@ -312,7 +312,7 @@ export interface IStorage {
   getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]>;
   setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride>;
   deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void>;
-  
+
   // Feature flag audit log
   createFeatureFlagAuditLog(entry: schema.InsertFeatureFlagAuditLog): Promise<schema.FeatureFlagAuditLog>;
   getFeatureFlagAuditLog(userId: string): Promise<(schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[]>;
@@ -427,9 +427,9 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
     });
   }
 
@@ -449,9 +449,9 @@ export class DatabaseStorage implements IStorage {
     return user!;
   }
 
-  async updateUser(userId: string, updates: { 
-    name?: string; 
-    email?: string; 
+  async updateUser(userId: string, updates: {
+    name?: string;
+    email?: string;
     role?: string;
     phone?: string;
     clinicName?: string;
@@ -875,9 +875,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.emailLogs.id, id));
   }
 
-  async updateEmailLogLockout(id: string, updates: { 
-    failedAttempts?: number; 
-    lockedUntil?: Date | null; 
+  async updateEmailLogLockout(id: string, updates: {
+    failedAttempts?: number;
+    lockedUntil?: Date | null;
     permanentlyLocked?: boolean;
   }): Promise<void> {
     await db.update(schema.emailLogs)
@@ -894,10 +894,10 @@ export class DatabaseStorage implements IStorage {
 
   async unlockEmailLog(id: string): Promise<void> {
     await db.update(schema.emailLogs)
-      .set({ 
-        failedAttempts: 0, 
-        lockedUntil: null, 
-        permanentlyLocked: false 
+      .set({
+        failedAttempts: 0,
+        lockedUntil: null,
+        permanentlyLocked: false
       })
       .where(eq(schema.emailLogs.id, id));
   }
@@ -998,11 +998,11 @@ export class DatabaseStorage implements IStorage {
   async getEnabledTemplatesForUser(userId: string): Promise<FollowUpRule[]> {
     const prefs = await this.getUserTemplatePreferences(userId);
     const enabledIds = prefs.filter(p => p.isEnabled).map(p => p.templateRuleId);
-    
+
     if (enabledIds.length === 0) {
       return [];
     }
-    
+
     const templates = await this.getTemplateFollowUpRules();
     return templates.filter(t => enabledIds.includes(t.id));
   }
@@ -1185,7 +1185,7 @@ export class DatabaseStorage implements IStorage {
     if (filters?.isActive !== undefined) {
       conditions.push(eq(schema.recommendationConfigs.isActive, filters.isActive));
     }
-    
+
     if (conditions.length > 0) {
       return db.select().from(schema.recommendationConfigs).where(and(...conditions)).orderBy(schema.recommendationConfigs.priority);
     }
@@ -1233,7 +1233,7 @@ export class DatabaseStorage implements IStorage {
     if (filters.status) {
       conditions.push(eq(schema.patientRecommendations.status, filters.status));
     }
-    
+
     if (conditions.length > 0) {
       return db.select().from(schema.patientRecommendations).where(and(...conditions)).orderBy(desc(schema.patientRecommendations.createdAt));
     }
@@ -1261,7 +1261,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; resourceType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]> {
     let query = db.select().from(schema.auditLogs);
-    
+
     const conditions = [];
     if (filters?.userId) {
       conditions.push(eq(schema.auditLogs.userId, filters.userId));
@@ -1281,11 +1281,11 @@ export class DatabaseStorage implements IStorage {
     if (filters?.endDate) {
       conditions.push(lte(schema.auditLogs.createdAt, filters.endDate));
     }
-    
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as typeof query;
     }
-    
+
     const results = await query.orderBy(desc(schema.auditLogs.createdAt)).limit(filters?.limit ?? 100);
     return results;
   }
@@ -1361,14 +1361,14 @@ export class DatabaseStorage implements IStorage {
         eq(schema.emailLogs.patientEmail, patientEmail),
         sql`${schema.emailLogs.accessCodeHash} IS NOT NULL`
       ));
-    
+
     for (const log of logs) {
       if (log.accessCodeHash && log.accessCodeSalt) {
         const isValid = await this.verifyAccessCode(plainCode, log.accessCodeHash, log.accessCodeSalt);
         if (isValid) return log;
       }
     }
-    
+
     // Fallback to plaintext check during transition
     const [legacyLog] = await db.select()
       .from(schema.emailLogs)
@@ -1376,7 +1376,7 @@ export class DatabaseStorage implements IStorage {
         eq(schema.emailLogs.patientEmail, patientEmail),
         eq(schema.emailLogs.accessCode, plainCode)
       ));
-    
+
     return legacyLog;
   }
 
@@ -1392,7 +1392,7 @@ export class DatabaseStorage implements IStorage {
       .from(schema.rolePermissions)
       .innerJoin(schema.permissions, eq(schema.rolePermissions.permissionId, schema.permissions.id))
       .where(eq(schema.rolePermissions.role, role));
-    
+
     return results.map(r => r.permission);
   }
 
@@ -1416,7 +1416,7 @@ export class DatabaseStorage implements IStorage {
   async hasPermission(role: string, permissionName: string): Promise<boolean> {
     // Super admin and admin have all permissions
     if (role === 'admin' || role === 'super_admin') return true;
-    
+
     const permissions = await this.getPermissionsByRole(role);
     return permissions.some(p => p.name === permissionName);
   }
@@ -1425,7 +1425,7 @@ export class DatabaseStorage implements IStorage {
   async getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null> {
     const permission = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
     if (permission.length === 0) return null;
-    
+
     const [override] = await db.select()
       .from(schema.userPermissions)
       .where(and(
@@ -1433,14 +1433,14 @@ export class DatabaseStorage implements IStorage {
         eq(schema.userPermissions.permissionId, permission[0].id)
       ))
       .limit(1);
-    
+
     if (!override) return null;
-    
+
     // Check expiration
     if (override.expiresAt && override.expiresAt < new Date()) {
       return null;
     }
-    
+
     return override.granted;
   }
 
@@ -1453,13 +1453,13 @@ export class DatabaseStorage implements IStorage {
   async grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission> {
     const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
     if (!permission) throw new Error(`Permission not found: ${permissionName}`);
-    
+
     // Remove existing override if any
     await db.delete(schema.userPermissions).where(and(
       eq(schema.userPermissions.userId, userId),
       eq(schema.userPermissions.permissionId, permission.id)
     ));
-    
+
     const [created] = await db.insert(schema.userPermissions).values({
       userId,
       permissionId: permission.id,
@@ -1468,20 +1468,20 @@ export class DatabaseStorage implements IStorage {
       reason,
       expiresAt
     }).returning();
-    
+
     return created!;
   }
 
   async revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission> {
     const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
     if (!permission) throw new Error(`Permission not found: ${permissionName}`);
-    
+
     // Remove existing override if any
     await db.delete(schema.userPermissions).where(and(
       eq(schema.userPermissions.userId, userId),
       eq(schema.userPermissions.permissionId, permission.id)
     ));
-    
+
     const [created] = await db.insert(schema.userPermissions).values({
       userId,
       permissionId: permission.id,
@@ -1489,7 +1489,7 @@ export class DatabaseStorage implements IStorage {
       grantedBy,
       reason
     }).returning();
-    
+
     return created!;
   }
 
@@ -1501,14 +1501,14 @@ export class DatabaseStorage implements IStorage {
   async switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch> {
     const user = await this.getUser(userId);
     if (!user) throw new Error('User not found');
-    
+
     const fromPersona = user.activePersona || user.role;
-    
+
     // Update user's active persona
     await db.update(schema.users)
       .set({ activePersona: toPersona, updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
-    
+
     // Log the switch
     const [log] = await db.insert(schema.personaSwitches).values({
       userId,
@@ -1517,14 +1517,14 @@ export class DatabaseStorage implements IStorage {
       ipAddress,
       userAgent
     }).returning();
-    
+
     return log!;
   }
 
   async clearPersona(userId: string): Promise<void> {
     const user = await this.getUser(userId);
     if (!user) throw new Error('User not found');
-    
+
     // Mark the most recent switch as switched back
     await db.update(schema.personaSwitches)
       .set({ switchedBackAt: new Date() })
@@ -1532,7 +1532,7 @@ export class DatabaseStorage implements IStorage {
         eq(schema.personaSwitches.userId, userId),
         isNull(schema.personaSwitches.switchedBackAt)
       ));
-    
+
     // Clear the active persona
     await db.update(schema.users)
       .set({ activePersona: null, updatedAt: new Date() })
@@ -1838,8 +1838,8 @@ export class DatabaseStorage implements IStorage {
 
     const contentItems = allContentIds.size > 0
       ? await db.select({ id: schema.contentItems.id, title: schema.contentItems.title })
-          .from(schema.contentItems)
-          .where(sql`${schema.contentItems.id} = ANY(${Array.from(allContentIds)})`)
+        .from(schema.contentItems)
+        .where(sql`${schema.contentItems.id} = ANY(${Array.from(allContentIds)})`)
       : [];
 
     const contentMap = new Map(contentItems.map(c => [c.id, c.title]));
@@ -1922,9 +1922,9 @@ export class DatabaseStorage implements IStorage {
     const contentIds = topContentRows.map((row) => row.contentId);
     const contentItems = contentIds.length
       ? await db
-          .select({ id: schema.contentItems.id, title: schema.contentItems.title })
-          .from(schema.contentItems)
-          .where(inArray(schema.contentItems.id, contentIds))
+        .select({ id: schema.contentItems.id, title: schema.contentItems.title })
+        .from(schema.contentItems)
+        .where(inArray(schema.contentItems.id, contentIds))
       : [];
     const titleMap = new Map(contentItems.map((item) => [item.id, item.title]));
 
@@ -1979,10 +1979,10 @@ export class DatabaseStorage implements IStorage {
       title: schema.contentItems.title,
       createdAt: schema.userFavorites.createdAt,
     })
-    .from(schema.userFavorites)
-    .leftJoin(schema.contentItems, eq(schema.userFavorites.contentId, schema.contentItems.id))
-    .where(eq(schema.userFavorites.userId, userId))
-    .orderBy(desc(schema.userFavorites.createdAt));
+      .from(schema.userFavorites)
+      .leftJoin(schema.contentItems, eq(schema.userFavorites.contentId, schema.contentItems.id))
+      .where(eq(schema.userFavorites.userId, userId))
+      .orderBy(desc(schema.userFavorites.createdAt));
     return favorites.map(f => ({
       contentId: f.contentId,
       title: f.title || 'Unknown Content',
@@ -2018,8 +2018,8 @@ export class DatabaseStorage implements IStorage {
     const logs = await db.select({
       contentIds: schema.emailLogs.contentIds,
     })
-    .from(schema.emailLogs)
-    .where(eq(schema.emailLogs.clinicianUserId, userId));
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.clinicianUserId, userId));
 
     const counts = new Map<string, number>();
     logs.forEach(log => {
@@ -2039,8 +2039,8 @@ export class DatabaseStorage implements IStorage {
       id: schema.contentItems.id,
       title: schema.contentItems.title,
     })
-    .from(schema.contentItems)
-    .where(inArray(schema.contentItems.id, contentIds));
+      .from(schema.contentItems)
+      .where(inArray(schema.contentItems.id, contentIds));
 
     const titleMap = new Map(contentItems.map(c => [c.id, c.title]));
 
@@ -2159,11 +2159,11 @@ export class DatabaseStorage implements IStorage {
     const totalConnections = pool.totalCount;
     const idleConnections = pool.idleCount;
     const activeConnections = totalConnections - idleConnections;
-    
+
     // Get max connections from database
     const result = await db.execute(sql`SHOW max_connections;`);
     const maxConnections = result.rows[0] ? parseInt(result.rows[0].max_connections as string, 10) : 100;
-    
+
     return {
       totalConnections,
       maxConnections,
@@ -2295,9 +2295,9 @@ export class DatabaseStorage implements IStorage {
 
     // Group by endpoint
     const endpointStats = new Map<string, number[]>();
-    
+
     metrics.forEach(m => {
-      if (m.value && m.metricName) {
+      if (m.value !== null && m.metricName) {
         if (!endpointStats.has(m.metricName)) {
           endpointStats.set(m.metricName, []);
         }

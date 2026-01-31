@@ -72,7 +72,6 @@ export default function SubscriptionPage() {
   const searchParams = new URLSearchParams(searchString);
   const reason = searchParams.get("reason");
   const showNoSubscriptionAlert = reason === "no_subscription";
-  const showCheckoutPendingAlert = reason === "checkout_pending";
 
   useEffect(() => {
     fetchPlans();
@@ -242,22 +241,13 @@ export default function SubscriptionPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Subscription Required</AlertTitle>
             <AlertDescription>
-              You need an active subscription to access the platform features. 
+              You need an active subscription to access the platform features.
               Please choose a plan below to continue using DriverPath.
             </AlertDescription>
           </Alert>
         )}
 
-        {showCheckoutPendingAlert && (
-          <Alert className="max-w-2xl mx-auto border-amber-200 bg-amber-50" data-testid="alert-checkout-pending">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Payment Processing</AlertTitle>
-            <AlertDescription className="text-amber-700">
-              Your payment is being processed. This usually takes just a few moments.
-              If your subscription isn't activated within a few minutes, please try refreshing the page or contact support.
-            </AlertDescription>
-          </Alert>
-        )}
+
 
         {isSubscribed && (
           <Card className="border-primary/20 bg-primary/5">
@@ -323,9 +313,8 @@ export default function SubscriptionPage() {
         ) : (
           <div className={`grid gap-8 ${proTierEnabled ? "md:grid-cols-2" : "md:grid-cols-1 max-w-lg mx-auto"}`}>
             <Card
-              className={`relative transition-all border-2 ${
-                currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
-              }`}
+              className={`relative transition-all border-2 ${currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
+                }`}
             >
               {currentTier === "basic" && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>
@@ -414,9 +403,8 @@ export default function SubscriptionPage() {
 
             {proTierEnabled && (
               <Card
-                className={`relative transition-all border-2 ${
-                  currentTier === "pro" ? "border-primary shadow-lg" : "border-amber-200 shadow-md"
-                }`}
+                className={`relative transition-all border-2 ${currentTier === "pro" ? "border-primary shadow-lg" : "border-amber-200 shadow-md"
+                  }`}
               >
                 {currentTier === "pro" ? (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>

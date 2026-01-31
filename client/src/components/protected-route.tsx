@@ -56,22 +56,25 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
 }
 
 export function RequireSubscription({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { isActive } = useSubscriptionStatus();
   const [, setLocation] = useLocation();
 
   const urlParams = new URLSearchParams(window.location.search);
   const isFromCheckoutUrl = urlParams.get("subscription") === "success";
-  
-  if (isFromCheckoutUrl) {
-    sessionStorage.setItem("checkout_pending", "true");
-  }
-  
-  const hasCheckoutPending = sessionStorage.getItem("checkout_pending") === "true";
-  
-  if (isActive && hasCheckoutPending) {
-    sessionStorage.removeItem("checkout_pending");
-  }
+
+  // Refresh user state if coming from checkout to catch the webhook update
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isFromCheckoutUrl && !isActive && !loading) {
+      interval = setInterval(() => {
+        refreshUser();
+      }, 3000); // Poll every 3 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isFromCheckoutUrl, isActive, loading, refreshUser]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -82,16 +85,20 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!loading && user) {
       const isAdmin = user.role === "admin";
-      if (!isActive && !isAdmin && !hasCheckoutPending) {
+      // Only redirect if NOT active, NOT admin, AND not currently processing a success redirect
+      if (!isActive && !isAdmin && !isFromCheckoutUrl) {
         setLocation("/subscription?reason=no_subscription");
       }
     }
-  }, [user, loading, isActive, hasCheckoutPending, setLocation]);
+  }, [user, loading, isActive, isFromCheckoutUrl, setLocation]);
 
-  if (loading) {
+  if (loading || (isFromCheckoutUrl && !isActive)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        {isFromCheckoutUrl && !isActive && (
+          <p className="text-muted-foreground animate-pulse">Confirming your subscription...</p>
+        )}
       </div>
     );
   }
@@ -101,7 +108,7 @@ export function RequireSubscription({ children }: { children: React.ReactNode })
   }
 
   const isAdmin = user.role === "admin";
-  if (!isActive && !isAdmin && !hasCheckoutPending) {
+  if (!isActive && !isAdmin) {
     return null;
   }
 
