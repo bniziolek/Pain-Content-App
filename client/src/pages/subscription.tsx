@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Check, Crown, Loader2, Settings, Sparkles, X, ExternalLink } from "lucide-react";
+import { Activity, AlertCircle, Check, Crown, Loader2, Settings, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Price {
   id: string;
@@ -58,6 +59,7 @@ const TIER_FEATURES = {
 
 export default function SubscriptionPage() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const { user, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +68,10 @@ export default function SubscriptionPage() {
   const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [proTierEnabled, setProTierEnabled] = useState(true);
+
+  const searchParams = new URLSearchParams(searchString);
+  const reason = searchParams.get("reason");
+  const showNoSubscriptionAlert = reason === "no_subscription";
 
   useEffect(() => {
     fetchPlans();
@@ -230,6 +236,19 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
+        {showNoSubscriptionAlert && (
+          <Alert variant="destructive" className="max-w-2xl mx-auto" data-testid="alert-no-subscription">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Subscription Required</AlertTitle>
+            <AlertDescription>
+              You need an active subscription to access the platform features.
+              Please choose a plan below to continue using DriverPath.
+            </AlertDescription>
+          </Alert>
+        )}
+
+
+
         {isSubscribed && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="flex items-center justify-between p-6">
@@ -294,9 +313,8 @@ export default function SubscriptionPage() {
         ) : (
           <div className={`grid gap-8 ${proTierEnabled ? "md:grid-cols-2" : "md:grid-cols-1 max-w-lg mx-auto"}`}>
             <Card
-              className={`relative transition-all border-2 ${
-                currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
-              }`}
+              className={`relative transition-all border-2 ${currentTier === "basic" ? "border-primary shadow-lg" : "border-gray-200"
+                }`}
             >
               {currentTier === "basic" && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>
@@ -385,9 +403,8 @@ export default function SubscriptionPage() {
 
             {proTierEnabled && (
               <Card
-                className={`relative transition-all border-2 ${
-                  currentTier === "pro" ? "border-primary shadow-lg" : "border-amber-200 shadow-md"
-                }`}
+                className={`relative transition-all border-2 ${currentTier === "pro" ? "border-primary shadow-lg" : "border-amber-200 shadow-md"
+                  }`}
               >
                 {currentTier === "pro" ? (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</Badge>
@@ -481,9 +498,11 @@ export default function SubscriptionPage() {
         )}
 
         <div className="text-center space-y-4 pt-8">
-          <p className="text-sm text-muted-foreground">
-            All plans include a 14-day free trial. Cancel anytime.
-          </p>
+          {!showNoSubscriptionAlert && (
+            <p className="text-sm text-muted-foreground">
+              All plans include a 14-day free trial. Cancel anytime.
+            </p>
+          )}
           <Button variant="ghost" asChild>
             <Link href="/dashboard">
               ← Back to Dashboard

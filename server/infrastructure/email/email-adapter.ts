@@ -14,8 +14,30 @@ import {
   sendAssessmentInviteEmail as sendResendAssessmentInvite,
   isResendConfigured,
 } from './resend.service';
+import { storage } from '../../storage';
+
+import type { EmailBrandingConfig } from '../../application/context';
 
 export type EmailProvider = 'gmail' | 'resend' | 'auto';
+
+async function recordEmailMetric(success: boolean, errorReason?: string): Promise<void> {
+  // Can be disabled via DISABLE_HEALTH_METRICS env var
+  if (process.env.DISABLE_HEALTH_METRICS === 'true') {
+    return;
+  }
+  
+  try {
+    await storage.recordHealthMetric({
+      metricType: success ? 'email_sent' : 'email_bounced',
+      metricName: 'email_delivery',
+      value: 1,
+      status: success ? 'success' : 'error',
+      metadata: success ? undefined : { reason: errorReason },
+    });
+  } catch (err) {
+    console.error('Failed to record email health metric:', err);
+  }
+}
 
 export interface ContentEmailData {
   toEmail: string;
@@ -30,6 +52,7 @@ export interface ContentEmailData {
   }[];
   providerNote?: string;
   clinicianName?: string;
+  branding?: EmailBrandingConfig;
 }
 
 export interface AssessmentInviteEmailData {
@@ -90,6 +113,7 @@ export async function sendContentEmail(
     console.log('[EmailAdapter] No email provider configured, logging email:');
     console.log('To:', data.toEmail);
     console.log('Subject:', data.subject);
+    await recordEmailMetric(true);
     return { success: true, messageId: 'dev-mode-' + Date.now(), provider: 'console' };
   }
   
@@ -102,6 +126,7 @@ export async function sendContentEmail(
       })),
     };
     const result = await sendGmailContent(gmailData);
+    await recordEmailMetric(result.success, result.error);
     return { ...result, provider: 'gmail' };
   }
   
@@ -116,6 +141,7 @@ export async function sendContentEmail(
     })),
   };
   const result = await sendResendContent(resendData);
+  await recordEmailMetric(result.success, result.error);
   return { ...result, provider: 'resend' };
 }
 
@@ -128,15 +154,18 @@ export async function sendAssessmentInviteEmail(
     console.log('[EmailAdapter] No email provider configured, logging email:');
     console.log('To:', data.toEmail);
     console.log('Assessment Link:', data.assessmentLink);
+    await recordEmailMetric(true);
     return { success: true, messageId: 'dev-mode-' + Date.now(), provider: 'console' };
   }
   
   if (provider === 'gmail') {
     const result = await sendGmailAssessmentInvite(data);
+    await recordEmailMetric(result.success, result.error);
     return { ...result, provider: 'gmail' };
   }
   
   const result = await sendResendAssessmentInvite(data);
+  await recordEmailMetric(result.success, result.error);
   return { ...result, provider: 'resend' };
 }
 
@@ -149,14 +178,17 @@ export async function sendPasswordResetEmail(
     console.log('[EmailAdapter] No email provider configured, logging email:');
     console.log('To:', data.toEmail);
     console.log('Reset Link:', data.resetLink);
+    await recordEmailMetric(true);
     return { success: true, messageId: 'dev-mode-' + Date.now(), provider: 'console' };
   }
   
   if (provider === 'gmail') {
     const result = await sendGmailPasswordReset(data);
+    await recordEmailMetric(result.success, result.error);
     return { ...result, provider: 'gmail' };
   }
   
+  await recordEmailMetric(false, 'Password reset email not supported by Resend provider');
   return { 
     success: false, 
     error: 'Password reset email not supported by Resend provider',

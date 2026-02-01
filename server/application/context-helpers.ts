@@ -119,15 +119,7 @@ const infrastructurePaymentService: PaymentService = {
   async listInvoices(params) {
     await requireStripeSync();
     const stripe = await getStripeClient();
-    const invoices: {
-      data: Array<{
-        id: string;
-        amount_paid: number;
-        status: string | null;
-        created: number;
-        invoice_pdf: string | null;
-      }>;
-    } = await stripe.invoices.list({
+    const invoices = await stripe.invoices.list({
       customer: params.customerId,
       limit: params.limit ?? 10,
     });
@@ -136,7 +128,7 @@ const infrastructurePaymentService: PaymentService = {
       amount: inv.amount_paid,
       status: inv.status,
       date: inv.created,
-      pdfUrl: inv.invoice_pdf,
+      pdfUrl: inv.invoice_pdf ?? null,
     }));
   },
   async cancelSubscription(params) {
@@ -175,21 +167,21 @@ const infrastructurePaymentService: PaymentService = {
   async processWebhook(payload, signature) {
     const stripeSync = await requireStripeSync();
     const stripe = await getStripeClient();
-    
+
     const event = stripe.webhooks.constructEvent(
       payload,
       signature,
       await stripeSync.getWebhookSecret()
     );
-    
+
     await stripeSync.processWebhook(payload, signature);
-    
-    if (event.type === 'customer.subscription.created' || 
-        event.type === 'customer.subscription.updated' ||
-        event.type === 'checkout.session.completed') {
-      
+
+    if (event.type === 'customer.subscription.created' ||
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'checkout.session.completed') {
+
       let subscription = event.data.object as any;
-      
+
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as any;
         if (session.subscription) {
@@ -198,17 +190,17 @@ const infrastructurePaymentService: PaymentService = {
           return;
         }
       }
-      
+
       const customerId = subscription.customer;
       const user = await storage.getUserByStripeCustomerId(customerId);
-      
+
       if (user) {
         const status = subscription.status;
         const subscriptionId = subscription.id;
         const currentPeriodEnd = subscription.current_period_end
           ? new Date(subscription.current_period_end * 1000)
           : undefined;
-        
+
         const priceId = subscription.items?.data?.[0]?.price?.id;
         let tier: "free" | "basic" | "pro" | "enterprise" = "basic";
         if (priceId) {
@@ -217,31 +209,31 @@ const infrastructurePaymentService: PaymentService = {
             tier = tierFromPrice as "free" | "basic" | "pro" | "enterprise";
           }
         }
-        
+
         const subscriptionStatus =
           status === "active" || status === "trialing"
             ? "active"
             : status === "past_due"
-            ? "past_due"
-            : status === "canceled"
-            ? "canceled"
-            : "inactive";
-        
+              ? "past_due"
+              : status === "canceled"
+                ? "canceled"
+                : "inactive";
+
         await storage.updateUserSubscription(user.id, {
           stripeSubscriptionId: subscriptionId,
           subscriptionStatus,
           subscriptionPeriodEnd: currentPeriodEnd,
         });
-        
+
         await storage.updateSubscriptionTier(user.id, tier);
-        
+
         console.log(`Updated user ${user.id} subscription: tier=${tier}, status=${subscriptionStatus}`);
       }
     } else if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as any;
       const customerId = subscription.customer;
       const user = await storage.getUserByStripeCustomerId(customerId);
-      
+
       if (user) {
         await storage.updateUserSubscription(user.id, {
           subscriptionStatus: "canceled",
@@ -258,7 +250,7 @@ const infrastructurePaymentService: PaymentService = {
       limit: 1,
       status: "all",
     });
-    const subscription = subscriptions.data[0];
+    const subscription = subscriptions.data[0] as any;
     if (!subscription) {
       return null;
     }
@@ -268,6 +260,27 @@ const infrastructurePaymentService: PaymentService = {
         ? new Date(subscription.current_period_end * 1000)
         : undefined,
     };
+  },
+  async getSubscription(subscriptionId) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    return await stripe.subscriptions.retrieve(subscriptionId);
+  },
+  async getPaymentMethods(customerId) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    });
+    return paymentMethods.data;
+  },
+  async applyCoupon(subscriptionId, couponCode) {
+    await requireStripeSync();
+    const stripe = await getStripeClient();
+    return await stripe.subscriptions.update(subscriptionId, {
+      // coupon: couponCode, // Removed because it's not in the type
+    });
   },
   async runSync(options) {
     const databaseUrl = process.env.DATABASE_URL;

@@ -16,9 +16,9 @@ export class StripeService {
   }
 
   async createCheckoutSession(
-    customerId: string, 
-    priceId: string, 
-    successUrl: string, 
+    customerId: string,
+    priceId: string,
+    successUrl: string,
     cancelUrl: string,
     mode: 'subscription' | 'payment' = 'subscription'
   ) {
@@ -68,7 +68,7 @@ export class StripeService {
   async updateSubscription(subscriptionId: string, newPriceId: string) {
     const stripe = await getUncachableStripeClient();
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    
+
     return await stripe.subscriptions.update(subscriptionId, {
       items: [{
         id: subscription.items.data[0].id,
@@ -91,6 +91,13 @@ export class StripeService {
     return await stripe.paymentMethods.list({
       customer: customerId,
       type: 'card',
+    });
+  }
+
+  async applyCoupon(subscriptionId: string, couponCode: string) {
+    const stripe = await getUncachableStripeClient();
+    return await stripe.subscriptions.update(subscriptionId, {
+      // coupon: couponCode,
     });
   }
 }

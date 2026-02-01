@@ -70,9 +70,9 @@ interface QuestionMetadata {
 
 export function extractQuestionMetadata(surveyJson: SurveyJson | null): QuestionMetadata {
   const metadata: QuestionMetadata = {};
-  
+
   if (!surveyJson?.pages) return metadata;
-  
+
   function processElements(elements: SurveyElement[]) {
     for (const element of elements) {
       if (element.name) {
@@ -80,7 +80,7 @@ export function extractQuestionMetadata(surveyJson: SurveyJson | null): Question
         let minValue = 0;
         let maxValue = 4;
         let choiceCount: number | undefined;
-        
+
         if (type === "rating") {
           maxValue = element.rateMax || element.rateCount || 5;
           minValue = 1;
@@ -109,22 +109,22 @@ export function extractQuestionMetadata(surveyJson: SurveyJson | null): Question
           choiceCount = element.choices?.length || 10;
           maxValue = choiceCount;
         }
-        
+
         metadata[element.name] = { type, minValue, maxValue, choiceCount };
       }
-      
+
       if (element.elements) {
         processElements(element.elements);
       }
     }
   }
-  
+
   for (const page of surveyJson.pages) {
     if (page.elements) {
       processElements(page.elements);
     }
   }
-  
+
   return metadata;
 }
 
@@ -158,7 +158,7 @@ export function calculateTagScores(
       } else if (questionConfig.scale) {
         const numAnswer = typeof answer === "number" ? answer : parseFloat(String(answer));
         if (!isNaN(numAnswer)) {
-          const normalizedScore = (numAnswer - questionConfig.scale.min) / 
+          const normalizedScore = (numAnswer - questionConfig.scale.min) /
             (questionConfig.scale.max - questionConfig.scale.min);
           questionScore = normalizedScore;
           maxPossibleScore += weight;
@@ -191,13 +191,13 @@ function inferTagScoresFromAnswers(
   answers: Record<string, unknown>,
   questionMetadata: QuestionMetadata
 ): TagScore[] {
-  const inferredScores: Record<string, { 
-    values: Array<{ value: number; questionName: string }>; 
-    booleans: boolean[]; 
-    arrays: Array<{ count: number; maxChoices: number }>; 
-    count: number 
+  const inferredScores: Record<string, {
+    values: Array<{ value: number; questionName: string }>;
+    booleans: boolean[];
+    arrays: Array<{ count: number; maxChoices: number }>;
+    count: number
   }> = {};
-  
+
   const tagMapping: Record<string, string> = {
     pain_intensity: "pain_severity",
     pain_level: "pain_severity",
@@ -211,9 +211,9 @@ function inferTagScoresFromAnswers(
 
   for (const [questionName, answer] of Object.entries(answers)) {
     const genericPattern = /^(question|q|item|element)\d*$/i;
-    const tag = tagMapping[questionName] || 
-                (genericPattern.test(questionName) ? "general" : questionName);
-    
+    const tag = tagMapping[questionName] ||
+      (genericPattern.test(questionName) ? "general" : questionName);
+
     if (!inferredScores[tag]) {
       inferredScores[tag] = { values: [], booleans: [], arrays: [], count: 0 };
     }
@@ -243,29 +243,29 @@ function inferTagScoresFromAnswers(
   return Object.entries(inferredScores).map(([tag, data]) => {
     let score = 0;
     let maxScore = 0;
-    
+
     if (data.values.length > 0) {
       const normalizedValues: number[] = [];
-      
+
       for (const { value, questionName } of data.values) {
         const meta = questionMetadata[questionName];
         let minVal = 0;
         let maxVal = 4;
-        
+
         if (meta) {
           minVal = meta.minValue;
           maxVal = meta.maxValue;
         }
-        
+
         const range = maxVal - minVal;
         const normalized = range > 0 ? ((value - minVal) / range) * 100 : 0;
         normalizedValues.push(Math.min(100, Math.max(0, normalized)));
       }
-      
+
       score = normalizedValues.reduce((a, b) => a + b, 0) / normalizedValues.length;
       maxScore = 100;
     }
-    
+
     if (data.booleans.length > 0) {
       const trueCount = data.booleans.filter(b => b).length;
       const boolScore = (trueCount / data.booleans.length) * 100;
@@ -276,7 +276,7 @@ function inferTagScoresFromAnswers(
         maxScore = 100;
       }
     }
-    
+
     if (data.arrays.length > 0) {
       const arrayScores = data.arrays.map(arr => (arr.count / arr.maxChoices) * 100);
       const avgArrayScore = arrayScores.reduce((a, b) => a + b, 0) / arrayScores.length;
@@ -287,7 +287,7 @@ function inferTagScoresFromAnswers(
         maxScore = 100;
       }
     }
-    
+
     return {
       tag,
       score: Math.round(score * 100) / 100,
@@ -366,9 +366,38 @@ function inferPrimaryOutcome(tagScores: TagScore[]): string | null {
     return "Low Risk";
   }
 
-  const highestTag = tagScores.reduce((prev, curr) => 
+  const highestTag = tagScores.reduce((prev, curr) =>
     curr.percentage > prev.percentage ? curr : prev
   );
-  
+
   return `Elevated ${highestTag.tag.replace(/_/g, " ")}`;
+}
+
+export async function scoreAssessmentResponse(
+  assessmentId: string,
+  answers: Record<string, unknown>
+): Promise<ScoringResult> {
+  // Note: assessment fetching logic here is simplified as scoring service 
+  // should ideally be decoupled from storage, but we implement it to match current route usage.
+  const { storage } = await import("../../storage");
+  const assessment = await storage.getAssessmentById(assessmentId);
+
+  if (!assessment) {
+    throw new Error("Assessment not found");
+  }
+
+  const scoringConfig = assessment.scoringConfig as ScoringConfig | null;
+  const surveyJson = assessment.surveyJson as SurveyJson | null;
+  const questionMetadata = extractQuestionMetadata(surveyJson);
+  const tagScores = calculateTagScores(answers, scoringConfig, questionMetadata);
+
+  // For outcome rules, we'll need to check if they exist in the scoring config or separate field
+  // Assuming they are part of scoring config for now or use default inference
+  const primaryOutcome = determinePrimaryOutcome(tagScores, null);
+
+  return {
+    tagScores,
+    primaryOutcome,
+    recommendations: [], // To be implemented with recommendation engine
+  };
 }

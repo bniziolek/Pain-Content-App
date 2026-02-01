@@ -27,6 +27,9 @@ import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
 import AdminRecommendationsPage from "@/pages/admin/recommendations";
 import AdminFeatureFlagsPage from "@/pages/admin/feature-flags";
+import AdminHealthDashboard from "@/pages/admin/health";
+import AdminSubscriptionsPage from "@/pages/admin/subscriptions";
+import SubscriptionDetailPage from "@/pages/admin/subscription-detail";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
@@ -51,6 +54,7 @@ import CaseStudiesPage from "@/pages/public/case-studies";
 import FAQPage from "@/pages/public/faq";
 import UseCasesPage from "@/pages/public/use-cases";
 import IntegrationsPage from "@/pages/public/integrations";
+import LookupPage from "@/pages/public/lookup";
 
 function Router() {
   return (
@@ -73,6 +77,7 @@ function Router() {
       <Route path="/faq" component={FAQPage} />
       <Route path="/use-cases" component={UseCasesPage} />
       <Route path="/integrations" component={IntegrationsPage} />
+      <Route path="/lookup" component={LookupPage} />
       <Route path="/subscription">
         {() => (
           <RequireAuth>
@@ -122,6 +127,28 @@ function Router() {
         {() => (
           <RequireAdmin>
             <AdminFeatureFlagsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+
+      <Route path="/admin/health">
+        {() => (
+          <RequireAdmin>
+            <AdminHealthDashboard />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/subscriptions">
+        {() => (
+          <RequireAdmin>
+            <AdminSubscriptionsPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/subscriptions/:userId">
+        {() => (
+          <RequireAdmin>
+            <SubscriptionDetailPage />
           </RequireAdmin>
         )}
       </Route>

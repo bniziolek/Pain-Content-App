@@ -18,19 +18,8 @@ export async function getPathway(
   ctx: AppContext,
   input: GetPathwayInput
 ): Promise<GetPathwayResult | null> {
-  let pathway: CarePathway | null = null;
-
-  if (ctx.cms.isConfigured() && ctx.cms.getPathwayById) {
-    try {
-      pathway = (await ctx.cms.getPathwayById(input.pathwayId)) as CarePathway | null;
-    } catch (error) {
-      console.warn("CMS pathway fetch failed, falling back to database:", error);
-    }
-  }
-
-  if (!pathway) {
-    pathway = (await ctx.storage.getCarePathwayById(input.pathwayId)) ?? null;
-  }
+  // Read exclusively from database. Pathways are synced via `npm run contentful:sync`.
+  const pathway: CarePathway | null = (await ctx.storage.getCarePathwayById(input.pathwayId)) ?? null;
 
   if (!pathway) {
     return null;

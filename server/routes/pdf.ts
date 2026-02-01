@@ -22,7 +22,10 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       pageSize = 'letter',
       includeTableOfContents = false,
       coverPageMessage,
-      clinicianName
+      clinicianName,
+      sectionFormatting,
+      includeAccessCode = false,
+      accessCodeExpirationDays = 90,
     } = req.body;
 
     const result = await generateScreeningPdf(appContext, buildAuditRequestContext(req), {
@@ -33,10 +36,18 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
         includeTableOfContents,
         coverPageMessage,
         clinicianName,
+        sectionFormatting,
       },
+      includeAccessCode,
+      accessCodeExpirationDays,
     });
     if (!result) {
       return res.status(404).json({ error: "Screening or content not found" });
+    }
+
+    if (includeAccessCode && result.accessCode) {
+      res.setHeader('X-Access-Code', result.accessCode);
+      res.setHeader('X-Access-Code-Expires', result.accessCodeExpiresAt?.toISOString() || '');
     }
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -57,7 +68,8 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
       coverPageMessage,
       clinicianName,
       patientName,
-      packetTitle
+      packetTitle,
+      sectionFormatting
     } = req.body;
 
     if (!contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
@@ -74,6 +86,7 @@ router.post("/packets/:screeningId/generate-pdf", requireSubscription, async (re
         coverPageMessage,
         clinicianName,
         packetTitle,
+        sectionFormatting,
       },
     });
     if (!result) {

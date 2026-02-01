@@ -37,6 +37,7 @@ interface BrandingFormData {
   accentColor: string;
   footerText: string;
   showPoweredBy: boolean;
+  showWatermark: boolean;
 }
 
 export default function SettingsPage() {
@@ -154,6 +155,7 @@ export default function SettingsPage() {
     accentColor: '#14B8A6',
     footerText: '',
     showPoweredBy: true,
+    showWatermark: true,
   });
 
   const { data: branding } = useQuery<ClinicBranding | null>({
@@ -172,6 +174,7 @@ export default function SettingsPage() {
         accentColor: branding.accentColor || '#14B8A6',
         footerText: branding.footerText || '',
         showPoweredBy: branding.showPoweredBy !== false,
+        showWatermark: branding.showWatermark !== false,
       });
     }
   }, [branding]);
@@ -713,6 +716,18 @@ export default function SettingsPage() {
                             checked={brandingForm.showPoweredBy}
                             onCheckedChange={(checked) => setBrandingForm(prev => ({ ...prev, showPoweredBy: checked }))}
                             data-testid="switch-branding-powered-by"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="branding-watermark">Show watermark</Label>
+                            <p className="text-xs text-muted-foreground">Add a subtle watermark to each page</p>
+                          </div>
+                          <Switch
+                            id="branding-watermark"
+                            checked={brandingForm.showWatermark}
+                            onCheckedChange={(checked) => setBrandingForm(prev => ({ ...prev, showWatermark: checked }))}
+                            data-testid="switch-branding-watermark"
                           />
                         </div>
                       </div>

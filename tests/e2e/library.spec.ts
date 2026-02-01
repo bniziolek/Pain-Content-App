@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+async function loginAsAdmin(page: any) {
+  await page.goto('/auth');
+  await page.fill('input[type="email"], input[name="email"]', 'admin@driverpath.com');
+  await page.fill('input[type="password"]', 'admin123');
+  await page.click('button[type="submit"]');
+  await expect(page).toHaveURL(/\/(dashboard)?$/);
+}
+
 test.describe('Content Library', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto('/auth');
-    await page.fill('input[type="email"], input[name="email"]', 'admin@driverpath.com');
-    await page.fill('input[type="password"]', 'admin123');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/(dashboard)?$/);
+    await loginAsAdmin(page);
   });
 
   test('should display content library page', async ({ page }) => {
@@ -51,5 +54,47 @@ test.describe('Content Library', () => {
     // Check for selection indicator - buttons show count like "Create Packet (1)" or "Send 1 Items"
     const selectionIndicator = page.locator('text=/Packet \\(\\d+\\)|Send \\d+ Items/i');
     await expect(selectionIndicator.first()).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('Content Library - Mobile', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+  });
+
+  test('action button should not overlap bottom navigation on mobile', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'Mobile-only test');
+    
+    await page.goto('/library');
+    await page.waitForSelector('[data-testid^="content-card-"]', { timeout: 15000 });
+    
+    // Select a content item to show the action button
+    const firstCard = page.locator('[data-testid^="content-card-"]').first();
+    await firstCard.click();
+    
+    // Wait for action button to appear
+    const actionButton = page.locator('[data-testid="button-download-packet"], [data-testid="button-send-items"]').first();
+    await expect(actionButton).toBeVisible({ timeout: 5000 });
+    
+    // Get bottom nav element
+    const bottomNav = page.locator('[data-testid="bottom-nav"]');
+    await expect(bottomNav).toBeVisible();
+    
+    // Get bounding boxes
+    const actionBox = await actionButton.boundingBox();
+    const navBox = await bottomNav.boundingBox();
+    
+    // Verify action button is above bottom nav (no overlap)
+    // The button's bottom edge should be above the nav's top edge
+    expect(actionBox).not.toBeNull();
+    expect(navBox).not.toBeNull();
+    
+    if (actionBox && navBox) {
+      const buttonBottom = actionBox.y + actionBox.height;
+      const navTop = navBox.y;
+      
+      // Button should be completely above the bottom nav
+      expect(buttonBottom).toBeLessThanOrEqual(navTop);
+    }
   });
 });

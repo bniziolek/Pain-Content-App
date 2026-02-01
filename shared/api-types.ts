@@ -29,6 +29,8 @@ export interface PublicUser {
   city?: string | null;
   state?: string | null;
   zipCode?: string | null;
+  lockedUntil?: ISODateString | null;
+  permanentlyLocked?: boolean;
 }
 
 export interface ContentItem {
@@ -235,6 +237,7 @@ export interface ClinicBranding {
   accentColor: string | null;
   footerText: string | null;
   showPoweredBy: boolean | null;
+  showWatermark: boolean | null;
   isActive: boolean | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
