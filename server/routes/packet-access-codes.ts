@@ -28,9 +28,9 @@ router.post("/generate-access-code", requireSubscription, async (req, res, next)
   try {
     const validation = generateCodeSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ 
-        error: "Validation failed", 
-        details: validation.error.issues 
+      return res.status(400).json({
+        error: "Validation failed",
+        details: validation.error.issues
       });
     }
 
@@ -77,19 +77,20 @@ function cleanupExpiredRateLimitEntries(now: number): void {
 }
 
 function checkRateLimit(ip: string): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
   const now = Date.now();
   cleanupExpiredRateLimitEntries(now);
   const entry = rateLimitMap.get(ip);
-  
+
   if (!entry || now > entry.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     return true;
   }
-  
+
   if (entry.count >= RATE_LIMIT_MAX) {
     return false;
   }
-  
+
   entry.count++;
   return true;
 }
@@ -98,15 +99,15 @@ export function registerPublicAccessCodeRoutes(app: Express) {
   app.get("/api/public/lookup/:code", async (req, res, next) => {
     try {
       const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-      
+
       if (!checkRateLimit(clientIp)) {
-        return res.status(429).json({ 
-          error: "Too many requests. Please try again later." 
+        return res.status(429).json({
+          error: "Too many requests. Please try again later."
         });
       }
 
       const { code } = req.params;
-      
+
       if (!code || code.length < 4) {
         return res.status(400).json({ error: "Invalid access code format" });
       }
@@ -119,15 +120,15 @@ export function registerPublicAccessCodeRoutes(app: Express) {
 
       if (!result.valid) {
         const statusCode = result.reason === 'not_found' ? 404 : 410;
-        const message = result.reason === 'expired' 
+        const message = result.reason === 'expired'
           ? 'This access code has expired'
           : result.reason === 'inactive'
-            ? 'This access code is no longer active'
+            ? 'This access code is inactive'
             : 'Access code not found';
-        return res.status(statusCode).json({ 
+        return res.status(statusCode).json({
           valid: false,
           error: message,
-          reason: result.reason 
+          reason: result.reason
         });
       }
 

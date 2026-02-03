@@ -18,7 +18,7 @@ for (const ambiguousChar of AMBIGUOUS_CHARS) {
 const PREFIXES = [
   'HEAL', 'PAIN', 'MOVE', 'FLEX', 'CARE', 'WELL', 'FLOW', 'EASE',
   'STAY', 'LIVE', 'REST', 'GROW', 'FAST', 'SAFE', 'PURE', 'CALM',
-  'FREE', 'BACK', 'CORE', 'BONE', 'JOINT', 'HEAD', 'FOOT', 'HAND'
+  'FREE', 'BACK', 'CORE', 'BONE', 'BODY', 'HEAD', 'FOOT', 'HAND'
 ];
 
 export interface PacketCodeValidationResult {

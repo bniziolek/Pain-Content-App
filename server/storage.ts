@@ -69,7 +69,7 @@ const pool = new pg.Pool({
 });
 
 export const getPool = () => pool;
-const db = drizzle({ client: pool, schema });
+export const db = drizzle({ client: pool, schema });
 
 export type FeatureFlagHistoryEntry = AuditLog;
 
@@ -1668,13 +1668,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride> {
+    // We use a manual delete-then-insert approach because of issues with ON CONFLICT and unique indices
+    await db.delete(schema.userFeatureOverrides)
+      .where(and(
+        eq(schema.userFeatureOverrides.userId, userId),
+        eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)
+      ));
+
     const [result] = await db.insert(schema.userFeatureOverrides)
-      .values({ userId, featureFlagId, isEnabled, setByAdminId: adminId, reason })
-      .onConflictDoUpdate({
-        target: [schema.userFeatureOverrides.userId, schema.userFeatureOverrides.featureFlagId],
-        set: { isEnabled, setByAdminId: adminId, reason, updatedAt: new Date() },
+      .values({
+        userId,
+        featureFlagId,
+        isEnabled,
+        setByAdminId: adminId,
+        reason,
+        updatedAt: new Date()
       })
       .returning();
+
     return result;
   }
 

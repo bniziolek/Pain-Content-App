@@ -316,7 +316,7 @@ router.get("/health/overview", requireAdmin, async (req, res, next) => {
 router.get("/subscriptions", requireAdmin, async (req, res, next) => {
   try {
     const { status, tier, startDate, endDate, searchQuery } = req.query;
-    
+
     const subscriptions = await listSubscriptions(appContextWithInfrastructure, {
       status: status as any,
       tier: tier as any,
@@ -324,7 +324,7 @@ router.get("/subscriptions", requireAdmin, async (req, res, next) => {
       endDate: endDate ? new Date(endDate as string) : undefined,
       searchQuery: searchQuery as string,
     });
-    
+
     res.json(subscriptions);
   } catch (error) {
     next(error);
@@ -351,15 +351,15 @@ router.get("/users/:userId/support-overview", requireAdmin, async (req, res, nex
 router.get("/users/:userId/support-timeline", requireAdmin, async (req, res, next) => {
   try {
     const daysParam = req.query.days ? parseInt(req.query.days as string) : 30;
-    
+
     // Validate days parameter
     if (isNaN(daysParam) || daysParam < 1 || daysParam > 365) {
-      return res.status(400).json({ 
-        error: "Invalid days parameter. Must be a positive integer between 1 and 365." 
+      return res.status(400).json({
+        error: "Invalid days parameter. Must be a positive integer between 1 and 365."
       });
     }
-    
-    const timeline = await getUserSupportTimeline(appContext, { 
+
+    const timeline = await getUserSupportTimeline(appContext, {
       userId: req.params.userId,
       days: daysParam,
     });
@@ -375,11 +375,11 @@ router.get("/subscriptions/:userId", requireAdmin, async (req, res, next) => {
     const details = await getSubscriptionDetails(appContextWithInfrastructure, {
       userId: req.params.userId,
     });
-    
+
     if (!details) {
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     res.json(details);
   } catch (error) {
     next(error);
@@ -431,7 +431,7 @@ router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) 
       const tierAllowed = !flag.tiersAllowed || flag.tiersAllowed.length === 0 || flag.tiersAllowed.includes(userTier);
       const defaultEnabled = flag.isEnabled && tierAllowed;
       const enabled = override ? override.isEnabled : defaultEnabled;
-      
+
       return {
         id: flag.id,
         name: flag.name,
@@ -454,23 +454,23 @@ router.get("/users/:userId/feature-flags", requireAdmin, async (req, res, next) 
 router.post("/subscriptions/:userId/apply-coupon", requireAdmin, async (req, res, next) => {
   try {
     const { couponCode } = req.body;
-    
+
     if (!couponCode) {
       return res.status(400).json({ error: "Coupon code is required" });
     }
-    
+
     const result = await applyCoupon(appContextWithInfrastructure, {
       userId: req.params.userId,
       couponCode,
     });
-    
+
     // Return appropriate status code based on result
     if (!result.success) {
       const isNotFound = /not found/i.test(result.message);
       const statusCode = isNotFound ? 404 : 400;
       return res.status(statusCode).json(result);
     }
-    
+
     res.json(result);
   } catch (error) {
     next(error);
@@ -482,12 +482,12 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
     const { enabled, reason } = req.body;
     const adminId = req.user?.id;
     const { userId, flagId } = req.params;
-    
+
     // Get existing override to record previous value
     const existingOverrides = await appContext.storage.getUserFeatureOverrides(userId);
     const existingOverride = existingOverrides.find(o => o.featureFlagId === flagId);
     const previousValue = existingOverride?.isEnabled ?? null;
-    
+
     await appContext.storage.setUserFeatureOverride(
       userId,
       flagId,
@@ -495,7 +495,7 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
       adminId,
       reason || `Set by admin`
     );
-    
+
     // Log the change to audit trail
     if (adminId) {
       await appContext.storage.createFeatureFlagAuditLog({
@@ -508,7 +508,7 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
         reason: reason || null,
       });
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -519,17 +519,17 @@ router.post("/users/:userId/feature-flags/:flagId/toggle", requireAdmin, async (
 router.post("/subscriptions/:userId/cancel", requireAdmin, async (req, res, next) => {
   try {
     const { immediate } = req.body;
-    
+
     const result = await cancelUserSubscription(appContextWithInfrastructure, {
       userId: req.params.userId,
       immediate: immediate === true,
     });
-    
+
     // Return appropriate status code based on result
     if (!result.success) {
       return res.status(400).json(result);
     }
-    
+
     res.json(result);
   } catch (error) {
     next(error);
@@ -540,14 +540,14 @@ router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, asy
   try {
     const adminId = req.user?.id;
     const { userId, flagId } = req.params;
-    
+
     // Get existing override to record previous value
     const existingOverrides = await appContext.storage.getUserFeatureOverrides(userId);
     const existingOverride = existingOverrides.find(o => o.featureFlagId === flagId);
     const previousValue = existingOverride?.isEnabled ?? null;
-    
+
     await appContext.storage.deleteUserFeatureOverride(userId, flagId);
-    
+
     // Log the reset to audit trail
     if (adminId && previousValue !== null) {
       await appContext.storage.createFeatureFlagAuditLog({
@@ -560,7 +560,7 @@ router.delete("/users/:userId/feature-flags/:flagId/override", requireAdmin, asy
         reason: 'Reset to default',
       });
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     next(error);
