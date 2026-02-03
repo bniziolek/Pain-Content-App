@@ -51,6 +51,11 @@ jobs:
       - name: Type check (lint)
         run: npm run check
 
+      - name: Run DB migrations
+        run: npm run db:push
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
       - name: Run tests
         run: |
           # Start the server in the background
