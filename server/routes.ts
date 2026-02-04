@@ -729,7 +729,7 @@ export function registerRoutes(app: Express): Server {
 
       const result = await scoreAssessmentResponse(assessmentId, answers);
 
-      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_results_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_score', {
         resourceType: 'assessment',
         resourceId: assessmentId,
         details: { tagCount: result.tagScores.length },
