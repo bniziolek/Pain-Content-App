@@ -10,26 +10,26 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name"),
   role: text("role").notNull().default("clinician"), // 'clinician' | 'admin' | 'super_admin'
-  
+
   // Subscription fields
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"), // 'active' | 'inactive' | 'past_due' | 'canceled'
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
   subscriptionTier: text("subscription_tier").default("basic"), // 'free' | 'basic' | 'pro' | 'enterprise'
-  
+
   lastLogin: timestamp("last_login"),
-  
+
   // Onboarding tracking
   onboardingCompleted: boolean("onboarding_completed").default(false),
   onboardingStep: integer("onboarding_step").default(0), // Current step if abandoned mid-flow
-  
+
   // Email delivery preference
   emailDeliveryMode: text("email_delivery_mode").default("central"), // 'central' | 'personal'
-  
+
   // Persona switching for super admins
   activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -70,6 +70,13 @@ export const contentItems = pgTable("content_items", {
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   imageUrl: text("image_url"),
   readTime: text("read_time").default("5 min"),
+
+  // Moderation fields
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // Nullable for system content, set for user submission
+  moderationStatus: text("moderation_status").notNull().default("approved"), // 'pending' | 'approved' | 'rejected'
+  moderationNote: text("moderation_note"), // Reason for rejection or edits
+  submittedAt: timestamp("submitted_at"), // When the user submitted it
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -263,18 +270,18 @@ export const recommendationConfigs = pgTable("recommendation_configs", {
   assessmentId: varchar("assessment_id").references(() => assessments.id), // required: which assessment triggers this rule
   pathwayId: varchar("pathway_id").references(() => carePathways.id), // optional: scope to specific pathway
   pathwayWeek: integer("pathway_week"), // optional: scope to specific week in pathway
-  
+
   // Answer-based trigger configuration
   questionName: text("question_name"), // the specific question this rule triggers on
   questionType: text("question_type"), // 'boolean' | 'rating' | 'radiogroup' | 'dropdown' | 'checkbox' | 'text'
   matchOperator: text("match_operator").default("equals"), // 'equals' | 'in' | 'not_equals' | 'greater_than' | 'less_than' | 'between'
   matchValues: jsonb("match_values"), // the answer value(s) that trigger this rule (e.g., ["Yes"], [4, 5], {"min": 60, "max": 100})
-  
+
   // Legacy tag-based scoring (kept for backward compatibility)
   tag: text("tag").notNull().default(""), // the assessment tag this rule triggers on (legacy)
   minScore: integer("min_score").default(0),
   maxScore: integer("max_score").default(100),
-  
+
   priority: integer("priority").default(1), // lower = higher priority
   contentIds: text("content_ids").array().notNull().default(sql`ARRAY[]::text[]`), // content to recommend
   rationale: text("rationale"), // clinician-facing explanation of why this rule exists
