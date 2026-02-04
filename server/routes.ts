@@ -4,21 +4,22 @@ import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { requireSuperAdmin } from "./rbac";
-import { 
-  insertContentItemSchema, 
+import {
+  type User as SelectUser,
+  insertContentItemSchema,
   insertAssessmentSchema,
   insertAssessmentInviteSchema,
   insertInternalScreeningSchema,
-  insertEmailLogSchema 
+  insertEmailLogSchema
 } from "@shared/schema";
 import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
 import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
 import { logClinicianAction, logPatientAction } from "./audit";
 import { scoreAssessmentResponse } from "./scoring";
-import { 
-  getRecommendationsWithFallback, 
-  createRecommendationRule, 
-  getRecommendationRules, 
+import {
+  getRecommendationsWithFallback,
+  createRecommendationRule,
+  getRecommendationRules,
   deleteRecommendationRule,
   createRecommendationConfig,
   getRecommendationConfigs,
@@ -52,31 +53,31 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/forgot-password", async (req, res, next) => {
     try {
       const { email } = req.body;
-      
+
       if (!email) {
         return res.status(400).json({ error: "Email is required" });
       }
-      
+
       // Always return success to prevent email enumeration attacks
       const user = await storage.getUserByEmail(email.toLowerCase());
       if (user) {
         // Generate a secure token
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-        
+
         // Store the token
         await storage.createPasswordResetToken(user.id, token, expiresAt);
-        
+
         // Send the reset email
         const baseUrl = req.headers.origin || `https://${req.headers.host}`;
         const resetLink = `${baseUrl}/forgot-password?token=${token}`;
-        
+
         await sendPasswordResetEmail({
           toEmail: email,
           resetLink,
         });
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -86,11 +87,11 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/reset-password", async (req, res, next) => {
     try {
       const { token, password } = req.body;
-      
+
       if (!token || !password) {
         return res.status(400).json({ error: "Token and password are required" });
       }
-      
+
       // Validate password strength
       if (password.length < 8) {
         return res.status(400).json({ error: "Password must be at least 8 characters" });
@@ -104,29 +105,29 @@ export function registerRoutes(app: Express): Server {
       if (!/\d/.test(password)) {
         return res.status(400).json({ error: "Password must contain at least one number" });
       }
-      
+
       // Find the token
       const resetToken = await storage.getPasswordResetToken(token);
-      
+
       if (!resetToken) {
         return res.status(400).json({ error: "Invalid or expired reset link" });
       }
-      
+
       if (resetToken.usedAt) {
         return res.status(400).json({ error: "This reset link has already been used" });
       }
-      
+
       if (new Date() > resetToken.expiresAt) {
         return res.status(400).json({ error: "This reset link has expired" });
       }
-      
+
       // Update the password
       const hashedPassword = await hashPassword(password);
       await storage.updateUserPassword(resetToken.userId, hashedPassword);
-      
+
       // Mark token as used
       await storage.markPasswordResetTokenUsed(token);
-      
+
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -140,13 +141,13 @@ export function registerRoutes(app: Express): Server {
       if (!view) {
         return res.status(404).json({ error: "Content not found" });
       }
-      
+
       // Mark as viewed if first time and update email log status to clicked
       if (!view.viewedAt) {
         await storage.updateContentView(view.id, { viewedAt: new Date() });
         await storage.updateEmailLogStatus(view.emailLogId, 'clicked');
       }
-      
+
       // Fetch the content
       let content = null;
       if (isContentfulConfigured()) {
@@ -159,11 +160,11 @@ export function registerRoutes(app: Express): Server {
       if (!content) {
         content = await storage.getContentById(view.contentId);
       }
-      
+
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
       }
-      
+
       res.json({
         ...content,
         viewToken: view.token,
@@ -172,7 +173,7 @@ export function registerRoutes(app: Express): Server {
       next(error);
     }
   });
-  
+
   // Update time spent on content
   app.post("/api/public/content-view/:token/time", async (req, res, next) => {
     try {
@@ -180,12 +181,12 @@ export function registerRoutes(app: Express): Server {
       if (!view) {
         return res.status(404).json({ error: "View not found" });
       }
-      
+
       const { timeSpentSeconds } = req.body;
       if (typeof timeSpentSeconds === 'number' && timeSpentSeconds > 0) {
         await storage.updateContentView(view.id, { timeSpentSeconds });
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -216,14 +217,14 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/patient-portal/auth", requireFeatureFlag('patient_portal_enabled'), async (req, res, next) => {
     try {
       const { email, accessCode } = req.body;
-      
+
       if (!email || !accessCode) {
         return res.status(400).json({ error: "Email and access code are required" });
       }
-      
+
       // First, find email log by access code to check lockout status
       const emailLog = await storage.getEmailLogByAccessCode(accessCode);
-      
+
       // If no email log found with this code, return generic error (don't reveal if code exists)
       if (!emailLog) {
         // Audit log: failed auth attempt (code not found)
@@ -231,45 +232,45 @@ export function registerRoutes(app: Express): Server {
           details: { reason: 'invalid_code' },
           outcome: 'failure',
         });
-        return res.status(401).json({ 
+        return res.status(401).json({
           error: "Invalid email or access code",
-          attemptsRemaining: null 
+          attemptsRemaining: null
         });
       }
-      
+
       // Check if permanently locked
       if (emailLog.permanentlyLocked) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
           permanentlyLocked: true
         });
       }
-      
+
       // Check if temporarily locked
       const now = new Date();
       if (emailLog.lockedUntil && emailLog.lockedUntil > now) {
         const minutesRemaining = Math.ceil((emailLog.lockedUntil.getTime() - now.getTime()) / 60000);
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: `Too many failed attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`,
           lockedUntil: emailLog.lockedUntil,
           minutesRemaining
         });
       }
-      
+
       // Verify email matches (case-insensitive)
       if (emailLog.patientEmail.toLowerCase() !== email.toLowerCase()) {
         // Increment failed attempts
         const newAttempts = (emailLog.failedAttempts || 0) + 1;
-        let lockoutUpdate: { failedAttempts: number; lockedUntil?: Date | null; permanentlyLocked?: boolean } = { 
-          failedAttempts: newAttempts 
+        let lockoutUpdate: { failedAttempts: number; lockedUntil?: Date | null; permanentlyLocked?: boolean } = {
+          failedAttempts: newAttempts
         };
-        
+
         // Determine lockout tier
         if (newAttempts >= 9) {
           // Permanent lockout after 9 attempts
           lockoutUpdate.permanentlyLocked = true;
           await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(403).json({ 
+          return res.status(403).json({
             error: "This access code has been permanently locked due to too many failed attempts. Please contact your healthcare provider to request new access.",
             permanentlyLocked: true
           });
@@ -277,7 +278,7 @@ export function registerRoutes(app: Express): Server {
           // 1 hour lockout after 6 attempts
           lockoutUpdate.lockedUntil = new Date(Date.now() + 60 * 60 * 1000);
           await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
+          return res.status(401).json({
             error: "Invalid email or access code. You have been locked out for 1 hour. 3 more failed attempts will permanently lock this access code.",
             attemptsRemaining: 9 - newAttempts,
             lockedFor: 60
@@ -286,7 +287,7 @@ export function registerRoutes(app: Express): Server {
           // 5 minute lockout after 3 attempts
           lockoutUpdate.lockedUntil = new Date(Date.now() + 5 * 60 * 1000);
           await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
+          return res.status(401).json({
             error: "Invalid email or access code. You have been locked out for 5 minutes. 3 more failed attempts will result in a 1-hour lockout.",
             attemptsRemaining: 6 - newAttempts,
             lockedFor: 5
@@ -294,26 +295,26 @@ export function registerRoutes(app: Express): Server {
         } else {
           // Just increment attempts, warn user
           await storage.updateEmailLogLockout(emailLog.id, lockoutUpdate);
-          return res.status(401).json({ 
+          return res.status(401).json({
             error: "Invalid email or access code.",
             attemptsRemaining: 3 - newAttempts,
             warning: newAttempts === 2 ? "Warning: 1 more failed attempt will result in a 5-minute lockout." : undefined
           });
         }
       }
-      
+
       // Success! Reset failed attempts
       if ((emailLog.failedAttempts || 0) > 0) {
-        await storage.updateEmailLogLockout(emailLog.id, { 
-          failedAttempts: 0, 
-          lockedUntil: null 
+        await storage.updateEmailLogLockout(emailLog.id, {
+          failedAttempts: 0,
+          lockedUntil: null
         });
       }
-      
+
       // Generate a secure session token (UUID) 
       const sessionToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-      
+
       // Store session in database (persistent, trackable)
       await storage.createPatientSession({
         token: sessionToken,
@@ -323,7 +324,7 @@ export function registerRoutes(app: Express): Server {
         userAgent: req.headers['user-agent'] || 'unknown',
         expiresAt,
       });
-      
+
       // Audit log: successful patient portal login
       await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth', {
         resourceType: 'session',
@@ -332,9 +333,9 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient email, session created',
         sessionId: sessionToken,
       });
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         patientEmail: email.toLowerCase(),
         sessionToken,
       });
@@ -350,30 +351,30 @@ export function registerRoutes(app: Express): Server {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: "Authorization required" });
       }
-      
+
       const sessionToken = authHeader.slice(7);
       const session = await storage.getPatientSessionByToken(sessionToken);
-      
+
       if (!session) {
         return res.status(401).json({ error: "Session expired or invalid" });
       }
-      
+
       // Check session expiration
       if (session.expiresAt < new Date()) {
         await storage.invalidatePatientSession(sessionToken);
         return res.status(401).json({ error: "Session expired" });
       }
-      
+
       // Update session activity (sliding window)
       await storage.updatePatientSessionActivity(sessionToken);
-      
+
       // Get email log for this session
       const emailLog = await storage.getEmailLogById(session.emailLogId);
-      
+
       // Get content views from the scoped email log
       const contentMap: Record<string, any> = {};
       const views = await storage.getContentViewsByEmailLogId(session.emailLogId);
-      
+
       for (const view of views) {
         let content = null;
         if (isContentfulConfigured()) {
@@ -386,7 +387,7 @@ export function registerRoutes(app: Express): Server {
         if (!content) {
           content = await storage.getContentById(view.contentId);
         }
-        
+
         if (content && !contentMap[view.contentId]) {
           contentMap[view.contentId] = {
             id: content.id,
@@ -400,13 +401,13 @@ export function registerRoutes(app: Express): Server {
           };
         }
       }
-      
+
       // Get assessment invites from the same clinician
       const clinicianId = emailLog?.clinicianUserId;
-      const assessmentInvites = clinicianId 
+      const assessmentInvites = clinicianId
         ? await storage.getAssessmentInvitesByPatientEmail(clinicianId, session.patientEmail)
         : [];
-      
+
       // Audit log: patient viewing content (PHI access)
       await logPatientAction(req, session.patientEmail, 'content_view', {
         resourceType: 'content',
@@ -414,7 +415,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient educational content',
         sessionId: sessionToken,
       });
-      
+
       res.json({
         content: Object.values(contentMap),
         assessments: assessmentInvites.map(invite => ({
@@ -468,13 +469,13 @@ export function registerRoutes(app: Express): Server {
       if (!content) {
         return res.status(404).send("Content not found");
       }
-      
+
       await logClinicianAction(req, req.user!, 'content_access', {
         resourceType: 'content',
         resourceId: req.params.id,
         details: { title: content.title },
       });
-      
+
       res.json(content);
     } catch (error) {
       next(error);
@@ -483,9 +484,9 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/content/status", requireAuth, async (req, res, next) => {
     try {
-      res.json({ 
+      res.json({
         source: isContentfulConfigured() ? "contentful" : "database",
-        configured: isContentfulConfigured() 
+        configured: isContentfulConfigured()
       });
     } catch (error) {
       next(error);
@@ -495,15 +496,23 @@ export function registerRoutes(app: Express): Server {
   // Database content management routes (for when Contentful is not used or for local backup)
   app.post("/api/content", requireAuth, async (req, res, next) => {
     try {
-      const validated = insertContentItemSchema.parse(req.body);
+      // Issue #64: Moderation Logic
+      const isModerator = req.user!.role === 'admin' || req.user!.role === 'super_admin';
+      const validated = insertContentItemSchema.parse({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+        moderationStatus: isModerator ? 'approved' : 'pending',
+        submittedAt: new Date(),
+      });
+
       const content = await storage.createContent(validated);
-      
+
       await logClinicianAction(req, req.user!, 'content_create', {
         resourceType: 'content',
         resourceId: content.id,
         details: { title: content.title },
       });
-      
+
       res.status(201).json(content);
     } catch (error) {
       next(error);
@@ -516,13 +525,13 @@ export function registerRoutes(app: Express): Server {
       if (!content) {
         return res.status(404).send("Content not found");
       }
-      
+
       await logClinicianAction(req, req.user!, 'content_update', {
         resourceType: 'content',
         resourceId: req.params.id,
         details: { title: content.title },
       });
-      
+
       res.json(content);
     } catch (error) {
       next(error);
@@ -535,7 +544,7 @@ export function registerRoutes(app: Express): Server {
         resourceType: 'content',
         resourceId: req.params.id,
       });
-      
+
       await storage.deleteContent(req.params.id);
       res.sendStatus(204);
     } catch (error) {
@@ -548,27 +557,27 @@ export function registerRoutes(app: Express): Server {
     try {
       const typeFilter = req.query.type as string | undefined;
       const publishedOnly = req.query.published === "true";
-      
+
       let assessments = await storage.getAssessmentsByClinicianId(req.user!.id);
       let templates = await storage.getTemplateAssessments();
-      
+
       // Filter by type if specified
       if (typeFilter) {
         assessments = assessments.filter(a => a.assessmentType === typeFilter);
         templates = templates.filter(t => t.assessmentType === typeFilter);
       }
-      
+
       // Filter to published only if specified
       if (publishedOnly) {
         assessments = assessments.filter(a => a.isPublished);
         templates = templates.filter(t => t.isPublished);
       }
-      
+
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
         details: { count: assessments.length + templates.length, typeFilter },
       });
-      
+
       res.json([...assessments, ...templates.filter(t => t.clinicianUserId !== req.user!.id)]);
     } catch (error) {
       next(error);
@@ -581,13 +590,13 @@ export function registerRoutes(app: Express): Server {
       if (!assessment) {
         return res.status(404).send("Assessment not found");
       }
-      
+
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
         resourceId: req.params.id,
         details: { name: assessment.name },
       });
-      
+
       res.json(assessment);
     } catch (error) {
       next(error);
@@ -601,7 +610,7 @@ export function registerRoutes(app: Express): Server {
       if (!assessment) {
         return res.status(404).send("Assessment not found");
       }
-      
+
       interface SurveyElement {
         name?: string;
         title?: string;
@@ -612,7 +621,7 @@ export function registerRoutes(app: Express): Server {
         rateCount?: number;
         elements?: SurveyElement[];
       }
-      
+
       const surveyJson = assessment.surveyJson as { pages?: Array<{ elements?: SurveyElement[] }> } | null;
       const questions: Array<{
         name: string;
@@ -622,7 +631,7 @@ export function registerRoutes(app: Express): Server {
         rateMax?: number;
         rateMin?: number;
       }> = [];
-      
+
       if (surveyJson?.pages) {
         for (const page of surveyJson.pages) {
           if (page.elements) {
@@ -639,7 +648,7 @@ export function registerRoutes(app: Express): Server {
                       return { value: c, text: String(c) };
                     });
                   }
-                  
+
                   questions.push({
                     name: element.name,
                     title: typeof element.title === 'string' ? element.title : element.name,
@@ -659,7 +668,7 @@ export function registerRoutes(app: Express): Server {
           }
         }
       }
-      
+
       res.json(questions);
     } catch (error) {
       next(error);
@@ -672,15 +681,15 @@ export function registerRoutes(app: Express): Server {
         ...req.body,
         clinicianUserId: req.user!.id,
       });
-      
+
       const assessment = await storage.createAssessment(validated);
-      
+
       await logClinicianAction(req, req.user!, 'assessment_create', {
         resourceType: 'assessment',
         resourceId: assessment.id,
         details: { name: assessment.name },
       });
-      
+
       res.status(201).json(assessment);
     } catch (error) {
       next(error);
@@ -693,19 +702,19 @@ export function registerRoutes(app: Express): Server {
       if (!existing) {
         return res.status(404).send("Assessment not found");
       }
-      
+
       if (existing.clinicianUserId !== req.user!.id && !existing.isTemplate) {
         return res.status(403).send("Cannot edit assessments you don't own");
       }
-      
+
       const assessment = await storage.updateAssessment(req.params.id, req.body);
-      
+
       await logClinicianAction(req, req.user!, 'assessment_update', {
         resourceType: 'assessment',
         resourceId: req.params.id,
         details: { name: assessment?.name },
       });
-      
+
       res.json(assessment);
     } catch (error) {
       next(error);
@@ -718,16 +727,16 @@ export function registerRoutes(app: Express): Server {
       if (!existing) {
         return res.status(404).send("Assessment not found");
       }
-      
+
       if (existing.clinicianUserId !== req.user!.id) {
         return res.status(403).send("Cannot delete assessments you don't own");
       }
-      
+
       await logClinicianAction(req, req.user!, 'assessment_delete', {
         resourceType: 'assessment',
         resourceId: req.params.id,
       });
-      
+
       await storage.deleteAssessment(req.params.id);
       res.sendStatus(204);
     } catch (error) {
@@ -739,19 +748,19 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
     try {
       const { assessmentId, answers } = req.body;
-      
+
       if (!assessmentId || !answers) {
         return res.status(400).json({ error: "assessmentId and answers are required" });
       }
-      
+
       const result = await scoreAssessmentResponse(assessmentId, answers);
-      
+
       await logClinicianAction(req, req.user!, 'assessment_score', {
         resourceType: 'assessment',
         resourceId: assessmentId,
         details: { tagCount: result.tagScores.length },
       });
-      
+
       res.json(result);
     } catch (error) {
       next(error);
@@ -765,7 +774,7 @@ export function registerRoutes(app: Express): Server {
         ...req.body,
         clinicianUserId: req.user!.id,
       });
-      
+
       // Get default assessment if not specified
       if (!validated.assessmentId) {
         const defaultAssessment = await storage.getDefaultAssessment();
@@ -776,7 +785,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const invite = await storage.createAssessmentInvite(validated);
-      
+
       // Audit log: assessment invite created (PHI action)
       await logClinicianAction(req, req.user!, 'assessment_create', {
         resourceType: 'assessment',
@@ -785,19 +794,19 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient email, assessment invite',
         details: { patientEmail: invite.patientEmail },
       });
-      
+
       // Send assessment invite email via Resend
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : 'http://localhost:5000';
       const assessmentLink = `${baseUrl}/assessment/${invite.token}`;
-      
+
       const emailResult = await sendAssessmentInviteEmail({
         toEmail: invite.patientEmail,
         assessmentLink,
         clinicianName: req.user!.name || undefined,
       });
-      
+
       if (!emailResult.success) {
         console.error('[Email] Failed to send assessment invite:', emailResult.error);
       }
@@ -811,7 +820,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
     try {
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
-      
+
       // Audit log: viewing assessment invites (PHI list access)
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
@@ -819,7 +828,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient emails in assessment list',
         details: { count: invites.length },
       });
-      
+
       res.json(invites);
     } catch (error) {
       next(error);
@@ -832,12 +841,12 @@ export function registerRoutes(app: Express): Server {
       if (!invite) {
         return res.status(404).send("Invite not found");
       }
-      
+
       // Mark as opened if still in sent status
       if (invite.status === "sent") {
         await storage.updateAssessmentInviteStatus(invite.id, "opened");
       }
-      
+
       res.json(invite);
     } catch (error) {
       next(error);
@@ -850,19 +859,19 @@ export function registerRoutes(app: Express): Server {
       if (!answers) {
         return res.status(400).send("Answers are required");
       }
-      
+
       const invite = await storage.getAssessmentInviteById(req.params.inviteId);
       if (!invite) {
         return res.status(404).send("Invite not found");
       }
-      
+
       if (invite.status === "completed") {
         return res.status(400).send("Assessment already completed");
       }
-      
+
       // Score the assessment
       const scoringResult = await scoreAssessmentResponse(invite.assessmentId, answers);
-      
+
       // Create the assessment response with scores
       const response = await storage.createAssessmentResponse({
         inviteId: invite.id,
@@ -870,10 +879,10 @@ export function registerRoutes(app: Express): Server {
         tagScores: scoringResult.tagScores,
         recommendedContentIds: scoringResult.recommendations,
       });
-      
+
       // Update invite status to completed
       await storage.updateAssessmentInviteStatus(invite.id, "completed", new Date());
-      
+
       // Log the patient action
       await logPatientAction(req, invite.patientEmail, 'assessment_submit', {
         resourceType: 'assessment',
@@ -882,7 +891,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'assessment responses',
         details: { inviteId: invite.id, responseId: response.id },
       });
-      
+
       res.status(201).json({ success: true, responseId: response.id });
     } catch (error) {
       next(error);
@@ -896,20 +905,20 @@ export function registerRoutes(app: Express): Server {
       if (!invite) {
         return res.status(404).send("Invite not found");
       }
-      
+
       // Verify clinician owns this invite
       if (invite.clinicianUserId !== req.user!.id && req.user!.role !== "admin") {
         return res.status(403).send("Access denied");
       }
-      
+
       const response = await storage.getAssessmentResponseByInviteId(invite.id);
       if (!response) {
         return res.status(404).json({ error: "No response yet", status: invite.status });
       }
-      
+
       // Get assessment details
       const assessment = await storage.getAssessmentById(invite.assessmentId);
-      
+
       // Generate recommendations based on tag scores
       let recommendations: any[] = [];
       if (response.tagScores && Array.isArray(response.tagScores) && response.tagScores.length > 0) {
@@ -921,7 +930,7 @@ export function registerRoutes(app: Express): Server {
         });
         recommendations = result.recommendations;
       }
-      
+
       // Log the access
       await logClinicianAction(req, req.user!, 'assessment_access', {
         resourceType: 'assessment',
@@ -930,7 +939,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'assessment results',
         details: { inviteId: invite.id },
       });
-      
+
       res.json({
         invite: {
           id: invite.id,
@@ -969,11 +978,11 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
     try {
       const { tag, minScore, maxScore, contentId, priority, rationale } = req.body;
-      
+
       if (!tag || !contentId) {
         return res.status(400).send("Tag and contentId are required");
       }
-      
+
       const rule = await createRecommendationRule(
         tag,
         minScore ?? 0,
@@ -982,12 +991,12 @@ export function registerRoutes(app: Express): Server {
         priority ?? 1,
         rationale
       );
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
         details: { action: 'create_recommendation_rule', ruleId: rule.id, tag },
       });
-      
+
       res.status(201).json(rule);
     } catch (error) {
       next(error);
@@ -1000,7 +1009,7 @@ export function registerRoutes(app: Express): Server {
         resourceType: 'settings',
         details: { action: 'delete_recommendation_rule', ruleId: req.params.id },
       });
-      
+
       await deleteRecommendationRule(req.params.id);
       res.sendStatus(204);
     } catch (error) {
@@ -1012,11 +1021,11 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/recommendations", requireSubscription, async (req, res, next) => {
     try {
       const { tagScores } = req.body;
-      
+
       if (!tagScores || !Array.isArray(tagScores)) {
         return res.status(400).send("tagScores array is required");
       }
-      
+
       const recommendations = await getRecommendationsWithFallback(tagScores);
       res.json(recommendations);
     } catch (error) {
@@ -1028,11 +1037,11 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/recommendations/preview", requireSubscription, async (req, res, next) => {
     try {
       const { tagScores, assessmentId, pathwayId, pathwayWeek } = req.body;
-      
+
       if (!tagScores || !Array.isArray(tagScores)) {
         return res.status(400).send("tagScores array is required");
       }
-      
+
       const result = await previewRecommendations(tagScores, assessmentId, pathwayId, pathwayWeek);
       res.json(result);
     } catch (error) {
@@ -1057,21 +1066,21 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
     try {
-      const { 
-        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
-        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      const {
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore,
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues
       } = req.body;
-      
+
       // For answer-based rules, questionName is required instead of tag
       if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
         return res.status(400).send("name and contentIds are required");
       }
-      
+
       // Either tag (legacy) or questionName (new) must be provided
       if (!tag && !questionName) {
         return res.status(400).send("Either tag or questionName is required");
       }
-      
+
       const config = await createRecommendationConfig({
         clinicianUserId: req.user!.id,
         name,
@@ -1089,12 +1098,12 @@ export function registerRoutes(app: Express): Server {
         matchOperator: matchOperator || 'equals',
         matchValues,
       });
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
         details: { action: 'create_recommendation_config', configId: config.id, name },
       });
-      
+
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -1107,28 +1116,28 @@ export function registerRoutes(app: Express): Server {
       // This prevents partial updates from wiping existing data
       const updates: Record<string, unknown> = {};
       const fields = [
-        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
-        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds',
+        'rationale', 'isActive', 'assessmentId', 'questionName',
         'questionType', 'matchOperator', 'matchValues'
       ];
-      
+
       for (const field of fields) {
         if (req.body[field] !== undefined) {
           updates[field] = req.body[field];
         }
       }
-      
+
       const updated = await updateRecommendationConfig(req.params.id, updates);
-      
+
       if (!updated) {
         return res.status(404).send("Recommendation config not found");
       }
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
         details: { action: 'update_recommendation_config', configId: req.params.id },
       });
-      
+
       res.json(updated);
     } catch (error) {
       next(error);
@@ -1141,7 +1150,7 @@ export function registerRoutes(app: Express): Server {
         resourceType: 'settings',
         details: { action: 'delete_recommendation_config', configId: req.params.id },
       });
-      
+
       await deleteRecommendationConfig(req.params.id);
       res.sendStatus(204);
     } catch (error) {
@@ -1183,7 +1192,7 @@ export function registerRoutes(app: Express): Server {
         ...req.body,
         clinicianUserId: req.user!.id,
       });
-      
+
       // Get default assessment if not specified
       if (!validated.assessmentId) {
         const defaultAssessment = await storage.getDefaultAssessment();
@@ -1194,7 +1203,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const screening = await storage.createInternalScreening(validated);
-      
+
       // Audit log: internal screening created (PHI action)
       await logClinicianAction(req, req.user!, 'screening_create', {
         resourceType: 'screening',
@@ -1203,7 +1212,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient name/identifier, screening responses',
         details: { patientName: validated.patientName },
       });
-      
+
       res.status(201).json(screening);
     } catch (error) {
       next(error);
@@ -1213,7 +1222,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/internal-screenings", requireSubscription, async (req, res, next) => {
     try {
       const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
-      
+
       // Audit log: viewing screenings list (PHI access)
       await logClinicianAction(req, req.user!, 'screening_access', {
         resourceType: 'screening',
@@ -1221,7 +1230,7 @@ export function registerRoutes(app: Express): Server {
         phiScope: 'patient identifiers in screening list',
         details: { count: screenings.length },
       });
-      
+
       res.json(screenings);
     } catch (error) {
       next(error);
@@ -1233,24 +1242,24 @@ export function registerRoutes(app: Express): Server {
     try {
       // Generate a 6-digit access code for patient portal
       const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
-      
+
       const validated = insertEmailLogSchema.parse({
         ...req.body,
         clinicianUserId: req.user!.id,
         accessCode,
       });
-      
+
       const log = await storage.createEmailLog(validated);
-      
+
       // Create content view tracking entries for each content item
       const contentItemsWithLinks: Array<{
-        title: string; 
-        summary: string; 
-        readTime: string | null; 
+        title: string;
+        summary: string;
+        readTime: string | null;
         imageUrl: string | null;
         viewUrl: string;
       }> = [];
-      
+
       if (validated.contentIds && validated.contentIds.length > 0) {
         for (const contentId of validated.contentIds) {
           try {
@@ -1261,7 +1270,7 @@ export function registerRoutes(app: Express): Server {
             if (!content) {
               content = await storage.getContentById(contentId);
             }
-            
+
             if (content) {
               // Create a tracking entry for this content
               const contentView = await storage.createContentView({
@@ -1269,14 +1278,14 @@ export function registerRoutes(app: Express): Server {
                 contentId: contentId,
                 patientEmail: validated.patientEmail,
               });
-              
+
               // Build the tracking URL - using the token for tracking
-              const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-                ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-                : process.env.REPLIT_DOMAINS 
+              const baseUrl = process.env.REPLIT_DEV_DOMAIN
+                ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+                : process.env.REPLIT_DOMAINS
                   ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
                   : 'http://localhost:5000';
-              
+
               contentItemsWithLinks.push({
                 title: content.title,
                 summary: content.summary,
@@ -1290,14 +1299,14 @@ export function registerRoutes(app: Express): Server {
           }
         }
       }
-      
+
       // Build the portal URL
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : process.env.REPLIT_DOMAINS 
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS
           ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
           : 'http://localhost:5000';
-      
+
       // Send email via Gmail with patient portal access
       const emailResult = await sendPatientPortalEmail({
         toEmail: validated.patientEmail,
@@ -1308,24 +1317,24 @@ export function registerRoutes(app: Express): Server {
         providerNote: validated.providerNote || undefined,
         clinicianName: req.user!.name || undefined,
       });
-      
+
       if (!emailResult.success) {
         console.error('[Email] Failed to send patient portal email:', emailResult.error);
       }
-      
+
       // Audit log: email sent to patient (PHI action)
       await logClinicianAction(req, req.user!, 'email_sent', {
         resourceType: 'email_log',
         resourceId: log.id,
         phiAccessed: true,
         phiScope: 'patient email address, content delivery',
-        details: { 
-          patientEmail: validated.patientEmail, 
+        details: {
+          patientEmail: validated.patientEmail,
           contentCount: validated.contentIds?.length || 0,
           emailSent: emailResult.success,
         },
       });
-      
+
       res.status(201).json({ ...log, emailSent: emailResult.success });
     } catch (error) {
       next(error);
@@ -1354,28 +1363,28 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
     try {
       const clinicianId = req.user!.id;
-      
+
       // Get the original email log
       const originalLog = await storage.getEmailLogById(req.params.id);
       if (!originalLog) {
         return res.status(404).json({ error: "Email log not found" });
       }
-      
+
       // Verify this belongs to the current clinician
       if (originalLog.clinicianUserId !== clinicianId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      
+
       // Generate new 6-digit access code
       const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
-      
+
       // Determine base URL for patient portal
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : process.env.REPLIT_DOMAINS 
+        : process.env.REPLIT_DOMAINS
           ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
           : 'http://localhost:5000';
-      
+
       // Send new email via Gmail
       const emailResult = await sendPatientPortalEmail({
         toEmail: originalLog.patientEmail,
@@ -1385,11 +1394,11 @@ export function registerRoutes(app: Express): Server {
         contentCount: originalLog.contentIds?.length || 0,
         providerNote: originalLog.providerNote || undefined,
       });
-      
+
       if (!emailResult.success) {
         return res.status(500).json({ error: emailResult.error || "Failed to send email" });
       }
-      
+
       // Create new email log with the same content but new access code
       const newEmailLog = await storage.createEmailLog({
         clinicianUserId: clinicianId,
@@ -1401,7 +1410,7 @@ export function registerRoutes(app: Express): Server {
         accessCode: accessCode,
         status: "sent",
       });
-      
+
       // Create content view entries for tracking (only for content_bundle type)
       if (originalLog.type === 'content_bundle' && originalLog.contentIds && originalLog.contentIds.length > 0) {
         for (const contentId of originalLog.contentIds) {
@@ -1412,7 +1421,7 @@ export function registerRoutes(app: Express): Server {
           });
         }
       }
-      
+
       res.json(newEmailLog);
     } catch (error) {
       next(error);
@@ -1424,16 +1433,16 @@ export function registerRoutes(app: Express): Server {
     try {
       const patientEmail = decodeURIComponent(req.params.email);
       const clinicianId = req.user!.id;
-      
+
       // Gather all data for this patient
       const emailLogs = await storage.getEmailLogsByPatientEmail(clinicianId, patientEmail);
       const assessmentInvites = await storage.getAssessmentInvitesByPatientEmail(clinicianId, patientEmail);
-      
+
       // Get content views for all email logs
       const contentViewsPromises = emailLogs.map(log => storage.getContentViewsByEmailLogId(log.id));
       const contentViewsArrays = await Promise.all(contentViewsPromises);
       const allContentViews = contentViewsArrays.flat();
-      
+
       // Get content details for viewed items
       const contentIds = Array.from(new Set(allContentViews.map(v => v.contentId)));
       const contentDetails: Record<string, { title: string; tags: string[] }> = {};
@@ -1443,18 +1452,18 @@ export function registerRoutes(app: Express): Server {
           contentDetails[id] = { title: content.title, tags: content.tags };
         }
       }
-      
+
       // Calculate engagement stats
       const totalContentSent = emailLogs.reduce((sum, log) => sum + (log.contentIds?.length || 0), 0);
       const viewedContent = allContentViews.filter(v => v.viewedAt).length;
       const totalTimeSpent = allContentViews.reduce((sum, v) => sum + (v.timeSpentSeconds || 0), 0);
-      
+
       // Build summary
       const summary = {
         patientEmail,
         generatedAt: new Date().toISOString(),
         clinicianName: req.user!.name || 'Unknown',
-        
+
         // Overview stats
         stats: {
           totalEmailsSent: emailLogs.length,
@@ -1465,7 +1474,7 @@ export function registerRoutes(app: Express): Server {
           assessmentsSent: assessmentInvites.length,
           assessmentsCompleted: assessmentInvites.filter(a => a.status === 'completed').length,
         },
-        
+
         // Content engagement details
         contentEngagement: allContentViews.map(view => ({
           contentTitle: contentDetails[view.contentId]?.title || 'Unknown Content',
@@ -1474,7 +1483,7 @@ export function registerRoutes(app: Express): Server {
           viewedAt: view.viewedAt,
           timeSpentSeconds: view.timeSpentSeconds || 0,
         })),
-        
+
         // Email history
         emailHistory: emailLogs.map(log => ({
           date: log.sentAt,
@@ -1483,7 +1492,7 @@ export function registerRoutes(app: Express): Server {
           status: log.status,
           contentCount: log.contentIds?.length || 0,
         })),
-        
+
         // Assessment history
         assessmentHistory: assessmentInvites.map(invite => ({
           sentAt: invite.createdAt,
@@ -1491,7 +1500,7 @@ export function registerRoutes(app: Express): Server {
           completedAt: invite.completedAt,
         })),
       };
-      
+
       res.json(summary);
     } catch (error) {
       next(error);
@@ -1502,12 +1511,12 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
     try {
       const { onboardingStep, onboardingCompleted } = req.body;
-      
+
       await storage.updateOnboardingStatus(req.user!.id, {
         onboardingStep,
         onboardingCompleted,
       });
-      
+
       const updatedUser = await storage.getUser(req.user!.id);
       res.json(updatedUser);
     } catch (error) {
@@ -1520,7 +1529,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updateOnboardingStatus(req.user!.id, {
         onboardingCompleted: true,
       });
-      
+
       const updatedUser = await storage.getUser(req.user!.id);
       res.json(updatedUser);
     } catch (error) {
@@ -1579,7 +1588,7 @@ export function registerRoutes(app: Express): Server {
       if (!currentUser) {
         return res.status(404).json({ error: "User not found" });
       }
-      
+
       // If using personal email, switch back to central
       if (currentUser.emailDeliveryMode === 'personal') {
         await storage.updateEmailDeliveryMode(req.user!.id, 'central');
@@ -1601,7 +1610,7 @@ export function registerRoutes(app: Express): Server {
         subscriptionStatus: "active",
         subscriptionPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
       });
-      
+
       const updatedUser = await storage.getUser(req.user!.id);
       res.json(updatedUser);
     } catch (error) {
@@ -1615,7 +1624,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updateUserSubscription(req.user!.id, {
         subscriptionStatus: "canceled",
       });
-      
+
       const updatedUser = await storage.getUser(req.user!.id);
       res.json(updatedUser);
     } catch (error) {
@@ -1628,15 +1637,15 @@ export function registerRoutes(app: Express): Server {
     try {
       const emailLogs = await storage.getEmailLogsByClinicianId(req.user!.id);
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
-      
+
       // Calculate sends this week and last week for growth comparison
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-      
+
       const sendsThisWeek = emailLogs.filter(log => log.sentAt >= weekAgo).length;
       const sendsLastWeek = emailLogs.filter(log => log.sentAt >= twoWeeksAgo && log.sentAt < weekAgo).length;
-      
+
       let sendsGrowth = "+0%";
       if (sendsLastWeek > 0) {
         const growth = Math.round(((sendsThisWeek - sendsLastWeek) / sendsLastWeek) * 100);
@@ -1644,7 +1653,7 @@ export function registerRoutes(app: Express): Server {
       } else if (sendsThisWeek > 0) {
         sendsGrowth = "+100%";
       }
-      
+
       // Build chart data for last 7 days
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const chartData: { name: string; sends: number }[] = [];
@@ -1655,20 +1664,20 @@ export function registerRoutes(app: Express): Server {
         const sends = emailLogs.filter(log => log.sentAt >= dayStart && log.sentAt < dayEnd).length;
         chartData.push({ name: dayNames[day.getDay()], sends });
       }
-      
+
       // Build recent activity (last 10 items combining email logs and invites)
       const recentActivity: { email: string; action: string; status: string; time: Date }[] = [];
-      
+
       emailLogs.slice(0, 10).forEach(log => {
         recentActivity.push({
           email: log.patientEmail,
-          action: log.type === 'content_bundle' ? 'Content Bundle' : 
-                  log.type === 'assessment_invite' ? 'Assessment Invite' : 'Email',
+          action: log.type === 'content_bundle' ? 'Content Bundle' :
+            log.type === 'assessment_invite' ? 'Assessment Invite' : 'Email',
           status: log.status || 'sent',
           time: log.sentAt,
         });
       });
-      
+
       invites.filter(inv => inv.status === 'completed').slice(0, 5).forEach(inv => {
         recentActivity.push({
           email: inv.patientEmail,
@@ -1677,14 +1686,14 @@ export function registerRoutes(app: Express): Server {
           time: inv.completedAt || inv.createdAt,
         });
       });
-      
+
       // Sort by time descending and take top 5
       recentActivity.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       const topRecentActivity = recentActivity.slice(0, 5).map(item => ({
         ...item,
         timeAgo: getTimeAgo(item.time),
       }));
-      
+
       // Calculate top tags from content sent
       const tagCounts: Record<string, number> = {};
       for (const log of emailLogs) {
@@ -1703,23 +1712,23 @@ export function registerRoutes(app: Express): Server {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([tag]) => tag);
-      
+
       const completedInvites = invites.filter(inv => inv.status === "completed").length;
-      const completionRate = invites.length > 0 
-        ? Math.round((completedInvites / invites.length) * 100) 
+      const completionRate = invites.length > 0
+        ? Math.round((completedInvites / invites.length) * 100)
         : 0;
-      
+
       // Calculate content read rate (emails that have been clicked/viewed)
       const contentBundleLogs = emailLogs.filter(log => log.type === 'content_bundle');
       const clickedLogs = contentBundleLogs.filter(log => log.status === 'clicked');
-      const contentReadRate = contentBundleLogs.length > 0 
-        ? Math.round((clickedLogs.length / contentBundleLogs.length) * 100) 
+      const contentReadRate = contentBundleLogs.length > 0
+        ? Math.round((clickedLogs.length / contentBundleLogs.length) * 100)
         : 0;
-      
+
       // Build action needed list (emails that haven't been opened/clicked)
       const actionNeeded: { email: string; subject: string; daysSinceSent: number; id: string }[] = [];
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-      
+
       contentBundleLogs
         .filter(log => log.status === 'sent' && log.sentAt < threeDaysAgo)
         .slice(0, 5)
@@ -1732,16 +1741,16 @@ export function registerRoutes(app: Express): Server {
             id: log.id,
           });
         });
-      
+
       // Get total content and assessments for provider-only mode
       const allContent = await storage.getAllContent();
       const assessments = await storage.getAllAssessments();
-      
+
       // Get packet stats (internal screenings)
       const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
       const packetsThisWeek = screenings.filter(s => new Date(s.createdAt) >= weekAgo).length;
       const packetsLastWeek = screenings.filter(s => new Date(s.createdAt) >= twoWeeksAgo && new Date(s.createdAt) < weekAgo).length;
-      
+
       let packetsGrowth = "+0%";
       if (packetsLastWeek > 0) {
         const growth = Math.round(((packetsThisWeek - packetsLastWeek) / packetsLastWeek) * 100);
@@ -1749,7 +1758,7 @@ export function registerRoutes(app: Express): Server {
       } else if (packetsThisWeek > 0) {
         packetsGrowth = "+100%";
       }
-      
+
       // Build recent packets (last 5)
       const recentPackets = screenings
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -1765,7 +1774,7 @@ export function registerRoutes(app: Express): Server {
             timeAgo: getTimeAgo(s.createdAt),
           };
         });
-      
+
       // Get top tags from internal screenings
       const screeningTagCounts: Record<string, number> = {};
       for (const screening of screenings) {
@@ -1782,11 +1791,11 @@ export function registerRoutes(app: Express): Server {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([tag]) => tag);
-      
+
       // Combine tags: use screening tags for MVP mode, email tags for full mode
-      const combinedTopTags = topTags.length > 0 ? topTags : 
+      const combinedTopTags = topTags.length > 0 ? topTags :
         (topScreeningTags.length > 0 ? topScreeningTags : ["No data yet"]);
-      
+
       res.json({
         sendsThisWeek,
         sendsGrowth,
@@ -1809,7 +1818,7 @@ export function registerRoutes(app: Express): Server {
       next(error);
     }
   });
-  
+
   // Helper function for relative time
   function getTimeAgo(date: Date): string {
     const now = new Date();
@@ -1817,7 +1826,7 @@ export function registerRoutes(app: Express): Server {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -1830,19 +1839,19 @@ export function registerRoutes(app: Express): Server {
     try {
       const { email, name, password, subscriptionMonths } = req.body;
       const normalizedEmail = email.toLowerCase();
-      
+
       // Check if user already exists
       const existing = await storage.getUserByEmail(normalizedEmail);
       if (existing) {
         return res.status(400).json({ error: "User with this email already exists" });
       }
-      
+
       // Create new user
       const hashedPassword = await hashPassword(password || "changeme123");
-      const periodEnd = subscriptionMonths 
+      const periodEnd = subscriptionMonths
         ? new Date(Date.now() + subscriptionMonths * 30 * 24 * 60 * 60 * 1000)
         : null;
-      
+
       const user = await storage.createUser({
         email: normalizedEmail,
         name: name || normalizedEmail.split("@")[0],
@@ -1851,14 +1860,14 @@ export function registerRoutes(app: Express): Server {
         subscriptionStatus: subscriptionMonths ? "active" : "inactive",
         subscriptionPeriodEnd: periodEnd,
       });
-      
+
       // Audit log: admin created user
       await logClinicianAction(req, req.user!, 'user_create', {
         resourceType: 'user',
         resourceId: user.id,
         details: { targetEmail: email, createdByAdmin: true },
       });
-      
+
       res.json(user);
     } catch (error) {
       next(error);
@@ -1869,10 +1878,10 @@ export function registerRoutes(app: Express): Server {
     try {
       const { email, name } = req.body;
       const normalizedEmail = email.toLowerCase();
-      
+
       // Check if user already exists
       let user = await storage.getUserByEmail(normalizedEmail);
-      
+
       if (user) {
         // Update existing user to have trial access
         await storage.updateUserSubscription(user.id, {
@@ -1892,7 +1901,7 @@ export function registerRoutes(app: Express): Server {
           subscriptionPeriodEnd: new Date("9999-12-31"),
         });
       }
-      
+
       res.json(user);
     } catch (error) {
       next(error);
@@ -1925,14 +1934,14 @@ export function registerRoutes(app: Express): Server {
       const { name, email, role } = req.body;
       await storage.updateUser(req.params.id, { name, email, role });
       const updatedUser = await storage.getUser(req.params.id);
-      
+
       // Audit log: admin updated user
       await logClinicianAction(req, req.user!, 'user_update', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { changes: { name, email, role } },
       });
-      
+
       res.json(updatedUser);
     } catch (error) {
       next(error);
@@ -1947,14 +1956,14 @@ export function registerRoutes(app: Express): Server {
         subscriptionPeriodEnd: subscriptionPeriodEnd ? new Date(subscriptionPeriodEnd) : undefined,
       });
       const user = await storage.getUser(req.params.id);
-      
+
       // Audit log: subscription status changed
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { subscriptionStatus, subscriptionPeriodEnd },
       });
-      
+
       res.json(user);
     } catch (error) {
       next(error);
@@ -1971,12 +1980,12 @@ export function registerRoutes(app: Express): Server {
 
       const currentEnd = user.subscriptionPeriodEnd || new Date();
       const newEnd = new Date(currentEnd.getTime() + months * 30 * 24 * 60 * 60 * 1000);
-      
+
       await storage.updateUserSubscription(req.params.id, {
         subscriptionStatus: "active",
         subscriptionPeriodEnd: newEnd,
       });
-      
+
       const updatedUser = await storage.getUser(req.params.id);
       res.json(updatedUser);
     } catch (error) {
@@ -1989,14 +1998,14 @@ export function registerRoutes(app: Express): Server {
       const { password } = req.body;
       const hashedPassword = await hashPassword(password || "changeme123");
       await storage.updateUserPassword(req.params.id, hashedPassword);
-      
+
       // Audit log: password reset by admin
       await logClinicianAction(req, req.user!, 'password_change', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { resetByAdmin: true },
       });
-      
+
       res.json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       next(error);
@@ -2010,9 +2019,64 @@ export function registerRoutes(app: Express): Server {
         resourceType: 'user',
         resourceId: req.params.id,
       });
-      
+
       await storage.deleteUser(req.params.id);
       res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Content Moderation Routes ======
+  app.get("/api/admin/moderation/queue", requireAdmin, async (req, res, next) => {
+    try {
+      const queue = await storage.getModerationQueue();
+      res.json(queue);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/approve", requireAdmin, async (req, res, next) => {
+    try {
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'approved',
+        moderationNote: req.body.note // Optional note on approval
+      });
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(req, req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: content.id,
+        details: { action: 'approve', title: content.title }
+      });
+
+      res.json(content);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/reject", requireAdmin, async (req, res, next) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'rejected',
+        moderationNote: reason
+      });
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(req, req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: content.id,
+        details: { action: 'reject', title: content.title, reason }
+      });
+
+      res.json(content);
     } catch (error) {
       next(error);
     }
@@ -2023,7 +2087,7 @@ export function registerRoutes(app: Express): Server {
       const stats = await storage.getAdminStats();
       const users = await storage.getAllUsers();
       const content = await storage.getAllContent();
-      
+
       res.json({
         ...stats,
         totalContent: content.length,
@@ -2124,11 +2188,11 @@ export function registerRoutes(app: Express): Server {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      
+
       const notes = await storage.getAdminNotes(req.params.userId);
       const loginHistory = await storage.getLoginHistory(req.params.userId, 100);
       const contentActivity = await storage.getUserContentActivity(req.params.userId);
-      
+
       const exportData = {
         user: {
           id: user.id,
@@ -2153,7 +2217,7 @@ export function registerRoutes(app: Express): Server {
         contentActivity: contentActivity.slice(0, 100),
         exportedAt: new Date().toISOString(),
       };
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', `attachment; filename="user-export-${user.id}.json"`);
       res.json(exportData);
@@ -2178,19 +2242,19 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
     try {
-      const { 
-        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore, 
-        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues 
+      const {
+        name, assessmentId, pathwayId, pathwayWeek, tag, minScore, maxScore,
+        priority, contentIds, rationale, questionName, questionType, matchOperator, matchValues
       } = req.body;
-      
+
       if (!name || !contentIds || !Array.isArray(contentIds) || contentIds.length === 0) {
         return res.status(400).send("name and contentIds are required");
       }
-      
+
       if (!tag && !questionName) {
         return res.status(400).send("Either tag or questionName is required");
       }
-      
+
       const config = await createRecommendationConfig({
         clinicianUserId: undefined,
         name,
@@ -2208,12 +2272,12 @@ export function registerRoutes(app: Express): Server {
         matchOperator: matchOperator || 'equals',
         matchValues,
       });
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
         details: { action: 'create_recommendation_config', configId: config.id },
       });
-      
+
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -2224,28 +2288,28 @@ export function registerRoutes(app: Express): Server {
     try {
       const updates: Record<string, unknown> = {};
       const fields = [
-        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds', 
-        'rationale', 'isActive', 'assessmentId', 'questionName', 
+        'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds',
+        'rationale', 'isActive', 'assessmentId', 'questionName',
         'questionType', 'matchOperator', 'matchValues'
       ];
-      
+
       for (const field of fields) {
         if (req.body[field] !== undefined) {
           updates[field] = req.body[field];
         }
       }
-      
+
       const updated = await updateRecommendationConfig(req.params.id, updates);
-      
+
       if (!updated) {
         return res.status(404).send("Recommendation config not found");
       }
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'settings',
         details: { action: 'update_recommendation_config', configId: req.params.id },
       });
-      
+
       res.json(updated);
     } catch (error) {
       next(error);
@@ -2258,7 +2322,7 @@ export function registerRoutes(app: Express): Server {
         resourceType: 'settings',
         details: { action: 'delete_recommendation_config', configId: req.params.id },
       });
-      
+
       await deleteRecommendationConfig(req.params.id);
       res.sendStatus(204);
     } catch (error) {
@@ -2272,12 +2336,12 @@ export function registerRoutes(app: Express): Server {
       const customRules = await storage.getFollowUpRulesByClinicianId(req.user!.id);
       const templates = await storage.getTemplateFollowUpRules();
       const userPrefs = await storage.getUserTemplatePreferences(req.user!.id);
-      
+
       const templatesWithStatus = templates.map(t => ({
         ...t,
         isEnabled: userPrefs.find(p => p.templateRuleId === t.id)?.isEnabled ?? false,
       }));
-      
+
       res.json({ custom: customRules, templates: templatesWithStatus });
     } catch (error) {
       next(error);
@@ -2338,7 +2402,7 @@ export function registerRoutes(app: Express): Server {
     try {
       // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
-      
+
       // Try to get template pathways from Contentful first
       let templatePathways: any[] = [];
       if (isContentfulConfigured()) {
@@ -2354,7 +2418,7 @@ export function registerRoutes(app: Express): Server {
       } else {
         templatePathways = await storage.getCarePathways();
       }
-      
+
       res.json({ custom: customPathways, templates: templatePathways });
     } catch (error) {
       next(error);
@@ -2377,7 +2441,7 @@ export function registerRoutes(app: Express): Server {
           }
         }
       }
-      
+
       // Fallback to database
       const pathway = await storage.getCarePathwayById(req.params.id);
       if (!pathway) {
@@ -2498,14 +2562,14 @@ export function registerRoutes(app: Express): Server {
     try {
       const { tagScores } = req.body;
       const recommendations = await storage.getRecommendationsForScores(tagScores);
-      
+
       // Get actual content for each recommendation
       const contentPromises = recommendations.map(async rec => {
         const content = await storage.getContentById(rec.contentId);
         return { ...rec, content };
       });
       const withContent = await Promise.all(contentPromises);
-      
+
       res.json(withContent);
     } catch (error) {
       next(error);
@@ -2559,12 +2623,12 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
     try {
       const item = await storage.createDataInventoryItem(req.body);
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'created_data_inventory_item', itemName: item.dataAssetName },
       });
-      
+
       res.status(201).json(item);
     } catch (error) {
       next(error);
@@ -2574,12 +2638,12 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
     try {
       await storage.updateDataInventoryItem(req.params.id, req.body);
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'updated_data_inventory_item', itemId: req.params.id },
       });
-      
+
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -2589,12 +2653,12 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
     try {
       await storage.deleteDataInventoryItem(req.params.id);
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'deleted_data_inventory_item', itemId: req.params.id },
       });
-      
+
       res.sendStatus(204);
     } catch (error) {
       next(error);
@@ -2606,35 +2670,35 @@ export function registerRoutes(app: Express): Server {
     try {
       const users = await storage.getAllUsers();
       const stats = await storage.getAdminStats();
-      
+
       // Subscription health metrics
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-      
+
       const activeUsers = users.filter(u => u.subscriptionStatus === 'active');
-      const canceledLastMonth = users.filter(u => 
-        u.subscriptionStatus === 'canceled' && 
-        u.updatedAt && 
+      const canceledLastMonth = users.filter(u =>
+        u.subscriptionStatus === 'canceled' &&
+        u.updatedAt &&
         new Date(u.updatedAt) >= thirtyDaysAgo
       ).length;
-      
-      const newSubscriptionsLastMonth = users.filter(u => 
-        u.subscriptionStatus === 'active' && 
+
+      const newSubscriptionsLastMonth = users.filter(u =>
+        u.subscriptionStatus === 'active' &&
         new Date(u.createdAt) >= thirtyDaysAgo
       ).length;
-      
+
       // Churn rate (canceled / total active at start of period)
-      const churnRate = activeUsers.length > 0 
-        ? Math.round((canceledLastMonth / activeUsers.length) * 100) 
+      const churnRate = activeUsers.length > 0
+        ? Math.round((canceledLastMonth / activeUsers.length) * 100)
         : 0;
-      
+
       // Usage analytics
       const clinicians = users.filter(u => u.role === 'clinician');
-      const activeLastWeek = clinicians.filter(u => 
+      const activeLastWeek = clinicians.filter(u =>
         u.lastLogin && new Date(u.lastLogin) >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
       ).length;
-      
+
       res.json({
         subscriptionHealth: {
           totalActive: activeUsers.length,
@@ -2653,8 +2717,8 @@ export function registerRoutes(app: Express): Server {
         },
         growth: {
           signupsLast30Days: stats.recentSignups,
-          previousPeriod: users.filter(u => 
-            new Date(u.createdAt) >= sixtyDaysAgo && 
+          previousPeriod: users.filter(u =>
+            new Date(u.createdAt) >= sixtyDaysAgo &&
             new Date(u.createdAt) < thirtyDaysAgo
           ).length,
         },
@@ -2678,22 +2742,22 @@ export function registerRoutes(app: Express): Server {
     try {
       const { key } = req.params;
       const { isEnabled, value, payload, name, description, category } = req.body;
-      
+
       // Fetch current state to record in audit log
       const currentFlags = await storage.getFeatureFlags();
       const currentFlag = currentFlags.find(f => f.key === key);
-      
+
       const updated = await storage.updateFeatureFlag(key, { isEnabled, value, payload, name, description, category });
-      
+
       if (!updated) {
         return res.status(404).json({ error: "Feature flag not found" });
       }
-      
+
       await logClinicianAction(req, req.user!, 'settings_change', {
         resourceType: 'feature_flag',
         resourceId: key,
-        details: { 
-          action: 'updated_feature_flag', 
+        details: {
+          action: 'updated_feature_flag',
           flagKey: key,
           previousValue: currentFlag?.value,
           newValue: value !== undefined ? value : currentFlag?.value,
@@ -2702,7 +2766,7 @@ export function registerRoutes(app: Express): Server {
           changedFields: Object.keys(req.body),
         },
       });
-      
+
       res.json(updated);
     } catch (error) {
       next(error);
@@ -2716,13 +2780,13 @@ export function registerRoutes(app: Express): Server {
         action: 'settings_change',
         limit: 50,
       });
-      
+
       // Filter for feature flag changes for this specific key
       const flagHistory = logs.filter(log => {
         const details = log.details as Record<string, unknown> | null;
         return details?.action === 'updated_feature_flag' && details?.flagKey === key;
       });
-      
+
       res.json(flagHistory);
     } catch (error) {
       next(error);
@@ -2735,13 +2799,13 @@ export function registerRoutes(app: Express): Server {
         action: 'settings_change',
         limit: 100,
       });
-      
+
       // Filter for all feature flag changes
       const flagHistory = logs.filter(log => {
         const details = log.details as Record<string, unknown> | null;
         return details?.action === 'updated_feature_flag';
       });
-      
+
       res.json(flagHistory);
     } catch (error) {
       next(error);
@@ -2769,7 +2833,7 @@ export function registerRoutes(app: Express): Server {
   // Super Admin Routes - Persona Switching
   app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { toPersona } = req.body;
       if (!['clinician', 'admin'].includes(toPersona)) {
         return res.status(400).json({ message: "Invalid persona" });
@@ -2780,19 +2844,15 @@ export function registerRoutes(app: Express): Server {
 
       const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_switch', toPersona }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        phiAccessed: false,
+        outcome: 'success',
+        details: { action: 'persona_switch', toPersona }
+      });
 
-      res.json({ 
+      res.json({
         message: `Switched to ${toPersona} persona`,
         activePersona: toPersona,
         switchLog
@@ -2804,20 +2864,16 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       await storage.clearPersona(user.id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        user.id,
-        false,
-        req,
-        'success',
-        { action: 'persona_clear' }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: user.id,
+        phiAccessed: false,
+        outcome: 'success',
+        details: { action: 'persona_clear' }
+      });
 
       res.json({ message: "Persona cleared, back to super admin view" });
     } catch (error) {
@@ -2827,7 +2883,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const history = await storage.getPersonaSwitchHistory(user.id);
       res.json(history);
     } catch (error) {
@@ -2848,7 +2904,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId } = req.params;
       const { permissionName, reason, expiresAt } = req.body;
 
@@ -2857,24 +2913,20 @@ export function registerRoutes(app: Express): Server {
       }
 
       const grant = await storage.grantUserPermission(
-        userId, 
-        permissionName, 
-        user.id, 
+        userId,
+        permissionName,
+        user.id,
         reason,
         expiresAt ? new Date(expiresAt) : undefined
       );
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_grant', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        phiAccessed: false,
+        outcome: 'success',
+        details: { action: 'permission_grant', permissionName, targetUserId: userId }
+      });
 
       res.json(grant);
     } catch (error) {
@@ -2884,7 +2936,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId } = req.params;
       const { permissionName, reason } = req.body;
 
@@ -2894,17 +2946,13 @@ export function registerRoutes(app: Express): Server {
 
       const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_revoke', permissionName, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        phiAccessed: false,
+        outcome: 'success',
+        details: { action: 'permission_revoke', permissionName, targetUserId: userId }
+      });
 
       res.json(revoke);
     } catch (error) {
@@ -2914,21 +2962,17 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId, id } = req.params;
       await storage.removeUserPermission(id);
 
-      await logClinicianAction(
-        user.id,
-        user.email,
-        'settings_change',
-        'user',
-        userId,
-        false,
-        req,
-        'success',
-        { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
-      );
+      await logClinicianAction(req, user, 'settings_change', {
+        resourceType: 'user',
+        resourceId: userId,
+        phiAccessed: false,
+        outcome: 'success',
+        details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
+      });
 
       res.json({ message: "Permission override removed" });
     } catch (error) {

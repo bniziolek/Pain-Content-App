@@ -1,10 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  Library, 
-  ClipboardList, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Library,
+  ClipboardList,
+  Settings,
+  LogOut,
   Menu,
   User,
   Activity,
@@ -42,6 +42,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   // Admin gets different navigation
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
+    { href: "/admin/moderation", label: "Moderation Queue", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
     { href: "/assessments", label: "Assessments", icon: ClipboardList },
     { href: "/admin/recommendations", label: "Recommendation Rules", icon: Sparkles },
@@ -81,7 +82,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
           <span>DriverPath</span>
         </div>
       </div>
-      
+
       <div className="flex-1 px-4 py-2 space-y-1">
         {links.map((link) => {
           const Icon = link.icon;
@@ -89,13 +90,13 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
           const tourId = 'tourId' in link ? link.tourId : undefined;
           return (
             <Link key={link.href} href={link.href}>
-              <div 
+              <div
                 onClick={onNavigate}
                 data-tour={tourId}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isActive 
-                    ? "bg-primary text-primary-foreground shadow-sm font-semibold" 
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
@@ -119,13 +120,13 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
             </span>
           </div>
         </div>
-        <Button 
+        <Button
           onClick={async () => {
             await logout();
             navigate("/");
           }}
-          variant="ghost" 
-          className="w-full justify-start text-muted-foreground hover:text-destructive" 
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-destructive"
           size="sm"
           data-testid="button-logout"
         >
