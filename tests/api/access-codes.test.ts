@@ -9,7 +9,7 @@ describe('Packet Access Codes API', () => {
 
   beforeAll(async () => {
     agent = await createAuthenticatedAgent();
-    
+
     const contentResponse = await agent.get('/api/content');
     if (contentResponse.body.length > 0) {
       contentId = contentResponse.body[0].id;
@@ -75,11 +75,11 @@ describe('Packet Access Codes API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('expiresAt');
-      
+
       const expiresAt = new Date(response.body.expiresAt);
       const now = new Date();
       const diffDays = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       expect(diffDays).toBeGreaterThanOrEqual(29);
       expect(diffDays).toBeLessThanOrEqual(31);
     });
@@ -154,13 +154,13 @@ describe('Packet Access Codes API', () => {
       }
 
       // Create an expired code directly in the database
-      const { db } = await import('../../server/db');
+      const { db } = await import('../../server/storage');
       const { packetAccessCodes } = await import('../../shared/schema');
-      
+
       const expiredDate = new Date();
       expiredDate.setDate(expiredDate.getDate() - 1); // Yesterday
-      
-      const expiredCode = 'TEST-EXPR';
+
+      const expiredCode = `EX-${Math.random().toString(36).substring(2, 6).toUpperCase()}`; // 3 + 4 = 7 chars
       await db.insert(packetAccessCodes).values({
         code: expiredCode,
         clinicianId: userId,
@@ -185,13 +185,13 @@ describe('Packet Access Codes API', () => {
       }
 
       // Create an inactive code directly in the database
-      const { db } = await import('../../server/db');
+      const { db } = await import('../../server/storage');
       const { packetAccessCodes } = await import('../../shared/schema');
-      
+
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 90);
-      
-      const inactiveCode = 'TEST-INAC';
+
+      const inactiveCode = `IN-${Math.random().toString(36).substring(2, 6).toUpperCase()}`; // 3 + 4 = 7 chars
       await db.insert(packetAccessCodes).values({
         code: inactiveCode,
         clinicianId: userId,
