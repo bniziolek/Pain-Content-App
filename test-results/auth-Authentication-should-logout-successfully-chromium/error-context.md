@@ -1,0 +1,132 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7]:
+            - img [ref=e8]
+            - generic [ref=e10]: DriverPath
+          - generic [ref=e11]:
+            - link "About" [ref=e12] [cursor=pointer]:
+              - /url: /about
+            - link "Clinical Philosophy" [ref=e13] [cursor=pointer]:
+              - /url: /philosophy
+            - link "Features" [ref=e14] [cursor=pointer]:
+              - /url: /features
+            - link "Why DriverPath" [ref=e15] [cursor=pointer]:
+              - /url: /why-driverpath
+            - link "Blog" [ref=e16] [cursor=pointer]:
+              - /url: /blog
+        - generic [ref=e17]:
+          - link "Log In" [ref=e18] [cursor=pointer]:
+            - /url: /auth
+            - button "Log In" [ref=e19]
+          - link "Get Started" [ref=e20] [cursor=pointer]:
+            - /url: /auth?signup=true
+            - button "Get Started" [ref=e21]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - heading "Patient education that actually connects." [level=1] [ref=e26]
+        - paragraph [ref=e27]: Empower your patients with evidence-based content and automated assessments. Move beyond "where it hurts" to "why it hurts."
+        - generic [ref=e28]:
+          - link "Start Free Trial" [ref=e29] [cursor=pointer]:
+            - /url: /auth?signup=true
+            - button "Start Free Trial" [ref=e30]:
+              - text: Start Free Trial
+              - img
+          - link "Provider Login" [ref=e31] [cursor=pointer]:
+            - /url: /auth
+            - button "Provider Login" [ref=e32]
+        - generic [ref=e38]: Trusted by 500+ Clinicians
+      - generic [ref=e39]:
+        - img "Clinician with patient" [ref=e41]
+        - generic [ref=e42]:
+          - img [ref=e44]
+          - generic [ref=e46]:
+            - generic [ref=e47]: Patient Adherence
+            - generic [ref=e48]: Up 45% this month
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - heading "The modern toolkit for recovery" [level=2] [ref=e52]
+        - paragraph [ref=e53]: Combine clinical expertise with automated education to deliver better outcomes at scale.
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - img [ref=e57]
+          - heading "Pain Neuroscience" [level=3] [ref=e65]
+          - paragraph [ref=e66]: Curated content library focused on biopsychosocial factors and central sensitization.
+        - generic [ref=e67]:
+          - img [ref=e69]
+          - heading "Automated Assessments" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Screen for yellow flags and fear-avoidance behaviors before the patient walks in.
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - heading "Better Engagement" [level=3] [ref=e80]
+          - paragraph [ref=e81]: Send personalized education plans directly to your patient's inbox.
+    - generic [ref=e84]:
+      - heading "Start your 14-day free trial" [level=2] [ref=e86]
+      - generic [ref=e87]: $29/mo
+      - paragraph [ref=e88]: Cancel anytime. No hidden fees.
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - img [ref=e91]
+          - generic [ref=e93]: Unlimited Patients
+        - generic [ref=e94]:
+          - img [ref=e95]
+          - generic [ref=e97]: Full Content Library
+        - generic [ref=e98]:
+          - img [ref=e99]
+          - generic [ref=e101]: Custom Branding
+        - generic [ref=e102]:
+          - img [ref=e103]
+          - generic [ref=e105]: Email Support
+      - link "Get Started Now" [ref=e106] [cursor=pointer]:
+        - /url: /auth?signup=true
+        - button "Get Started Now" [ref=e107]
+    - contentinfo [ref=e108]:
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - img [ref=e113]
+              - generic [ref=e115]: DriverPath
+            - paragraph [ref=e116]: Evidence-based patient education for modern clinicians.
+          - generic [ref=e117]:
+            - heading "Product" [level=4] [ref=e118]
+            - list [ref=e119]:
+              - listitem [ref=e120]:
+                - link "Features" [ref=e121] [cursor=pointer]:
+                  - /url: /features
+              - listitem [ref=e122]:
+                - link "Pricing" [ref=e123] [cursor=pointer]:
+                  - /url: /auth?signup=true
+          - generic [ref=e124]:
+            - heading "Company" [level=4] [ref=e125]
+            - list [ref=e126]:
+              - listitem [ref=e127]:
+                - link "About Us" [ref=e128] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e129]:
+                - link "Clinical Philosophy" [ref=e130] [cursor=pointer]:
+                  - /url: /philosophy
+              - listitem [ref=e131]:
+                - link "Blog" [ref=e132] [cursor=pointer]:
+                  - /url: /blog
+          - generic [ref=e133]:
+            - heading "Resources" [level=4] [ref=e134]
+            - list [ref=e135]:
+              - listitem [ref=e136]:
+                - link "Why DriverPath" [ref=e137] [cursor=pointer]:
+                  - /url: /why-driverpath
+              - listitem [ref=e138]:
+                - link "Provider Login" [ref=e139] [cursor=pointer]:
+                  - /url: /auth
+        - generic [ref=e140]:
+          - paragraph [ref=e141]: © 2025 DriverPath by Health Drivers Institute. All rights reserved.
+          - link "Admin Access" [ref=e143] [cursor=pointer]:
+            - /url: /admin/login
+```

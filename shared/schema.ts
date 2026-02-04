@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,6 +29,19 @@ export const users = pgTable("users", {
 
   // Persona switching for super admins
   activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
+
+  // Clinician demographic/profile information
+  phone: text("phone"),
+  clinicName: text("clinic_name"),
+  credentials: text("credentials"), // e.g., DPT, PT, OT, MD, etc.
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+
+  // Account lockout fields
+  lockedUntil: timestamp("locked_until"),
+  permanentlyLocked: boolean("permanently_locked").default(false),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -667,6 +680,41 @@ export const insertUserEmailConnectionSchema = createInsertSchema(userEmailConne
 export type InsertUserEmailConnection = z.infer<typeof insertUserEmailConnectionSchema>;
 export type UserEmailConnection = typeof userEmailConnections.$inferSelect;
 
+// Subscription tiers and entitlements
+export const SUBSCRIPTION_TIERS = {
+  free: { level: 0, name: 'Free', monthlyPrice: 0 },
+  basic: { level: 1, name: 'Basic', monthlyPrice: 19 },
+  pro: { level: 2, name: 'Pro', monthlyPrice: 29 },
+  enterprise: { level: 3, name: 'Enterprise', monthlyPrice: 99 },
+} as const;
+
+export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS;
+
+// Tier entitlement matrix - what each tier can access
+export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
+  // Core features - available to all paid tiers
+  content_library: ['basic', 'pro', 'enterprise'],
+  content_concierge: ['basic', 'pro', 'enterprise'],
+  content_packets: ['basic', 'pro', 'enterprise'],
+  internal_screenings: ['basic', 'pro', 'enterprise'],
+
+  // Limited features - basic has limits
+  assessment_builder: ['basic', 'pro', 'enterprise'], // Basic limited to 5 assessments
+
+  // Pro-only features
+  patient_portal: ['pro', 'enterprise'],
+  email_delivery: ['pro', 'enterprise'],
+  care_pathways: ['pro', 'enterprise'],
+  follow_up_automation: ['pro', 'enterprise'],
+  priority_support: ['pro', 'enterprise'],
+  custom_branding: ['pro', 'enterprise'],
+
+  // Enterprise-only
+  white_label: ['enterprise'],
+  api_access: ['enterprise'],
+  sso: ['enterprise'],
+};
+
 // Feature flags - global system settings managed by super admins
 export const featureFlags = pgTable("feature_flags", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -676,6 +724,7 @@ export const featureFlags = pgTable("feature_flags", {
   isEnabled: boolean("is_enabled").notNull().default(true),
   value: text("value"), // For enum-style flags (e.g., 'email' | 'packet')
   payload: jsonb("payload"), // Additional configuration data
+  tiersAllowed: text("tiers_allowed").array().default(sql`ARRAY['basic', 'pro', 'enterprise']`), // Which tiers can access this feature
   category: text("category").default("general"), // 'general' | 'content_delivery' | 'compliance' | 'features'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -689,6 +738,47 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 
+// User feature overrides - per-user feature flag overrides set by admins
+export const userFeatureOverrides = pgTable("user_feature_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  isEnabled: boolean("is_enabled").notNull(),
+  setByAdminId: varchar("set_by_admin_id").references(() => users.id),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserFeature: uniqueIndex("user_feature_override_unique_idx").on(table.userId, table.featureFlagId),
+}));
+
+export const insertUserFeatureOverrideSchema = createInsertSchema(userFeatureOverrides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserFeatureOverride = z.infer<typeof insertUserFeatureOverrideSchema>;
+export type UserFeatureOverride = typeof userFeatureOverrides.$inferSelect;
+
+// Feature flag audit log - tracks all changes to user feature flag overrides
+export const featureFlagAuditLog = pgTable("feature_flag_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // 'enable' | 'disable' | 'reset'
+  previousValue: boolean("previous_value"), // null if no previous override existed
+  newValue: boolean("new_value"), // null if reset (removed override)
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagAuditLogSchema = createInsertSchema(featureFlagAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFeatureFlagAuditLog = z.infer<typeof insertFeatureFlagAuditLogSchema>;
+export type FeatureFlagAuditLog = typeof featureFlagAuditLog.$inferSelect;
 // Admin notes schemas
 export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
   id: true,
@@ -705,3 +795,163 @@ export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({
 });
 export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
 export type LoginHistory = typeof loginHistory.$inferSelect;
+
+// User favorites - bookmarked content for quick access
+export const userFavorites = pgTable("user_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserFavoriteSchema = createInsertSchema(userFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
+export type UserFavorite = typeof userFavorites.$inferSelect;
+
+// Content collections - user-created content groups
+export const contentCollections = pgTable("content_collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContentCollectionSchema = createInsertSchema(contentCollections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentCollection = z.infer<typeof insertContentCollectionSchema>;
+export type ContentCollection = typeof contentCollections.$inferSelect;
+
+// Collection items - content within a collection
+export const collectionItems = pgTable("collection_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").references(() => contentCollections.id).notNull(),
+  contentId: varchar("content_id").references(() => contentItems.id).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCollectionItemSchema = createInsertSchema(collectionItems).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollectionItem = z.infer<typeof insertCollectionItemSchema>;
+export type CollectionItem = typeof collectionItems.$inferSelect;
+
+// Clinic branding - custom branding for PDF content packets (Pro/Enterprise feature)
+export const clinicBranding = pgTable("clinic_branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+
+  // Logo and basic info
+  logoUrl: text("logo_url"), // Uploaded clinic logo URL
+  clinicName: text("clinic_name"), // Custom display name used in branded content/PDFs
+  tagline: text("tagline"), // Optional tagline below clinic name
+
+  // Color scheme
+  primaryColor: text("primary_color").default("#0F766E"), // Headers, main elements
+  secondaryColor: text("secondary_color").default("#f5f5f5"), // Backgrounds
+  accentColor: text("accent_color").default("#14B8A6"), // Links, highlights
+
+  // Footer and additional options
+  footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
+  showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
+  showWatermark: boolean("show_watermark").default(true), // Whether to show a subtle watermark
+
+  // Activation status
+  isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
+export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+export interface SectionFormattingConfig {
+  dividerStyle: "full-page" | "inline-header" | "minimal";
+  showReadTime: boolean;
+  showTags: boolean;
+  showContentNumber: boolean;
+  pageBreakBetweenContent: boolean;
+}
+
+// API request schema - only allows client-editable fields (excludes server-controlled fields)
+export const brandingRequestSchema = z.object({
+  logoUrl: z.string().url().startsWith('https://').max(2048).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  clinicName: z.string().max(200).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  tagline: z.string().max(500).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color (#RRGGBB)').nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  footerText: z.string().max(1000).nullable().optional()
+    .or(z.literal('').transform(() => null)),
+  showPoweredBy: z.boolean().nullable().optional(),
+  showWatermark: z.boolean().nullable().optional(),
+});
+export type BrandingRequest = z.infer<typeof brandingRequestSchema>;
+
+// System health metrics - tracks API and system performance
+export const healthMetrics = pgTable("health_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricType: text("metric_type").notNull(), // 'api_request' | 'database_query' | 'email_sent' | 'email_bounced' | 'external_service'
+  metricName: text("metric_name").notNull(), // Endpoint path, service name, etc.
+  value: integer("value"), // Numeric value (response time in ms, count, etc.)
+  status: text("status"), // 'success' | 'error' | 'timeout'
+  metadata: jsonb("metadata"), // Additional context (error messages, query details, etc.)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertHealthMetricSchema = createInsertSchema(healthMetrics).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
+export type HealthMetric = typeof healthMetrics.$inferSelect;
+
+// Packet access codes - for quick lookup of digital content from printed PDFs
+export const packetAccessCodes = pgTable("packet_access_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 10 }).notNull().unique(),
+  internalScreeningId: varchar("internal_screening_id").references(() => internalScreenings.id),
+  clinicianId: varchar("clinician_id").references(() => users.id).notNull(),
+  contentIds: text("content_ids").array().notNull(),
+
+  // Access tracking
+  accessCount: integer("access_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+
+  // Expiration
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPacketAccessCodeSchema = createInsertSchema(packetAccessCodes).omit({
+  id: true,
+  accessCount: true,
+  lastAccessedAt: true,
+  createdAt: true,
+});
+export type InsertPacketAccessCode = z.infer<typeof insertPacketAccessCodeSchema>;
+export type PacketAccessCode = typeof packetAccessCodes.$inferSelect;

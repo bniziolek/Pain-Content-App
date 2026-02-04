@@ -1,7 +1,19 @@
+/**
+ * Architecture: Server entry point and composition root; wires routes, middleware, and infrastructure.
+ */
+
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes/index";
+import { registerWebhookRoutes } from "./routes/webhooks";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { startBackgroundJobs } from "./background-jobs";
+import { storage } from "./storage";
+import { validateEnv } from "./env-validation";
+import { setupGracefulShutdown } from "./graceful-shutdown";
+
+// Validate environment variables before anything else
+validateEnv();
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,6 +23,9 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// Register Stripe webhook route BEFORE express.json()
+registerWebhookRoutes(app);
 
 app.use(
   express.json({
@@ -53,6 +68,22 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+      
+      // Record API health metrics (fire-and-forget) - can be disabled via DISABLE_HEALTH_METRICS env var
+      if (process.env.DISABLE_HEALTH_METRICS !== 'true') {
+        storage.recordHealthMetric({
+          metricType: "api_request",
+          metricName: path,
+          value: duration,
+          status: res.statusCode < 400 ? "success" : "error",
+          metadata: {
+            method: req.method,
+            statusCode: res.statusCode,
+          },
+        }).catch((err) => {
+          console.error("Failed to record health metric:", err);
+        });
+      }
     }
   });
 
@@ -101,4 +132,12 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  // Setup graceful shutdown for containerized environments
+  setupGracefulShutdown(server, async () => {
+    // Add cleanup tasks here (close DB pools, flush logs, etc.)
+    log("Cleaning up resources...");
+  });
+
+  await startBackgroundJobs();
 })();

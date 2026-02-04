@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+test-results/
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local

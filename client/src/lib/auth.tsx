@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { User } from "@shared/schema";
+import type { PublicUser as User } from "@shared/api-types";
 
 interface AuthContextType {
   user: User | null;

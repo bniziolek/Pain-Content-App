@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { setupAuth, requireAuth, requireSubscription, requireAdmin, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { requireSuperAdmin } from "./rbac";
+import { createAppContextWithInfrastructure } from "./application/context-helpers";
 import {
   type User as SelectUser,
   insertContentItemSchema,
@@ -12,23 +13,32 @@ import {
   insertInternalScreeningSchema,
   insertEmailLogSchema
 } from "@shared/schema";
-import { getAllContentFromContentful, getContentByIdFromContentful, getAllPathwaysFromContentful, getPathwayByIdFromContentful, isContentfulConfigured, ContentfulError } from "./contentful";
-import { sendContentEmail, sendAssessmentInviteEmail, sendPatientPortalEmail, sendPasswordResetEmail } from "./gmail";
-import { logClinicianAction, logPatientAction } from "./audit";
-import { scoreAssessmentResponse } from "./scoring";
+import type { User } from "@shared/schema";
+import type { AuditRequestContext } from "./infrastructure/audit/audit.service";
+import { isContentfulConfigured } from "./infrastructure/cms";
 import {
-  getRecommendationsWithFallback,
-  createRecommendationRule,
-  getRecommendationRules,
-  deleteRecommendationRule,
-  createRecommendationConfig,
-  getRecommendationConfigs,
-  updateRecommendationConfig,
-  deleteRecommendationConfig,
   previewRecommendations,
   generateRecommendations,
-  savePatientRecommendation
-} from "./recommendation";
+  listRecommendationRules,
+  createRecommendationRule,
+  deleteRecommendationRule,
+  listRecommendationConfigs,
+  createRecommendationConfig,
+  updateRecommendationConfig,
+  deleteRecommendationConfig,
+} from "./application/recommendations";
+import { logClinicianAction, logPatientAction } from "./infrastructure/audit/audit.service";
+import { sendContentEmail, sendAssessmentInviteEmail, sendPasswordResetEmail, sendPatientPortalEmail } from "./infrastructure/email/gmail.service";
+import { scoreAssessmentResponse } from "./domain/scoring";
+
+// Helper to extract audit context from request
+function getAuditContext(req: any): AuditRequestContext {
+  return {
+    ipAddress: req.ip || req.connection.remoteAddress,
+    userAgent: req.get('User-Agent'),
+    sessionId: req.sessionID || null
+  };
+}
 
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
@@ -68,9 +78,13 @@ export function registerRoutes(app: Express): Server {
         // Store the token
         await storage.createPasswordResetToken(user.id, token, expiresAt);
 
-        // Send the reset email
-        const baseUrl = req.headers.origin || `https://${req.headers.host}`;
-        const resetLink = `${baseUrl}/forgot-password?token=${token}`;
+        // Send the reset email using trusted base URL
+        const baseUrl = process.env.REPLIT_DEV_DOMAIN
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : process.env.REPLIT_DOMAINS
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+            : req.headers.origin || `https://${req.headers.host}`;
+        const resetLink = `${baseUrl}/forgot-password?token=${encodeURIComponent(token)}`;
 
         await sendPasswordResetEmail({
           toEmail: email,
@@ -148,18 +162,8 @@ export function registerRoutes(app: Express): Server {
         await storage.updateEmailLogStatus(view.emailLogId, 'clicked');
       }
 
-      // Fetch the content
-      let content = null;
-      if (isContentfulConfigured()) {
-        try {
-          content = await getContentByIdFromContentful(view.contentId);
-        } catch (e) {
-          console.warn("Contentful fetch failed:", e);
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(view.contentId);
-      }
+      // Fetch the content from database (synced from Contentful)
+      const content = await storage.getContentById(view.contentId);
 
       if (!content) {
         return res.status(404).json({ error: "Content not found" });
@@ -228,7 +232,7 @@ export function registerRoutes(app: Express): Server {
       // If no email log found with this code, return generic error (don't reveal if code exists)
       if (!emailLog) {
         // Audit log: failed auth attempt (code not found)
-        await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth_failed', {
+        await logPatientAction(getAuditContext(req), email.toLowerCase(), 'patient_portal_auth_failed', {
           details: { reason: 'invalid_code' },
           outcome: 'failure',
         });
@@ -326,7 +330,7 @@ export function registerRoutes(app: Express): Server {
       });
 
       // Audit log: successful patient portal login
-      await logPatientAction(req, email.toLowerCase(), 'patient_portal_auth', {
+      await logPatientAction(getAuditContext(req), email.toLowerCase(), 'patient_portal_auth', {
         resourceType: 'session',
         resourceId: emailLog.id,
         phiAccessed: true,
@@ -376,17 +380,8 @@ export function registerRoutes(app: Express): Server {
       const views = await storage.getContentViewsByEmailLogId(session.emailLogId);
 
       for (const view of views) {
-        let content = null;
-        if (isContentfulConfigured()) {
-          try {
-            content = await getContentByIdFromContentful(view.contentId);
-          } catch (e) {
-            console.warn("Contentful fetch failed:", e);
-          }
-        }
-        if (!content) {
-          content = await storage.getContentById(view.contentId);
-        }
+        // Fetch content from database (synced from Contentful)
+        const content = await storage.getContentById(view.contentId);
 
         if (content && !contentMap[view.contentId]) {
           contentMap[view.contentId] = {
@@ -409,7 +404,7 @@ export function registerRoutes(app: Express): Server {
         : [];
 
       // Audit log: patient viewing content (PHI access)
-      await logPatientAction(req, session.patientEmail, 'content_view', {
+      await logPatientAction(getAuditContext(req), session.patientEmail, 'content_view', {
         resourceType: 'content',
         phiAccessed: true,
         phiScope: 'patient educational content',
@@ -430,20 +425,9 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // ====== Content Library Routes (Contentful Integration with Database Fallback) ======
+  // ====== Content Library Routes (Database Only - synced from Contentful via npm run contentful:sync) ======
   app.get("/api/content", requireSubscription, async (req, res, next) => {
     try {
-      if (isContentfulConfigured()) {
-        try {
-          const content = await getAllContentFromContentful();
-          res.json(content);
-          return;
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
       const content = await storage.getAllContent();
       res.json(content);
     } catch (error) {
@@ -453,24 +437,12 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
     try {
-      let content = null;
-      if (isContentfulConfigured()) {
-        try {
-          content = await getContentByIdFromContentful(req.params.id);
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
-      if (!content) {
-        content = await storage.getContentById(req.params.id);
-      }
+      const content = await storage.getContentById(req.params.id);
       if (!content) {
         return res.status(404).send("Content not found");
       }
 
-      await logClinicianAction(req, req.user!, 'content_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_access', {
         resourceType: 'content',
         resourceId: req.params.id,
         details: { title: content.title },
@@ -485,8 +457,10 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/content/status", requireAuth, async (req, res, next) => {
     try {
       res.json({
-        source: isContentfulConfigured() ? "contentful" : "database",
-        configured: isContentfulConfigured()
+        source: "database",
+        configured: isContentfulConfigured(),
+        readThroughEnabled: false,
+        note: "Content is synced from Contentful to database. Run 'npm run contentful:sync' to update."
       });
     } catch (error) {
       next(error);
@@ -507,7 +481,7 @@ export function registerRoutes(app: Express): Server {
 
       const content = await storage.createContent(validated);
 
-      await logClinicianAction(req, req.user!, 'content_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_create', {
         resourceType: 'content',
         resourceId: content.id,
         details: { title: content.title },
@@ -526,7 +500,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Content not found");
       }
 
-      await logClinicianAction(req, req.user!, 'content_update', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
         resourceType: 'content',
         resourceId: req.params.id,
         details: { title: content.title },
@@ -540,7 +514,7 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/content/:id", requireAuth, async (req, res, next) => {
     try {
-      await logClinicianAction(req, req.user!, 'content_delete', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_delete', {
         resourceType: 'content',
         resourceId: req.params.id,
       });
@@ -573,7 +547,7 @@ export function registerRoutes(app: Express): Server {
         templates = templates.filter(t => t.isPublished);
       }
 
-      await logClinicianAction(req, req.user!, 'assessment_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_access', {
         resourceType: 'assessment',
         details: { count: assessments.length + templates.length, typeFilter },
       });
@@ -591,7 +565,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Assessment not found");
       }
 
-      await logClinicianAction(req, req.user!, 'assessment_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_access', {
         resourceType: 'assessment',
         resourceId: req.params.id,
         details: { name: assessment.name },
@@ -684,7 +658,7 @@ export function registerRoutes(app: Express): Server {
 
       const assessment = await storage.createAssessment(validated);
 
-      await logClinicianAction(req, req.user!, 'assessment_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_create', {
         resourceType: 'assessment',
         resourceId: assessment.id,
         details: { name: assessment.name },
@@ -709,7 +683,7 @@ export function registerRoutes(app: Express): Server {
 
       const assessment = await storage.updateAssessment(req.params.id, req.body);
 
-      await logClinicianAction(req, req.user!, 'assessment_update', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_update', {
         resourceType: 'assessment',
         resourceId: req.params.id,
         details: { name: assessment?.name },
@@ -732,7 +706,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).send("Cannot delete assessments you don't own");
       }
 
-      await logClinicianAction(req, req.user!, 'assessment_delete', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_delete', {
         resourceType: 'assessment',
         resourceId: req.params.id,
       });
@@ -755,7 +729,7 @@ export function registerRoutes(app: Express): Server {
 
       const result = await scoreAssessmentResponse(assessmentId, answers);
 
-      await logClinicianAction(req, req.user!, 'assessment_score', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_results_create', {
         resourceType: 'assessment',
         resourceId: assessmentId,
         details: { tagCount: result.tagScores.length },
@@ -787,7 +761,7 @@ export function registerRoutes(app: Express): Server {
       const invite = await storage.createAssessmentInvite(validated);
 
       // Audit log: assessment invite created (PHI action)
-      await logClinicianAction(req, req.user!, 'assessment_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_create', {
         resourceType: 'assessment',
         resourceId: invite.id,
         phiAccessed: true,
@@ -822,7 +796,7 @@ export function registerRoutes(app: Express): Server {
       const invites = await storage.getAssessmentInvitesByClinicianId(req.user!.id);
 
       // Audit log: viewing assessment invites (PHI list access)
-      await logClinicianAction(req, req.user!, 'assessment_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_access', {
         resourceType: 'assessment',
         phiAccessed: true,
         phiScope: 'patient emails in assessment list',
@@ -884,7 +858,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updateAssessmentInviteStatus(invite.id, "completed", new Date());
 
       // Log the patient action
-      await logPatientAction(req, invite.patientEmail, 'assessment_submit', {
+      await logPatientAction(getAuditContext(req), invite.patientEmail, 'assessment_submit', {
         resourceType: 'assessment',
         resourceId: invite.assessmentId,
         phiAccessed: true,
@@ -922,17 +896,16 @@ export function registerRoutes(app: Express): Server {
       // Generate recommendations based on tag scores
       let recommendations: any[] = [];
       if (response.tagScores && Array.isArray(response.tagScores) && response.tagScores.length > 0) {
-        const result = await generateRecommendations({
-          tagScores: response.tagScores,
+        const appContext = createAppContextWithInfrastructure();
+        recommendations = await generateRecommendations(appContext, {
+          clinician: req.user!,
+          tagScores: response.tagScores as any,
           assessmentId: invite.assessmentId,
-          patientEmail: invite.patientEmail,
-          clinicianUserId: req.user!.id,
         });
-        recommendations = result.recommendations;
       }
 
       // Log the access
-      await logClinicianAction(req, req.user!, 'assessment_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'assessment_access', {
         resourceType: 'assessment',
         resourceId: invite.id,
         phiAccessed: true,
@@ -968,7 +941,10 @@ export function registerRoutes(app: Express): Server {
   // ====== Recommendation Rules Routes ======
   app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
     try {
-      const rules = await getRecommendationRules();
+      const appContext = createAppContextWithInfrastructure();
+      const rules = await listRecommendationRules(appContext, {
+        clinician: req.user!,
+      });
       res.json(rules);
     } catch (error) {
       next(error);
@@ -983,18 +959,18 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Tag and contentId are required");
       }
 
-      const rule = await createRecommendationRule(
-        tag,
-        minScore ?? 0,
-        maxScore ?? 100,
-        contentId,
-        priority ?? 1,
-        rationale
-      );
-
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'create_recommendation_rule', ruleId: rule.id, tag },
+      const appContext = createAppContextWithInfrastructure();
+      const rule = await createRecommendationRule(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        data: {
+          tag,
+          minScore: minScore ?? 0,
+          maxScore: maxScore ?? 100,
+          contentId,
+          priority: priority ?? 1,
+          rationale,
+        }
       });
 
       res.status(201).json(rule);
@@ -1005,12 +981,12 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/recommendation-rules/:id", requireSubscription, async (req, res, next) => {
     try {
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'delete_recommendation_rule', ruleId: req.params.id },
+      const appContext = createAppContextWithInfrastructure();
+      await deleteRecommendationRule(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        ruleId: req.params.id,
       });
-
-      await deleteRecommendationRule(req.params.id);
       res.sendStatus(204);
     } catch (error) {
       next(error);
@@ -1026,7 +1002,11 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("tagScores array is required");
       }
 
-      const recommendations = await getRecommendationsWithFallback(tagScores);
+      const appContext = createAppContextWithInfrastructure();
+      const recommendations = await generateRecommendations(appContext, {
+        clinician: req.user!,
+        tagScores,
+      });
       res.json(recommendations);
     } catch (error) {
       next(error);
@@ -1042,7 +1022,14 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("tagScores array is required");
       }
 
-      const result = await previewRecommendations(tagScores, assessmentId, pathwayId, pathwayWeek);
+      const appContext = createAppContextWithInfrastructure();
+      const result = await previewRecommendations(appContext, {
+        clinician: req.user!,
+        tagScores,
+        assessmentId,
+        pathwayId,
+        pathwayWeek,
+      });
       res.json(result);
     } catch (error) {
       next(error);
@@ -1053,8 +1040,9 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
     try {
       const { assessmentId, pathwayId } = req.query;
-      const configs = await getRecommendationConfigs({
-        clinicianId: req.user!.id,
+      const appContext = createAppContextWithInfrastructure();
+      const configs = await listRecommendationConfigs(appContext, {
+        clinician: req.user!,
         assessmentId: assessmentId as string | undefined,
         pathwayId: pathwayId as string | undefined,
       });
@@ -1081,29 +1069,27 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Either tag or questionName is required");
       }
 
-      const config = await createRecommendationConfig({
-        clinicianUserId: req.user!.id,
-        name,
-        assessmentId,
-        pathwayId,
-        pathwayWeek,
-        tag: tag || questionName || '',
-        minScore: minScore ?? 0,
-        maxScore: maxScore ?? 100,
-        priority: priority ?? 1,
-        contentIds,
-        rationale,
-        questionName,
-        questionType,
-        matchOperator: matchOperator || 'equals',
-        matchValues,
+      const appContext = createAppContextWithInfrastructure();
+      const config = await createRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        data: {
+          name,
+          assessmentId,
+          pathwayId,
+          pathwayWeek,
+          tag: tag || questionName || '',
+          minScore: minScore ?? 0,
+          maxScore: maxScore ?? 100,
+          priority: priority ?? 1,
+          contentIds,
+          rationale,
+          questionName,
+          questionType,
+          matchOperator: matchOperator || 'equals',
+          matchValues,
+        }
       });
-
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'create_recommendation_config', configId: config.id, name },
-      });
-
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -1112,8 +1098,6 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
     try {
-      // Only include fields that were explicitly provided (not undefined)
-      // This prevents partial updates from wiping existing data
       const updates: Record<string, unknown> = {};
       const fields = [
         'name', 'tag', 'minScore', 'maxScore', 'priority', 'contentIds',
@@ -1127,16 +1111,17 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      const updated = await updateRecommendationConfig(req.params.id, updates);
+      const appContext = createAppContextWithInfrastructure();
+      const updated = await updateRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        configId: req.params.id,
+        updates,
+      });
 
       if (!updated) {
         return res.status(404).send("Recommendation config not found");
       }
-
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'update_recommendation_config', configId: req.params.id },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -1146,12 +1131,12 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
     try {
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'delete_recommendation_config', configId: req.params.id },
+      const appContext = createAppContextWithInfrastructure();
+      await deleteRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        configId: req.params.id,
       });
-
-      await deleteRecommendationConfig(req.params.id);
       res.sendStatus(204);
     } catch (error) {
       next(error);
@@ -1205,7 +1190,7 @@ export function registerRoutes(app: Express): Server {
       const screening = await storage.createInternalScreening(validated);
 
       // Audit log: internal screening created (PHI action)
-      await logClinicianAction(req, req.user!, 'screening_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'screening_create', {
         resourceType: 'screening',
         resourceId: screening.id,
         phiAccessed: true,
@@ -1224,7 +1209,7 @@ export function registerRoutes(app: Express): Server {
       const screenings = await storage.getInternalScreeningsByClinicianId(req.user!.id);
 
       // Audit log: viewing screenings list (PHI access)
-      await logClinicianAction(req, req.user!, 'screening_access', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'screening_access', {
         resourceType: 'screening',
         phiAccessed: true,
         phiScope: 'patient identifiers in screening list',
@@ -1263,13 +1248,8 @@ export function registerRoutes(app: Express): Server {
       if (validated.contentIds && validated.contentIds.length > 0) {
         for (const contentId of validated.contentIds) {
           try {
-            let content = null;
-            if (isContentfulConfigured()) {
-              content = await getContentByIdFromContentful(contentId);
-            }
-            if (!content) {
-              content = await storage.getContentById(contentId);
-            }
+            // Fetch content from database (synced from Contentful)
+            const content = await storage.getContentById(contentId);
 
             if (content) {
               // Create a tracking entry for this content
@@ -1323,7 +1303,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Audit log: email sent to patient (PHI action)
-      await logClinicianAction(req, req.user!, 'email_sent', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'email_sent', {
         resourceType: 'email_log',
         resourceId: log.id,
         phiAccessed: true,
@@ -1862,7 +1842,7 @@ export function registerRoutes(app: Express): Server {
       });
 
       // Audit log: admin created user
-      await logClinicianAction(req, req.user!, 'user_create', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'user_create', {
         resourceType: 'user',
         resourceId: user.id,
         details: { targetEmail: email, createdByAdmin: true },
@@ -1936,7 +1916,7 @@ export function registerRoutes(app: Express): Server {
       const updatedUser = await storage.getUser(req.params.id);
 
       // Audit log: admin updated user
-      await logClinicianAction(req, req.user!, 'user_update', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'user_update', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { changes: { name, email, role } },
@@ -1958,7 +1938,7 @@ export function registerRoutes(app: Express): Server {
       const user = await storage.getUser(req.params.id);
 
       // Audit log: subscription status changed
-      await logClinicianAction(req, req.user!, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'settings_change', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { subscriptionStatus, subscriptionPeriodEnd },
@@ -2000,7 +1980,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updateUserPassword(req.params.id, hashedPassword);
 
       // Audit log: password reset by admin
-      await logClinicianAction(req, req.user!, 'password_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'password_change', {
         resourceType: 'user',
         resourceId: req.params.id,
         details: { resetByAdmin: true },
@@ -2015,7 +1995,7 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
     try {
       // Audit log: user deletion by admin
-      await logClinicianAction(req, req.user!, 'user_delete', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'user_delete', {
         resourceType: 'user',
         resourceId: req.params.id,
       });
@@ -2046,7 +2026,7 @@ export function registerRoutes(app: Express): Server {
 
       if (!content) return res.status(404).send("Content not found");
 
-      await logClinicianAction(req, req.user!, 'content_update', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
         resourceType: 'content',
         resourceId: content.id,
         details: { action: 'approve', title: content.title }
@@ -2070,7 +2050,7 @@ export function registerRoutes(app: Express): Server {
 
       if (!content) return res.status(404).send("Content not found");
 
-      await logClinicianAction(req, req.user!, 'content_update', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
         resourceType: 'content',
         resourceId: content.id,
         details: { action: 'reject', title: content.title, reason }
@@ -2230,7 +2210,9 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
     try {
       const { assessmentId, pathwayId } = req.query;
-      const configs = await getRecommendationConfigs({
+      const appContext = createAppContextWithInfrastructure();
+      const configs = await listRecommendationConfigs(appContext, {
+        clinician: req.user!,
         assessmentId: assessmentId as string | undefined,
         pathwayId: pathwayId as string | undefined,
       });
@@ -2255,29 +2237,27 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Either tag or questionName is required");
       }
 
-      const config = await createRecommendationConfig({
-        clinicianUserId: undefined,
-        name,
-        assessmentId,
-        pathwayId,
-        pathwayWeek,
-        tag: tag || questionName || '',
-        minScore: minScore ?? 0,
-        maxScore: maxScore ?? 100,
-        priority: priority ?? 1,
-        contentIds,
-        rationale,
-        questionName,
-        questionType,
-        matchOperator: matchOperator || 'equals',
-        matchValues,
+      const appContext = createAppContextWithInfrastructure();
+      const config = await createRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        data: {
+          name,
+          assessmentId,
+          pathwayId,
+          pathwayWeek,
+          tag: tag || questionName || '',
+          minScore: minScore ?? 0,
+          maxScore: maxScore ?? 100,
+          priority: priority ?? 1,
+          contentIds,
+          rationale,
+          questionName,
+          questionType,
+          matchOperator: matchOperator || 'equals',
+          matchValues,
+        }
       });
-
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'create_recommendation_config', configId: config.id },
-      });
-
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -2299,16 +2279,17 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      const updated = await updateRecommendationConfig(req.params.id, updates);
+      const appContext = createAppContextWithInfrastructure();
+      const updated = await updateRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        configId: req.params.id,
+        updates,
+      });
 
       if (!updated) {
         return res.status(404).send("Recommendation config not found");
       }
-
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'update_recommendation_config', configId: req.params.id },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -2318,12 +2299,12 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
     try {
-      await logClinicianAction(req, req.user!, 'settings_change', {
-        resourceType: 'settings',
-        details: { action: 'delete_recommendation_config', configId: req.params.id },
+      const appContext = createAppContextWithInfrastructure();
+      await deleteRecommendationConfig(appContext, {
+        auditContext: getAuditContext(req),
+        clinician: req.user!,
+        configId: req.params.id,
       });
-
-      await deleteRecommendationConfig(req.params.id);
       res.sendStatus(204);
     } catch (error) {
       next(error);
@@ -2397,27 +2378,14 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // ====== Care Pathways Routes ======
+  // ====== Care Pathways Routes (Database Only - synced from Contentful via npm run contentful:sync) ======
   app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
       // Get custom pathways from database
       const customPathways = await storage.getCarePathways(req.user!.id);
 
-      // Try to get template pathways from Contentful first
-      let templatePathways: any[] = [];
-      if (isContentfulConfigured()) {
-        try {
-          const contentfulPathways = await getAllPathwaysFromContentful();
-          templatePathways = contentfulPathways;
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
-          }
-          templatePathways = await storage.getCarePathways();
-        }
-      } else {
-        templatePathways = await storage.getCarePathways();
-      }
+      // Get template pathways from database (synced from Contentful)
+      const templatePathways = await storage.getCarePathways();
 
       res.json({ custom: customPathways, templates: templatePathways });
     } catch (error) {
@@ -2427,22 +2395,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
     try {
-      // Try Contentful first for pathway templates
-      if (isContentfulConfigured()) {
-        try {
-          const contentfulPathway = await getPathwayByIdFromContentful(req.params.id);
-          if (contentfulPathway) {
-            res.json(contentfulPathway);
-            return;
-          }
-        } catch (error) {
-          if (error instanceof ContentfulError) {
-            console.warn("Contentful pathway fetch failed, falling back to database:", error.message);
-          }
-        }
-      }
-
-      // Fallback to database
+      // Fetch from database (synced from Contentful)
       const pathway = await storage.getCarePathwayById(req.params.id);
       if (!pathway) {
         return res.status(404).json({ error: "Pathway not found" });
@@ -2624,7 +2577,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const item = await storage.createDataInventoryItem(req.body);
 
-      await logClinicianAction(req, req.user!, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'created_data_inventory_item', itemName: item.dataAssetName },
       });
@@ -2639,7 +2592,7 @@ export function registerRoutes(app: Express): Server {
     try {
       await storage.updateDataInventoryItem(req.params.id, req.body);
 
-      await logClinicianAction(req, req.user!, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'updated_data_inventory_item', itemId: req.params.id },
       });
@@ -2654,7 +2607,7 @@ export function registerRoutes(app: Express): Server {
     try {
       await storage.deleteDataInventoryItem(req.params.id);
 
-      await logClinicianAction(req, req.user!, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'settings_change', {
         resourceType: 'user',
         details: { action: 'deleted_data_inventory_item', itemId: req.params.id },
       });
@@ -2753,7 +2706,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Feature flag not found" });
       }
 
-      await logClinicianAction(req, req.user!, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), req.user!, 'settings_change', {
         resourceType: 'feature_flag',
         resourceId: key,
         details: {
@@ -2844,12 +2797,11 @@ export function registerRoutes(app: Express): Server {
 
       const switchLog = await storage.switchPersona(user.id, toPersona, ipAddress, userAgent);
 
-      await logClinicianAction(req, user, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), user, 'settings_change', {
         resourceType: 'user',
         resourceId: user.id,
-        phiAccessed: false,
+        details: { action: 'persona_switch', toPersona },
         outcome: 'success',
-        details: { action: 'persona_switch', toPersona }
       });
 
       res.json({
@@ -2867,12 +2819,11 @@ export function registerRoutes(app: Express): Server {
       const user = req.user as SelectUser;
       await storage.clearPersona(user.id);
 
-      await logClinicianAction(req, user, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), user, 'settings_change', {
         resourceType: 'user',
         resourceId: user.id,
-        phiAccessed: false,
+        details: { action: 'persona_clear' },
         outcome: 'success',
-        details: { action: 'persona_clear' }
       });
 
       res.json({ message: "Persona cleared, back to super admin view" });
@@ -2920,12 +2871,11 @@ export function registerRoutes(app: Express): Server {
         expiresAt ? new Date(expiresAt) : undefined
       );
 
-      await logClinicianAction(req, user, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), user, 'settings_change', {
         resourceType: 'user',
         resourceId: userId,
-        phiAccessed: false,
+        details: { action: 'permission_grant', permissionName, targetUserId: userId },
         outcome: 'success',
-        details: { action: 'permission_grant', permissionName, targetUserId: userId }
       });
 
       res.json(grant);
@@ -2946,12 +2896,11 @@ export function registerRoutes(app: Express): Server {
 
       const revoke = await storage.revokeUserPermission(userId, permissionName, user.id, reason);
 
-      await logClinicianAction(req, user, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), user, 'settings_change', {
         resourceType: 'user',
         resourceId: userId,
-        phiAccessed: false,
+        details: { action: 'permission_revoke', permissionName, targetUserId: userId },
         outcome: 'success',
-        details: { action: 'permission_revoke', permissionName, targetUserId: userId }
       });
 
       res.json(revoke);
@@ -2966,12 +2915,11 @@ export function registerRoutes(app: Express): Server {
       const { userId, id } = req.params;
       await storage.removeUserPermission(id);
 
-      await logClinicianAction(req, user, 'settings_change', {
+      await logClinicianAction(getAuditContext(req), user, 'settings_change', {
         resourceType: 'user',
         resourceId: userId,
-        phiAccessed: false,
+        details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId },
         outcome: 'success',
-        details: { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
       });
 
       res.json({ message: "Permission override removed" });

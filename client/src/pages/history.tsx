@@ -9,9 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getEmailLogs, getContent, getContentViewsByEmailLog, resendEmailContent, getInternalScreenings } from "@/lib/api";
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useCallback } from "react";
 import { Link } from "wouter";
-import type { ContentView, InternalScreening } from "@shared/schema";
+import type { ContentView, InternalScreening } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useContentDeliveryMode } from "@/hooks/use-feature-flags";
 
@@ -198,16 +198,20 @@ export default function HistoryPage() {
   const queryClient = useQueryClient();
   const { isEmailMode, isLoading: flagsLoading } = useContentDeliveryMode();
   
-  const { data: emailLogs, isLoading: logsLoading } = useQuery({
+  const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
     queryKey: ["email-logs"],
     queryFn: getEmailLogs,
     enabled: isEmailMode,
   });
   
-  const { data: internalScreenings, isLoading: screeningsLoading } = useQuery({
+  const { data: internalScreenings, isLoading: screeningsLoading, refetch: refetchScreenings } = useQuery({
     queryKey: ["internal-screenings"],
     queryFn: getInternalScreenings,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refetchLogs(), refetchScreenings()]);
+  }, [refetchLogs, refetchScreenings]);
 
   const { data: assessments } = useQuery({
     queryKey: ["assessments"],
@@ -343,10 +347,26 @@ export default function HistoryPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Mobile pull-to-refresh hint */}
+        <div className="text-xs text-muted-foreground text-center sm:hidden pb-1">
+          Pull down to refresh
+        </div>
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-serif font-bold">History</h1>
-            <p className="text-muted-foreground">Track your content delivery and packet history.</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-3xl font-serif font-bold">History</h1>
+              <p className="text-muted-foreground">Track your content delivery and packet history.</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleRefresh()}
+              className="sm:hidden"
+              data-testid="button-refresh-history-mobile"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 

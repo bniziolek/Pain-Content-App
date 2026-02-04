@@ -1,0 +1,72 @@
+You are a senior software architect. Your job is to examine this repository’s current codebase and evaluate whether it follows a layered software architecture. Then provide a concrete refactor plan to align it to a clean layered model.
+
+Goal architecture (target):
+1) Presentation layer (UI / routes / controllers): handles HTTP/UI, request parsing, basic input validation, view models
+2) Application layer (use cases / orchestration): coordinates workflows, calls domain + repositories, owns transactions, retries, idempotency
+3) Domain layer (business logic): entities, value objects, domain services, invariants, scoring/rules; no framework/db code
+4) Data access layer (repositories): persistence, queries, mapping; wraps external content sources (e.g., Contentful) behind interfaces
+5) Infrastructure layer: logging, auth plumbing, metrics, caching, messaging, config, framework wiring
+
+Non-negotiable rules:
+- Domain must not import framework, HTTP, database/ORM, or vendor SDKs.
+- Presentation must not contain business rules. It should call application use cases.
+- Application should depend on abstractions (interfaces) for data/external services; repositories implement them.
+- Dependencies should flow inward (higher layers depend on lower via interfaces).
+
+Tasks:
+A) Baseline inventory
+1. Identify the stack (language, framework, build tooling).
+2. List the major folders/modules and their responsibility as currently implemented.
+3. Trace 2–3 key user flows end-to-end (e.g., a primary screen action or API endpoint):
+   - Where does the request start?
+   - Where do rules/decisions happen?
+   - Where is data fetched/stored?
+   - Where are external APIs called?
+
+B) Architecture assessment (be specific)
+1. Map the current codebase to the target layers. For each layer:
+   - What files/folders belong there today?
+   - What is missing?
+2. Identify “layer violations” with file paths and short explanations. Examples:
+   - UI calling database directly
+   - Domain importing ORM/framework
+   - Business rules inside route handlers/controllers
+   - Repository logic mixed into services
+3. Rate overall alignment (Green/Yellow/Red) and explain the top 5 drivers.
+
+C) Refactor recommendations (prioritized, low-risk first)
+1. Propose a target folder/module structure for this repo (show a tree).
+2. For each major violation, propose changes with:
+   - What to move where (include file paths)
+   - What interfaces to introduce (names + method signatures)
+   - What new use cases/services to create
+3. Provide a migration plan in phases:
+   Phase 0: quick wins (1–2 hours)
+   Phase 1: foundational structure + interfaces
+   Phase 2: migrate 1–2 key flows
+   Phase 3: broaden + cleanup + tests
+4. Include 5–10 concrete TODO items written like GitHub issues.
+
+D) Testing and quality gates
+- Recommend unit tests for domain rules, integration tests for repositories, and thin controller tests.
+- Add “guardrails” to prevent regression:
+  - lint rules or import boundaries
+  - module dependency diagram checks (if applicable)
+  - conventions for naming and file placement
+
+Output format:
+1) Stack + current folder map
+2) Layer mapping table (layer -> folders/files)
+3) Violations list (file path + why + severity)
+4) Target structure tree
+5) Refactor plan (phased)
+6) Issue-style TODO list
+7) Recommended tests + guardrails
+
+Constraints:
+- Do NOT rewrite everything. Show the smallest set of changes that delivers clean layering.
+- If the app is small, keep it pragmatic: prefer simple folder moves + interfaces over heavy patterns.
+- If you need to inspect configuration (routes, entrypoints, env), do so and cite exact files.
+- Always include file paths in findings so I can verify quickly.
+
+Start by scanning the repository structure, then pick the 2–3 most important user flows and trace them end-to-end.

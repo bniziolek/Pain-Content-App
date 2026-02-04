@@ -10,7 +10,7 @@ import { Users, DollarSign, FileText, TrendingUp, Trash2, CheckCircle2, XCircle,
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { PublicUser as User } from "@shared/api-types";
 import { useLocation, Link } from "wouter";
 import { useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   const toggleSubscriptionMutation = useMutation({
     mutationFn: async ({ userId, currentStatus }: { userId: string; currentStatus: string }) => {
       const newStatus = currentStatus === "active" ? "inactive" : "active";
-      const periodEnd = newStatus === "active" 
+      const periodEnd = newStatus === "active"
         ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         : null;
 
@@ -147,17 +147,17 @@ export default function AdminDashboard() {
 
   const filteredAndSortedUsers = users
     .filter((u) => {
-      const matchesSearch = 
+      const matchesSearch =
         u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      
+
       const matchesTier = tierFilter === "all" || u.subscriptionTier === tierFilter;
-      
-      const matchesStatus = statusFilter === "all" || 
+
+      const matchesStatus = statusFilter === "all" ||
         (statusFilter === "active" && u.subscriptionStatus === "active") ||
         (statusFilter === "inactive" && u.subscriptionStatus !== "active") ||
         (statusFilter === "churned" && u.subscriptionStatus === "canceled");
-      
+
       return matchesSearch && matchesTier && matchesStatus;
     })
     .sort((a, b) => {
@@ -428,7 +428,7 @@ export default function AdminDashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge 
+                      <Badge
                         variant={u.subscriptionStatus === "active" ? "default" : "outline"}
                         className={u.subscriptionStatus === "active" ? "bg-green-600" : ""}
                       >
@@ -439,7 +439,7 @@ export default function AdminDashboard() {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {u.lastLogin 
+                      {u.lastLogin
                         ? formatDistanceToNow(new Date(u.lastLogin), { addSuffix: true })
                         : "Never"}
                     </TableCell>
@@ -452,9 +452,9 @@ export default function AdminDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => toggleSubscriptionMutation.mutate({ 
-                          userId: u.id, 
-                          currentStatus: u.subscriptionStatus || "inactive" 
+                        onClick={() => toggleSubscriptionMutation.mutate({
+                          userId: u.id,
+                          currentStatus: u.subscriptionStatus || "inactive"
                         })}
                         disabled={u.role === "admin"}
                         data-testid={`button-toggle-subscription-${u.id}`}
