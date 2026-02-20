@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run check:*)",
+      "Bash(gh pr list:*)",
+      "Bash(where:*)",
+      "Bash(gh auth:*)",
+      "Bash(git -C \"/c/Users/brian/OneDrive/Documents/GitHub/Pain-Content-App/.claude/worktrees/thirsty-roentgen\" remote -v)",
+      "Bash(GH=\"/c/Program Files/GitHub CLI/gh.exe\")",
+      "Bash(\"$GH\" auth status)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(env)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr list --repo bniziolek/Pain-Content-App --state open)",
+      "Bash(curl:*)",
+      "Bash(git -C \"/c/Users/brian/OneDrive/Documents/GitHub/Pain-Content-App/.claude/worktrees/thirsty-roentgen\" ls-remote:*)",
+      "Bash(git -C:*)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" pr list --repo bniziolek/Pain-Content-App --state open)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" run list --repo bniziolek/Pain-Content-App --limit 5)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" pr checks 181 --repo bniziolek/Pain-Content-App)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" run view 22237361271 --repo bniziolek/Pain-Content-App --log-failed)",
+      "Bash(GH_TOKEN=\"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\" \"/c/Program Files/GitHub CLI/gh.exe\" run view 22237361271 --repo bniziolek/Pain-Content-App)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr list --repo bniziolek/Pain-Content-App --state open)",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(echo:*)"
+    ]
+  }
+}
