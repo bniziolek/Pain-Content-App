@@ -26,7 +26,16 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(gh pr view:*)",
+      "Bash(npm run test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm --version:*)",
+      "Bash(node:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(gh pr create:*)"
     ]
   }
 }
