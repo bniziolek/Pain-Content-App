@@ -131,36 +131,11 @@ router.patch("/users/:id/subscription", requireAdmin, async (req, res, next) => 
 router.post("/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
   try {
     const { months, days } = req.body;
-    let daysToAdd: number;
-
-    if (months) {
-      // Determine the base date from which to extend: current subscription end if available, otherwise now.
-      let baseDate = new Date();
-      try {
-        const existingUser = await getUser(appContext, { userId: req.params.id });
-        if (existingUser?.subscriptionPeriodEnd) {
-          baseDate = new Date(existingUser.subscriptionPeriodEnd);
-        }
-      } catch {
-        // If fetching the user fails for any reason, fall back to using the current date as baseDate.
-      }
-
-      const targetDate = new Date(baseDate.getTime());
-      targetDate.setMonth(targetDate.getMonth() + Number(months));
-
-      if (days) {
-        targetDate.setDate(targetDate.getDate() + Number(days));
-      }
-
-      const msPerDay = 24 * 60 * 60 * 1000;
-      daysToAdd = Math.max(1, Math.round((targetDate.getTime() - baseDate.getTime()) / msPerDay));
-    } else {
-      daysToAdd = days || 30;
-    }
-
+    // Date arithmetic (month addition, clamping) is handled in the application service.
     const user = await extendSubscription(appContext, {
       userId: req.params.id,
-      days: daysToAdd,
+      months: months != null ? Number(months) : undefined,
+      days: days != null ? Number(days) : undefined,
     });
     if (!user) {
       return res.status(404).send("User not found");
