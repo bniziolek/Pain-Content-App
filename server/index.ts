@@ -103,8 +103,15 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log the error server-side for observability, but do NOT re-throw.
+    // Re-throwing after res.json() causes Express to detect res.headersSent=true
+    // and forcefully destroy the socket, resulting in ECONNRESET / "Error: aborted"
+    // on the client side and unstable connections in the test suite.
+    if (status >= 500) {
+      console.error(`[Error ${status}] ${message}`, err);
+    }
+
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
