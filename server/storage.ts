@@ -60,7 +60,7 @@ import {
 import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -146,6 +146,7 @@ export interface IStorage {
   updateContent(id: string, content: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
   deleteContent(id: string): Promise<void>;
   upsertContentItems(items: ContentItem[]): Promise<void>;
+  getModerationQueue(): Promise<ContentItem[]>;
 
   // Assessments
   getDefaultAssessment(): Promise<Assessment | undefined>;
@@ -654,6 +655,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContent(id: string): Promise<void> {
     await db.delete(schema.contentItems).where(eq(schema.contentItems.id, id));
+  }
+
+  async getModerationQueue(): Promise<ContentItem[]> {
+    return await db.select()
+      .from(schema.contentItems)
+      .where(eq(schema.contentItems.moderationStatus, 'pending'))
+      .orderBy(asc(schema.contentItems.submittedAt));
   }
 
   async upsertContentItems(items: ContentItem[]): Promise<void> {

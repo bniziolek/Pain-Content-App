@@ -470,7 +470,17 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/content", requireAuth, async (req, res, next) => {
     try {
       const validated = insertContentItemSchema.parse(req.body);
-      const content = await storage.createContent(validated);
+
+      // Issue #64: Moderation Logic
+      const isModerator = req.user!.role === 'admin' || req.user!.role === 'super_admin';
+      const contentWithModeration = {
+        ...validated,
+        clinicianUserId: req.user!.id,
+        moderationStatus: (isModerator ? 'approved' : 'pending') as any,
+        submittedAt: new Date(),
+      };
+
+      const content = await storage.createContent(contentWithModeration);
 
       await logClinicianAction(getAuditContext(req), req.user!, 'content_create', {
         resourceType: 'content',
@@ -2733,6 +2743,63 @@ export function registerRoutes(app: Express): Server {
       });
 
       res.json({ message: "Permission override removed" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Content Moderation Routes ======
+  app.get("/api/admin/moderation/queue", requireAdmin, async (req, res, next) => {
+    try {
+      const queue = await storage.getModerationQueue();
+      res.json(queue);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/approve", requireAdmin, async (req, res, next) => {
+    try {
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'approved',
+        moderationNote: req.body.note
+      } as any);
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: req.params.id,
+        details: { action: 'approve', moderationNote: req.body.note },
+        outcome: 'success',
+      });
+
+      res.json(content);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/reject", requireAdmin, async (req, res, next) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'rejected',
+        moderationNote: reason
+      } as any);
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: req.params.id,
+        details: { action: 'reject', reason },
+        outcome: 'success',
+      });
+
+      res.json(content);
     } catch (error) {
       next(error);
     }
