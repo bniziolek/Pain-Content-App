@@ -9,7 +9,7 @@ active session file.
 ```markdown
 # Active Session State
 Last updated: YYYY-MM-DD HH:MM UTC
-Agent: [Claude / Codex / Antigravity / Replit AI]
+Agent: [Claude Code / Codex / Antigravity IDE / Replit AI]
 GitHub Issue: #[number] — [title]
 Branch: [branch-name]
 
