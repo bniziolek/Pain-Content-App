@@ -48,10 +48,10 @@ jobs:
 
             // Inputs from workflow_dispatch or default behavior
             const inputs = {
-              scope: process.env.INPUT_SCOPE || context.payload.inputs--.scope || 'single',
-              issue_number_input: process.env.INPUT_ISSUE_NUMBER || context.payload.inputs--.issue_number,
-              actor_filter: process.env.INPUT_ACTOR_FILTER || context.payload.inputs--.actor_filter || 'replit',
-              projectTitle: process.env.INPUT_PROJECT_TITLE || context.payload.inputs--.project_title || 'App Version Roadmap'
+              scope: process.env.INPUT_SCOPE || context.payload.inputs?.scope || 'single',
+              issue_number_input: process.env.INPUT_ISSUE_NUMBER || context.payload.inputs?.issue_number,
+              actor_filter: process.env.INPUT_ACTOR_FILTER || context.payload.inputs?.actor_filter || 'replit',
+              projectTitle: process.env.INPUT_PROJECT_TITLE || context.payload.inputs?.project_title || 'App Version Roadmap'
             };
 
             // Label and type mappings (customize as needed)
@@ -301,7 +301,7 @@ jobs:
                   let issueToProcess = null;
 
                   // priority: workflow_dispatch input issue_number, then event.issue (if fired by issues)
-                  const issueNumberFromInput = inputs.issue_number_input -- parseInt(inputs.issue_number_input, 10) : null;
+                  const issueNumberFromInput = inputs.issue_number_input ? parseInt(inputs.issue_number_input, 10) : null;
                   if (issueNumberFromInput) {
                     const { data: iss } = await github.rest.issues.get({ owner, repo, issue_number: issueNumberFromInput });
                     issueToProcess = iss;

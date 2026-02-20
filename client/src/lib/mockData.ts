@@ -1,7 +1,7 @@
-import spineImage from '@assets/generated_images/abstract_spine_anatomy_illustration.png';
-import nerveImage from '@assets/generated_images/nervous_system_conceptual_art.png';
-import stretchImage from '@assets/generated_images/healthy_person_stretching.png';
-import brainImage from '@assets/generated_images/brain_processing_signals.png';
+const spineImage = '/images/abstract_spine_anatomy_illustration.png';
+const nerveImage = '/images/nervous_system_conceptual_art.png';
+const stretchImage = '/images/healthy_person_stretching.png';
+const brainImage = '/images/brain_processing_signals.png';
 
 export const currentUser = {
   id: 'user_1',
