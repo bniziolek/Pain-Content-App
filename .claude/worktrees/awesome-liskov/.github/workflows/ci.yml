@@ -1,0 +1,114 @@
+# =============================================================================
+# CI Workflow - Lint, Test, Build
+# =============================================================================
+# Runs on pull requests and pushes to main branch.
+# Enforces code quality and prevents regressions.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Main CI Job: Lint, Test, Build
+  # ---------------------------------------------------------------------------
+  ci:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check (lint)
+        run: npm run check
+
+      - name: Run DB migrations
+        run: npm run db:push
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+      - name: Run tests
+        run: |
+          # Start the server in the background
+          NODE_ENV=test npx tsx server/index.ts &
+          
+          # Wait for server to be ready (up to 60 seconds)
+          echo "Waiting for server to be ready..."
+          TIMEOUT=60
+          while [ $TIMEOUT -gt 0 ]; do
+            if curl -s http://localhost:5000/api/health > /dev/null; then
+              echo "Server is ready!"
+              break
+            fi
+            sleep 1
+            TIMEOUT=$((TIMEOUT-1))
+          done
+          
+          if [ $TIMEOUT -eq 0 ]; then
+            echo "Server failed to start within 60 seconds"
+            exit 1
+          fi
+          
+          # Run the tests
+          npx vitest run --passWithNoTests
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          SESSION_SECRET: ci-test-secret-min-32-characters-long
+          NODE_ENV: test
+          PORT: 5000
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Docker Build Check (optional but recommended)
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: app:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

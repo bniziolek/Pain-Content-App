@@ -1,0 +1,2651 @@
+~/workspace$ npm run check
+
+> rest-express@1.0.0 check
+> tsc
+
+client/src/pages/admin/feature-flags.tsx:254:38 - error TS2339: Property 'value' does not exist on type '{ id: string; key: string; name: string; description: string | null; category: string | null; isEnabled: boolean; rolloutPercentage: number | null; updatedAt: string; }'.
+
+254                         {displayFlag.value !== null && (
+                                         ~~~~~
+
+client/src/pages/admin/feature-flags.tsx:258:50 - error TS2339: Property 'value' does not exist on type '{ id: string; key: string; name: string; description: string | null; category: string | null; isEnabled: boolean; rolloutPercentage: number | null; updatedAt: string; }'.
+
+258                               value={displayFlag.value || ''}
+                                                     ~~~~~
+
+client/src/pages/admin/feature-flags.tsx:259:78 - error TS2345: Argument of type '"value"' is not assignable to parameter of type 'keyof FeatureFlag'.
+
+259                               onChange={(e) => updatePendingChange(flag.key, 'value', e.target.value)}
+                                                                                 ~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:587:25 - error TS2339: Property 'stripeCustomerId' does not exist on type 'PublicUser'.
+
+587                   {user.stripeCustomerId && (
+                            ~~~~~~~~~~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:590:84 - error TS2339: Property 'stripeCustomerId' does not exist on type 'PublicUser'.
+
+590                       <p className="text-sm font-mono text-muted-foreground">{user.stripeCustomerId}</p>
+                                                                                       ~~~~~~~~~~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:775:25 - error TS2339: Property 'stripeCustomerId' does not exist on type 'PublicUser'.
+
+775                   {user.stripeCustomerId ? (
+                            ~~~~~~~~~~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:779:64 - error TS2339: Property 'stripeCustomerId' does not exist on type 'PublicUser'.
+
+779                         <p className="text-sm font-mono">{user.stripeCustomerId}</p>
+                                                                   ~~~~~~~~~~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:781:29 - error TS2339: Property 'stripeSubscriptionId' does not exist on type 'PublicUser'.
+
+781                       {user.stripeSubscriptionId && (
+                                ~~~~~~~~~~~~~~~~~~~~
+
+client/src/pages/admin/user-detail.tsx:784:66 - error TS2339: Property 'stripeSubscriptionId' does not exist on type 'PublicUser'.
+
+784                           <p className="text-sm font-mono">{user.stripeSubscriptionId}</p>
+                                                                     ~~~~~~~~~~~~~~~~~~~~
+
+client/src/pages/history.tsx:462:47 - error TS2339: Property 'isFollowUp' does not exist on type 'EmailLog'.
+
+462                                       ) : log.isFollowUp || log.type === 'follow_up_reminder' ? (
+                                                  ~~~~~~~~~~
+
+client/src/pages/history.tsx:468:45 - error TS2339: Property 'isFollowUp' does not exist on type 'EmailLog'.
+
+468                                       {(log.isFollowUp || log.type === 'follow_up_reminder') && (
+                                                ~~~~~~~~~~
+
+client/src/pages/history.tsx:483:44 - error TS2339: Property 'permanentlyLocked' does not exist on type 'EmailLog'.
+
+483                                       {log.permanentlyLocked && (
+                                               ~~~~~~~~~~~~~~~~~
+
+client/src/pages/history.tsx:489:45 - error TS2339: Property 'permanentlyLocked' does not exist on type 'EmailLog'.
+
+489                                       {!log.permanentlyLocked && log.lockedUntil && new Date(log.lockedUntil) > new Date() && (
+                                                ~~~~~~~~~~~~~~~~~
+
+client/src/pages/history.tsx:489:70 - error TS2339: Property 'lockedUntil' does not exist on type 'EmailLog'.
+
+489                                       {!log.permanentlyLocked && log.lockedUntil && new Date(log.lockedUntil) > new Date() && (
+                                                                         ~~~~~~~~~~~
+
+client/src/pages/history.tsx:489:98 - error TS2339: Property 'lockedUntil' does not exist on type 'EmailLog'.
+
+489                                       {!log.permanentlyLocked && log.lockedUntil && new Date(log.lockedUntil) > new Date() && (
+                                                                                                     ~~~~~~~~~~~
+
+client/src/pages/history.tsx:499:44 - error TS2339: Property 'permanentlyLocked' does not exist on type 'EmailLog'.
+
+499                                       {log.permanentlyLocked && (
+                                               ~~~~~~~~~~~~~~~~~
+
+client/src/pages/settings.tsx:68:38 - error TS2339: Property 'emailDeliveryMode' does not exist on type '{}'.
+
+68   const currentMode = emailSettings?.emailDeliveryMode || 'central';
+                                        ~~~~~~~~~~~~~~~~~
+
+client/src/pages/settings.tsx:173:46 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+173                           if (emailSettings?.connection?.status === 'active') {
+                                                 ~~~~~~~~~~
+
+client/src/pages/settings.tsx:202:75 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+202                             {currentMode === 'personal' && emailSettings?.connection && (
+                                                                              ~~~~~~~~~~
+
+client/src/pages/settings.tsx:205:67 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+205                                 <span>Sending from {emailSettings.connection.email}</span>
+                                                                      ~~~~~~~~~~
+
+client/src/pages/settings.tsx:222:35 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+222                   {emailSettings?.connection ? (
+                                      ~~~~~~~~~~
+
+client/src/pages/settings.tsx:229:71 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+229                           <div className="font-medium">{emailSettings.connection.email}</div>
+                                                                          ~~~~~~~~~~
+
+client/src/pages/settings.tsx:231:44 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+231                             {emailSettings.connection.status === 'active' ? (
+                                               ~~~~~~~~~~
+
+client/src/pages/settings.tsx:235:48 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+235                                 {emailSettings.connection.status === 'error' ? 'Error - Reconnection needed' : 'Inactive'}
+                                                   ~~~~~~~~~~
+
+client/src/pages/settings.tsx:239:42 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+239                           {emailSettings.connection.lastError && (
+                                             ~~~~~~~~~~
+
+client/src/pages/settings.tsx:240:87 - error TS2339: Property 'connection' does not exist on type '{}'.
+
+240                             <div className="text-xs text-red-500 mt-1">{emailSettings.connection.lastError}</div>
+                                                                                          ~~~~~~~~~~
+
+server/audit.ts:2:30 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+2 import type { Request } from "express";
+                               ~~~~~~~~~
+
+server/auth.ts:1:22 - error TS7016: Could not find a declaration file for module 'passport'. '/home/runner/workspace/node_modules/passport/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/passport` if it exists or add a new declaration (.d.ts) file containing `declare module 'passport';`
+
+1 import passport from "passport";
+                       ~~~~~~~~~~
+
+server/auth.ts:2:43 - error TS7016: Could not find a declaration file for module 'passport-local'. '/home/runner/workspace/node_modules/passport-local/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/passport-local` if it exists or add a new declaration (.d.ts) file containing `declare module 'passport-local';`
+
+2 import { Strategy as LocalStrategy } from "passport-local";
+                                            ~~~~~~~~~~~~~~~~
+
+server/auth.ts:3:25 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+3 import { Express } from "express";
+                          ~~~~~~~~~
+
+server/auth.ts:4:21 - error TS7016: Could not find a declaration file for module 'express-session'. '/home/runner/workspace/node_modules/express-session/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express-session` if it exists or add a new declaration (.d.ts) file containing `declare module 'express-session';`
+
+4 import session from "express-session";
+                      ~~~~~~~~~~~~~~~~~
+
+server/auth.ts:57:58 - error TS7006: Parameter 'email' implicitly has an 'any' type.
+
+57     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
+                                                            ~~~~~
+
+server/auth.ts:57:65 - error TS7006: Parameter 'password' implicitly has an 'any' type.
+
+57     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
+                                                                   ~~~~~~~~
+
+server/auth.ts:57:75 - error TS7006: Parameter 'done' implicitly has an 'any' type.
+
+57     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
+                                                                             ~~~~
+
+server/auth.ts:72:27 - error TS7006: Parameter 'user' implicitly has an 'any' type.
+
+72   passport.serializeUser((user, done) => done(null, user.id));
+                             ~~~~
+
+server/auth.ts:72:33 - error TS7006: Parameter 'done' implicitly has an 'any' type.
+
+72   passport.serializeUser((user, done) => done(null, user.id));
+                                   ~~~~
+
+server/auth.ts:74:47 - error TS7006: Parameter 'done' implicitly has an 'any' type.
+
+74   passport.deserializeUser(async (id: string, done) => {
+                                                 ~~~~
+
+server/auth.ts:83:36 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+83   app.post("/api/register", async (req, res, next) => {
+                                      ~~~
+
+server/auth.ts:83:41 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+83   app.post("/api/register", async (req, res, next) => {
+                                           ~~~
+
+server/auth.ts:83:46 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+83   app.post("/api/register", async (req, res, next) => {
+                                                ~~~~
+
+server/auth.ts:110:24 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+110       req.login(user, (err) => {
+                           ~~~
+
+server/auth.ts:119:27 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+119   app.post("/api/login", (req, res, next) => {
+                              ~~~
+
+server/auth.ts:119:32 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+119   app.post("/api/login", (req, res, next) => {
+                                   ~~~
+
+server/auth.ts:119:37 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+119   app.post("/api/login", (req, res, next) => {
+                                        ~~~~
+
+server/auth.ts:157:30 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+157       req.login(user, async (err) => {
+                                 ~~~
+
+server/auth.ts:181:34 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+181   app.post("/api/logout", async (req, res, next) => {
+                                     ~~~
+
+server/auth.ts:181:39 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+181   app.post("/api/logout", async (req, res, next) => {
+                                          ~~~
+
+server/auth.ts:181:44 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+181   app.post("/api/logout", async (req, res, next) => {
+                                               ~~~~
+
+server/auth.ts:183:23 - error TS7006: Parameter 'err' implicitly has an 'any' type.
+
+183     req.logout(async (err) => {
+                          ~~~
+
+server/auth.ts:193:25 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+193   app.get("/api/user", (req, res) => {
+                            ~~~
+
+server/auth.ts:193:30 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+193   app.get("/api/user", (req, res) => {
+                                 ~~~
+
+server/background-jobs.ts:51:7 - error TS2353: Object literal may only specify known properties, and 'schema' does not exist in type 'MigrationConfig'.
+
+51       schema: "stripe",
+         ~~~~~~
+
+server/index.ts:1:63 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import express, { type Request, Response, NextFunction } from "express";
+                                                                ~~~~~~~~~
+
+server/index.ts:21:10 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+21   async (req, res) => {
+            ~~~
+
+server/index.ts:21:15 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+21   async (req, res) => {
+                 ~~~
+
+server/index.ts:48:14 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+48     verify: (req, _res, buf) => {
+                ~~~
+
+server/index.ts:48:19 - error TS7006: Parameter '_res' implicitly has an 'any' type.
+
+48     verify: (req, _res, buf) => {
+                     ~~~~
+
+server/index.ts:48:25 - error TS7006: Parameter 'buf' implicitly has an 'any' type.
+
+48     verify: (req, _res, buf) => {
+                           ~~~
+
+server/index.ts:67:10 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+67 app.use((req, res, next) => {
+            ~~~
+
+server/index.ts:67:15 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+67 app.use((req, res, next) => {
+                 ~~~
+
+server/index.ts:67:20 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+67 app.use((req, res, next) => {
+                      ~~~~
+
+server/index.ts:73:24 - error TS7006: Parameter 'bodyJson' implicitly has an 'any' type.
+
+73   res.json = function (bodyJson, ...args) {
+                          ~~~~~~~~
+
+server/index.ts:73:34 - error TS7019: Rest parameter 'args' implicitly has an 'any[]' type.
+
+73   res.json = function (bodyJson, ...args) {
+                                    ~~~~~~~
+
+server/rbac.ts:1:54 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import type { Request, Response, NextFunction } from "express";
+                                                       ~~~~~~~~~
+
+server/routes.ts:1:30 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import type { Express } from "express";
+                               ~~~~~~~~~
+
+server/routes.ts:60:55 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+60   app.get("/api/content", requireSubscription, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:60:60 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+60   app.get("/api/content", requireSubscription, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:60:65 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+60   app.get("/api/content", requireSubscription, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:80:59 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+80   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:80:64 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+80   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:80:69 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+80   app.get("/api/content/:id", requireSubscription, async (req, res, next) => {
+                                                                       ~~~~
+
+server/routes.ts:111:54 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+111   app.get("/api/content/status", requireAuth, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:111:59 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+111   app.get("/api/content/status", requireAuth, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:111:64 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+111   app.get("/api/content/status", requireAuth, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:123:49 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+123   app.get("/api/favorites", requireAuth, async (req, res, next) => {
+                                                    ~~~
+
+server/routes.ts:123:54 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+123   app.get("/api/favorites", requireAuth, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:123:59 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+123   app.get("/api/favorites", requireAuth, async (req, res, next) => {
+                                                              ~~~~
+
+server/routes.ts:132:61 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+132   app.post("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:132:66 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+132   app.post("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:132:71 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+132   app.post("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:141:63 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+141   app.delete("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:141:68 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+141   app.delete("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:141:73 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+141   app.delete("/api/favorites/:contentId", requireAuth, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:150:66 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+150   app.get("/api/favorites/check/:contentId", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:150:71 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+150   app.get("/api/favorites/check/:contentId", requireAuth, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:150:76 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+150   app.get("/api/favorites/check/:contentId", requireAuth, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:159:63 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+159   app.get("/api/content/frequently-used", requireAuth, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:159:68 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+159   app.get("/api/content/frequently-used", requireAuth, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:159:73 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+159   app.get("/api/content/frequently-used", requireAuth, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:170:51 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+170   app.get("/api/collections", requireAuth, async (req, res, next) => {
+                                                      ~~~
+
+server/routes.ts:170:56 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+170   app.get("/api/collections", requireAuth, async (req, res, next) => {
+                                                           ~~~
+
+server/routes.ts:170:61 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+170   app.get("/api/collections", requireAuth, async (req, res, next) => {
+                                                                ~~~~
+
+server/routes.ts:179:52 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+179   app.post("/api/collections", requireAuth, async (req, res, next) => {
+                                                       ~~~
+
+server/routes.ts:179:57 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+179   app.post("/api/collections", requireAuth, async (req, res, next) => {
+                                                            ~~~
+
+server/routes.ts:179:62 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+179   app.post("/api/collections", requireAuth, async (req, res, next) => {
+                                                                 ~~~~
+
+server/routes.ts:196:55 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+196   app.get("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                          ~~~
+
+server/routes.ts:196:60 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+196   app.get("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:196:65 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+196   app.get("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                                    ~~~~
+
+server/routes.ts:209:57 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+209   app.patch("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                            ~~~
+
+server/routes.ts:209:62 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+209   app.patch("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:209:67 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+209   app.patch("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                                      ~~~~
+
+server/routes.ts:223:58 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+223   app.delete("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:223:63 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+223   app.delete("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:223:68 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+223   app.delete("/api/collections/:id", requireAuth, async (req, res, next) => {
+                                                                       ~~~~
+
+server/routes.ts:236:62 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+236   app.post("/api/collections/:id/items", requireAuth, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:236:67 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+236   app.post("/api/collections/:id/items", requireAuth, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:236:72 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+236   app.post("/api/collections/:id/items", requireAuth, async (req, res, next) => {
+                                                                           ~~~~
+
+server/routes.ts:253:75 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+253   app.delete("/api/collections/:id/items/:contentId", requireAuth, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:253:80 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+253   app.delete("/api/collections/:id/items/:contentId", requireAuth, async (req, res, next) => {
+                                                                                   ~~~
+
+server/routes.ts:253:85 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+253   app.delete("/api/collections/:id/items/:contentId", requireAuth, async (req, res, next) => {
+                                                                                        ~~~~
+
+server/routes.ts:267:48 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+267   app.post("/api/content", requireAuth, async (req, res, next) => {
+                                                   ~~~
+
+server/routes.ts:267:53 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+267   app.post("/api/content", requireAuth, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:267:58 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+267   app.post("/api/content", requireAuth, async (req, res, next) => {
+                                                             ~~~~
+
+server/routes.ts:284:53 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+284   app.patch("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:284:58 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+284   app.patch("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:284:63 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+284   app.patch("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                                  ~~~~
+
+server/routes.ts:303:54 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+303   app.delete("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:303:59 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+303   app.delete("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:303:64 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+303   app.delete("/api/content/:id", requireAuth, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:318:59 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+318   app.get("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:318:64 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+318   app.get("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:318:69 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+318   app.get("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                                        ~~~~
+
+server/routes.ts:349:63 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+349   app.get("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:349:68 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+349   app.get("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:349:73 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+349   app.get("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:369:73 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+369   app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:369:78 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+369   app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
+                                                                                 ~~~
+
+server/routes.ts:369:83 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+369   app.get("/api/assessments/:id/questions", requireSubscription, async (req, res, next) => {
+                                                                                      ~~~~
+
+server/routes.ts:440:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+440   app.post("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:440:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+440   app.post("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:440:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+440   app.post("/api/assessments", requireSubscription, async (req, res, next) => {
+                                                                         ~~~~
+
+server/routes.ts:461:65 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+461   app.patch("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:461:70 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+461   app.patch("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:461:75 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+461   app.patch("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                              ~~~~
+
+server/routes.ts:486:66 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+486   app.delete("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:486:71 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+486   app.delete("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:486:76 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+486   app.delete("/api/assessments/:id", requireSubscription, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:510:66 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+510   app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:510:71 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+510   app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:510:76 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+510   app.post("/api/assessments/score", requireSubscription, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:533:118 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+533   app.post("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                         ~~~
+
+server/routes.ts:533:123 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+533   app.post("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                              ~~~
+
+server/routes.ts:533:128 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+533   app.post("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                   ~~~~
+
+server/routes.ts:582:117 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+582   app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                        ~~~
+
+server/routes.ts:582:122 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+582   app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                             ~~~
+
+server/routes.ts:582:127 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+582   app.get("/api/assessment-invites", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                  ~~~~
+
+server/routes.ts:600:109 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+600   app.get("/api/assessment-invites/token/:token", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                ~~~
+
+server/routes.ts:600:114 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+600   app.get("/api/assessment-invites/token/:token", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                     ~~~
+
+server/routes.ts:600:119 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+600   app.get("/api/assessment-invites/token/:token", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                          ~~~~
+
+server/routes.ts:618:116 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+618   app.post("/api/assessment-invites/:inviteId/complete", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                       ~~~
+
+server/routes.ts:618:121 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+618   app.post("/api/assessment-invites/:inviteId/complete", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                            ~~~
+
+server/routes.ts:618:126 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+618   app.post("/api/assessment-invites/:inviteId/complete", requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                 ~~~~
+
+server/routes.ts:664:135 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+664   app.get("/api/assessment-invites/:inviteId/results", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                          ~~~
+
+server/routes.ts:664:140 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+664   app.get("/api/assessment-invites/:inviteId/results", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                               ~~~
+
+server/routes.ts:664:145 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+664   app.get("/api/assessment-invites/:inviteId/results", requireSubscription, requireFeatureFlag('patient_assessments_enabled'), async (req, res, next) => {
+                                                                                                                                                    ~~~~
+
+server/routes.ts:731:68 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+731   app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:731:73 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+731   app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:731:78 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+731   app.get("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:740:69 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+740   app.post("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:740:74 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+740   app.post("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:740:79 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+740   app.post("/api/recommendation-rules", requireSubscription, async (req, res, next) => {
+                                                                                  ~~~~
+
+server/routes.ts:768:75 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+768   app.delete("/api/recommendation-rules/:id", requireSubscription, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:768:80 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+768   app.delete("/api/recommendation-rules/:id", requireSubscription, async (req, res, next) => {
+                                                                                   ~~~
+
+server/routes.ts:768:85 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+768   app.delete("/api/recommendation-rules/:id", requireSubscription, async (req, res, next) => {
+                                                                                        ~~~~
+
+server/routes.ts:783:64 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+783   app.post("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:783:69 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+783   app.post("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:783:74 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+783   app.post("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                             ~~~~
+
+server/routes.ts:799:72 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+799   app.post("/api/recommendations/preview", requireSubscription, async (req, res, next) => {
+                                                                           ~~~
+
+server/routes.ts:799:77 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+799   app.post("/api/recommendations/preview", requireSubscription, async (req, res, next) => {
+                                                                                ~~~
+
+server/routes.ts:799:82 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+799   app.post("/api/recommendations/preview", requireSubscription, async (req, res, next) => {
+                                                                                     ~~~~
+
+server/routes.ts:815:70 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+815   app.get("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:815:75 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+815   app.get("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:815:80 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+815   app.get("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                                   ~~~~
+
+server/routes.ts:829:71 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+829   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:829:76 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+829   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                               ~~~
+
+server/routes.ts:829:81 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+829   app.post("/api/recommendation-configs", requireSubscription, async (req, res, next) => {
+                                                                                    ~~~~
+
+server/routes.ts:858:9 - error TS2353: Object literal may only specify known properties, and 'questionName' does not exist in type '{ clinicianUserId?: string | undefined; name: string; assessmentId?: string | undefined; pathwayId?: string | undefined; pathwayWeek?: number | undefined; tag: string; minScore?: number | undefined; maxScore?: number | undefined; priority?: number | undefined; contentIds: string[]; rationale?: string | undefined; }'.
+
+858         questionName,
+            ~~~~~~~~~~~~
+
+server/routes.ts:875:74 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+875   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:875:79 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+875   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                                  ~~~
+
+server/routes.ts:875:84 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+875   app.put("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                                       ~~~~
+
+server/routes.ts:909:77 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+909   app.delete("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                                ~~~
+
+server/routes.ts:909:82 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+909   app.delete("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                                     ~~~
+
+server/routes.ts:909:87 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+909   app.delete("/api/recommendation-configs/:id", requireSubscription, async (req, res, next) => {
+                                                                                          ~~~~
+
+server/routes.ts:924:120 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+924   app.get("/api/patient-recommendations", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                           ~~~
+
+server/routes.ts:924:125 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+924   app.get("/api/patient-recommendations", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                ~~~
+
+server/routes.ts:924:130 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+924   app.get("/api/patient-recommendations", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                     ~~~~
+
+server/routes.ts:938:124 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+938   app.get("/api/patient-recommendations/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                               ~~~
+
+server/routes.ts:938:129 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+938   app.get("/api/patient-recommendations/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                    ~~~
+
+server/routes.ts:938:134 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+938   app.get("/api/patient-recommendations/:id", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                         ~~~~
+
+server/routes.ts:951:68 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+951   app.post("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:951:73 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+951   app.post("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:951:78 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+951   app.post("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:984:67 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+984   app.get("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:984:72 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+984   app.get("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                           ~~~
+
+server/routes.ts:984:77 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+984   app.get("/api/internal-screenings", requireSubscription, async (req, res, next) => {
+                                                                                ~~~~
+
+server/routes.ts:1003:108 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1003   app.post("/api/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                ~~~
+
+server/routes.ts:1003:113 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1003   app.post("/api/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                     ~~~
+
+server/routes.ts:1003:118 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1003   app.post("/api/email-logs", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                          ~~~~
+
+server/routes.ts:1106:102 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1106   app.get("/api/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                          ~~~
+
+server/routes.ts:1106:107 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1106   app.get("/api/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                               ~~~
+
+server/routes.ts:1106:112 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1106   app.get("/api/email-logs", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                                    ~~~~
+
+server/routes.ts:1115:120 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1115   app.get("/api/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                                            ~~~
+
+server/routes.ts:1115:125 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1115   app.get("/api/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                                                 ~~~
+
+server/routes.ts:1115:130 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1115   app.get("/api/email-logs/:id/content-views", requireSubscription, requireFeatureFlag('send_history_enabled'), async (req, res, next) => {
+                                                                                                                                      ~~~~
+
+server/routes.ts:1125:119 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1125   app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                           ~~~
+
+server/routes.ts:1125:124 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1125   app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                ~~~
+
+server/routes.ts:1125:129 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1125   app.post("/api/email-logs/:id/resend", requireSubscription, requireFeatureFlag('patient_messaging_enabled'), async (req, res, next) => {
+                                                                                                                                     ~~~~
+
+server/routes.ts:1194:70 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1194   app.get("/api/patient-summary/:email", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:1194:75 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1194   app.get("/api/patient-summary/:email", requireSubscription, async (req, res, next) => {
+                                                                               ~~~
+
+server/routes.ts:1194:80 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1194   app.get("/api/patient-summary/:email", requireSubscription, async (req, res, next) => {
+                                                                                    ~~~~
+
+server/routes.ts:1273:52 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1273   app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:1273:57 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1273   app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:1273:62 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1273   app.patch("/api/onboarding", requireAuth, async (req, res, next) => {
+                                                                  ~~~~
+
+server/routes.ts:1292:56 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1292   app.post("/api/onboarding/skip", requireAuth, async (req, res, next) => {
+                                                            ~~~
+
+server/routes.ts:1292:61 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1292   app.post("/api/onboarding/skip", requireAuth, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:1292:66 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1292   app.post("/api/onboarding/skip", requireAuth, async (req, res, next) => {
+                                                                      ~~~~
+
+server/routes.ts:1309:54 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1309   app.get("/api/email-settings", requireAuth, async (req, res, next) => {
+                                                          ~~~
+
+server/routes.ts:1309:59 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1309   app.get("/api/email-settings", requireAuth, async (req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:1309:64 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1309   app.get("/api/email-settings", requireAuth, async (req, res, next) => {
+                                                                    ~~~~
+
+server/routes.ts:1326:61 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1326   app.patch("/api/email-settings/mode", requireAuth, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:1326:66 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1326   app.patch("/api/email-settings/mode", requireAuth, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:1326:71 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1326   app.patch("/api/email-settings/mode", requireAuth, async (req, res, next) => {
+                                                                           ~~~~
+
+server/routes.ts:1355:68 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1355   app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:1355:73 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1355   app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:1355:78 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1355   app.delete("/api/email-settings/connection", requireAuth, async (req, res, next) => {
+                                                                                  ~~~~
+
+server/routes.ts:1381:52 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1381   app.get("/api/subscription", requireAuth, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:1381:57 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1381   app.get("/api/subscription", requireAuth, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:1381:62 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1381   app.get("/api/subscription", requireAuth, async (req, res, next) => {
+                                                                  ~~~~
+
+server/routes.ts:1401:40 - error TS7006: Parameter '_req' implicitly has an 'any' type.
+
+1401   app.get("/api/stripe/config", async (_req, res, next) => {
+                                            ~~~~
+
+server/routes.ts:1401:46 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1401   app.get("/api/stripe/config", async (_req, res, next) => {
+                                                  ~~~
+
+server/routes.ts:1401:51 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1401   app.get("/api/stripe/config", async (_req, res, next) => {
+                                                       ~~~~
+
+server/routes.ts:1412:45 - error TS7006: Parameter '_req' implicitly has an 'any' type.
+
+1412   app.get("/api/subscription/plans", async (_req, res, next) => {
+                                                 ~~~~
+
+server/routes.ts:1412:51 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1412   app.get("/api/subscription/plans", async (_req, res, next) => {
+                                                       ~~~
+
+server/routes.ts:1412:56 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1412   app.get("/api/subscription/plans", async (_req, res, next) => {
+                                                            ~~~~
+
+server/routes.ts:1424:62 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1424   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:1424:67 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1424   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:1424:72 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1424   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:1462:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1462   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:1462:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1462   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1462:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1462   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:1484:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1484   app.post("/api/subscription/change", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:1484:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1484   app.post("/api/subscription/change", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1484:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1484   app.post("/api/subscription/change", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:1508:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1508   app.post("/api/subscription/cancel", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:1508:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1508   app.post("/api/subscription/cancel", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1508:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1508   app.post("/api/subscription/cancel", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:1536:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1536   app.post("/api/subscription/resume", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:1536:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1536   app.post("/api/subscription/resume", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1536:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1536   app.post("/api/subscription/resume", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:1558:61 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1558   app.get("/api/subscription/invoices", requireAuth, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:1558:66 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1558   app.get("/api/subscription/invoices", requireAuth, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:1558:71 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1558   app.get("/api/subscription/invoices", requireAuth, async (req, res, next) => {
+                                                                           ~~~~
+
+server/routes.ts:1587:66 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1587   app.post("/api/admin/users/:userId/tier", requireAdmin, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:1587:71 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1587   app.post("/api/admin/users/:userId/tier", requireAdmin, async (req, res, next) => {
+                                                                           ~~~
+
+server/routes.ts:1587:76 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1587   app.post("/api/admin/users/:userId/tier", requireAdmin, async (req, res, next) => {
+                                                                                ~~~~
+
+server/routes.ts:1609:74 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1609   app.post("/api/admin/users/:userId/subscription", requireAdmin, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:1609:79 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1609   app.post("/api/admin/users/:userId/subscription", requireAdmin, async (req, res, next) => {
+                                                                                   ~~~
+
+server/routes.ts:1609:84 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1609   app.post("/api/admin/users/:userId/subscription", requireAdmin, async (req, res, next) => {
+                                                                                        ~~~~
+
+server/routes.ts:1644:53 - error TS7006: Parameter '_req' implicitly has an 'any' type.
+
+1644   app.get("/api/subscription/feature-flags", async (_req, res, next) => {
+                                                         ~~~~
+
+server/routes.ts:1644:59 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1644   app.get("/api/subscription/feature-flags", async (_req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:1644:64 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1644   app.get("/api/subscription/feature-flags", async (_req, res, next) => {
+                                                                    ~~~~
+
+server/routes.ts:1658:62 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1658   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:1658:67 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1658   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:1658:72 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1658   app.post("/api/subscription/checkout", requireAuth, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:1675:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1675   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:1675:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1675   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1675:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1675   app.post("/api/subscription/portal", requireAuth, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:1687:53 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1687   app.get("/api/stats", requireSubscription, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:1687:58 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1687   app.get("/api/stats", requireSubscription, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:1687:63 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1687   app.get("/api/stats", requireSubscription, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:1889:53 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1889   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:1889:58 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1889   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:1889:63 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1889   app.post("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:1928:65 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1928   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:1928:70 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1928   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:1928:75 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1928   app.post("/api/admin/create-trial-user", requireAdmin, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:1956:29 - error TS2345: Argument of type '{ id: string; role: string; email: string; name: string | null; subscriptionStatus: string | null; password: string; createdAt: Date; updatedAt: Date; lastLogin: Date | null; ... 7 more ...; activePersona: string | null; } | undefined' is not assignable to parameter of type '{ id: string; role: string; email: string; name: string | null; subscriptionStatus: string | null; password: string; createdAt: Date; updatedAt: Date; lastLogin: Date | null; ... 7 more ...; activePersona: string | null; }'.
+  Type 'undefined' is not assignable to type '{ id: string; role: string; email: string; name: string | null; subscriptionStatus: string | null; password: string; createdAt: Date; updatedAt: Date; lastLogin: Date | null; ... 7 more ...; activePersona: string | null; }'.
+
+1956       res.json(toPublicUser(user));
+                                 ~~~~
+
+server/routes.ts:1962:52 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1962   app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:1962:57 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1962   app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:1962:62 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1962   app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+                                                                  ~~~~
+
+server/routes.ts:1971:56 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1971   app.get("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                            ~~~
+
+server/routes.ts:1971:61 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1971   app.get("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:1971:66 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1971   app.get("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                      ~~~~
+
+server/routes.ts:1983:58 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+1983   app.patch("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:1983:63 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+1983   app.patch("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:1983:68 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+1983   app.patch("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                        ~~~~
+
+server/routes.ts:2005:71 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2005   app.patch("/api/admin/users/:id/subscription", requireAdmin, async (req, res, next) => {
+                                                                           ~~~
+
+server/routes.ts:2005:76 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2005   app.patch("/api/admin/users/:id/subscription", requireAdmin, async (req, res, next) => {
+                                                                                ~~~
+
+server/routes.ts:2005:81 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2005   app.patch("/api/admin/users/:id/subscription", requireAdmin, async (req, res, next) => {
+                                                                                     ~~~~
+
+server/routes.ts:2030:77 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2030   app.post("/api/admin/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~
+
+server/routes.ts:2030:82 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2030   app.post("/api/admin/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
+                                                                                      ~~~
+
+server/routes.ts:2030:87 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2030   app.post("/api/admin/users/:id/extend-subscription", requireAdmin, async (req, res, next) => {
+                                                                                           ~~~~
+
+server/routes.ts:2056:72 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2056   app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2056:77 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2056   app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~
+
+server/routes.ts:2056:82 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2056   app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res, next) => {
+                                                                                      ~~~~
+
+server/routes.ts:2075:59 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2075   app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:2075:64 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2075   app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:2075:69 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2075   app.delete("/api/admin/users/:id", requireAdmin, async (req, res, next) => {
+                                                                         ~~~~
+
+server/routes.ts:2090:52 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2090   app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
+                                                        ~~~
+
+server/routes.ts:2090:57 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2090   app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:2090:62 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2090   app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
+                                                                  ~~~~
+
+server/routes.ts:2107:61 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2107   app.get("/api/admin/enhanced-stats", requireAdmin, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:2107:66 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2107   app.get("/api/admin/enhanced-stats", requireAdmin, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:2107:71 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2107   app.get("/api/admin/enhanced-stats", requireAdmin, async (req, res, next) => {
+                                                                           ~~~~
+
+server/routes.ts:2117:66 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2117   app.get("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:2117:71 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2117   app.get("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                           ~~~
+
+server/routes.ts:2117:76 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2117   app.get("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                                ~~~~
+
+server/routes.ts:2126:67 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2126   app.post("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:2126:72 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2126   app.post("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2126:77 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2126   app.post("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:2143:58 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2143   app.patch("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:2143:63 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2143   app.patch("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:2143:68 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2143   app.patch("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                                        ~~~~
+
+server/routes.ts:2159:59 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2159   app.delete("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                               ~~~
+
+server/routes.ts:2159:64 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2159   app.delete("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:2159:69 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2159   app.delete("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+                                                                         ~~~~
+
+server/routes.ts:2169:74 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2169   app.get("/api/admin/users/:userId/login-history", requireAdmin, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:2169:79 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2169   app.get("/api/admin/users/:userId/login-history", requireAdmin, async (req, res, next) => {
+                                                                                   ~~~
+
+server/routes.ts:2169:84 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2169   app.get("/api/admin/users/:userId/login-history", requireAdmin, async (req, res, next) => {
+                                                                                        ~~~~
+
+server/routes.ts:2180:77 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2180   app.get("/api/admin/users/:userId/content-activity", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~
+
+server/routes.ts:2180:82 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2180   app.get("/api/admin/users/:userId/content-activity", requireAdmin, async (req, res, next) => {
+                                                                                      ~~~
+
+server/routes.ts:2180:87 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2180   app.get("/api/admin/users/:userId/content-activity", requireAdmin, async (req, res, next) => {
+                                                                                           ~~~~
+
+server/routes.ts:2190:67 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2190   app.get("/api/admin/users/:userId/export", requireAdmin, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:2190:72 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2190   app.get("/api/admin/users/:userId/export", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2190:77 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2190   app.get("/api/admin/users/:userId/export", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:2235:69 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2235   app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:2235:74 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2235   app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:2235:79 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2235   app.get("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                                   ~~~~
+
+server/routes.ts:2248:70 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2248   app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:2248:75 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2248   app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                               ~~~
+
+server/routes.ts:2248:80 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2248   app.post("/api/admin/recommendation-configs", requireAdmin, async (req, res, next) => {
+                                                                                    ~~~~
+
+server/routes.ts:2275:9 - error TS2353: Object literal may only specify known properties, and 'questionName' does not exist in type '{ clinicianUserId?: string | undefined; name: string; assessmentId?: string | undefined; pathwayId?: string | undefined; pathwayWeek?: number | undefined; tag: string; minScore?: number | undefined; maxScore?: number | undefined; priority?: number | undefined; contentIds: string[]; rationale?: string | undefined; }'.
+
+2275         questionName,
+             ~~~~~~~~~~~~
+
+server/routes.ts:2292:73 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2292   app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:2292:78 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2292   app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                                  ~~~
+
+server/routes.ts:2292:83 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2292   app.put("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                                       ~~~~
+
+server/routes.ts:2324:76 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2324   app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                                ~~~
+
+server/routes.ts:2324:81 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2324   app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                                     ~~~
+
+server/routes.ts:2324:86 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2324   app.delete("/api/admin/recommendation-configs/:id", requireAdmin, async (req, res, next) => {
+                                                                                          ~~~~
+
+server/routes.ts:2339:105 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2339   app.get("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                             ~~~
+
+server/routes.ts:2339:110 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2339   app.get("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                  ~~~
+
+server/routes.ts:2339:115 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2339   app.get("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                       ~~~~
+
+server/routes.ts:2356:106 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2356   app.post("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                              ~~~
+
+server/routes.ts:2356:111 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2356   app.post("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                   ~~~
+
+server/routes.ts:2356:116 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2356   app.post("/api/follow-up-rules", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                        ~~~~
+
+server/routes.ts:2368:111 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2368   app.patch("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                   ~~~
+
+server/routes.ts:2368:116 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2368   app.patch("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                        ~~~
+
+server/routes.ts:2368:121 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2368   app.patch("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                             ~~~~
+
+server/routes.ts:2377:112 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2377   app.delete("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                    ~~~
+
+server/routes.ts:2377:117 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2377   app.delete("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                         ~~~
+
+server/routes.ts:2377:122 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2377   app.delete("/api/follow-up-rules/:id", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                              ~~~~
+
+server/routes.ts:2386:121 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2386   app.post("/api/follow-up-templates/:id/toggle", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                             ~~~
+
+server/routes.ts:2386:126 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2386   app.post("/api/follow-up-templates/:id/toggle", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                                  ~~~
+
+server/routes.ts:2386:131 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2386   app.post("/api/follow-up-templates/:id/toggle", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                                       ~~~~
+
+server/routes.ts:2396:110 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2396   app.get("/api/scheduled-follow-ups", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                  ~~~
+
+server/routes.ts:2396:115 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2396   app.get("/api/scheduled-follow-ups", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                       ~~~
+
+server/routes.ts:2396:120 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2396   app.get("/api/scheduled-follow-ups", requireSubscription, requireFeatureFlag('follow_ups_enabled'), async (req, res, next) => {
+                                                                                                                            ~~~~
+
+server/routes.ts:2406:96 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2406   app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                    ~~~
+
+server/routes.ts:2406:101 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2406   app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                         ~~~
+
+server/routes.ts:2406:106 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2406   app.get("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                              ~~~~
+
+server/routes.ts:2433:100 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2433   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                        ~~~
+
+server/routes.ts:2433:105 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2433   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                             ~~~
+
+server/routes.ts:2433:110 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2433   app.get("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                  ~~~~
+
+server/routes.ts:2462:97 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2462   app.post("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                     ~~~
+
+server/routes.ts:2462:102 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2462   app.post("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                          ~~~
+
+server/routes.ts:2462:107 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2462   app.post("/api/pathways", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                               ~~~~
+
+server/routes.ts:2474:102 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2474   app.patch("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                          ~~~
+
+server/routes.ts:2474:107 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2474   app.patch("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                               ~~~
+
+server/routes.ts:2474:112 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2474   app.patch("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                    ~~~~
+
+server/routes.ts:2484:103 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2484   app.delete("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                           ~~~
+
+server/routes.ts:2484:108 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2484   app.delete("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                ~~~
+
+server/routes.ts:2484:113 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2484   app.delete("/api/pathways/:id", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                     ~~~~
+
+server/routes.ts:2494:112 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2494   app.post("/api/pathways/:id/milestones", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                    ~~~
+
+server/routes.ts:2494:117 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2494   app.post("/api/pathways/:id/milestones", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                         ~~~
+
+server/routes.ts:2494:122 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2494   app.post("/api/pathways/:id/milestones", requireSubscription, requireFeatureFlag('pathways_enabled'), async (req, res, next) => {
+                                                                                                                              ~~~~
+
+server/routes.ts:2506:64 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2506   app.patch("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:2506:69 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2506   app.patch("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:2506:74 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2506   app.patch("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                              ~~~~
+
+server/routes.ts:2515:65 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2515   app.delete("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:2515:70 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2515   app.delete("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:2515:75 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2515   app.delete("/api/milestones/:id", requireSubscription, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:2525:64 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2525   app.get("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                    ~~~
+
+server/routes.ts:2525:69 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2525   app.get("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:2525:74 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2525   app.get("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                              ~~~~
+
+server/routes.ts:2534:65 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2534   app.post("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:2534:70 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2534   app.post("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:2534:75 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2534   app.post("/api/patient-pathways", requireSubscription, async (req, res, next) => {
+                                                                               ~~~~
+
+server/routes.ts:2546:70 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2546   app.patch("/api/patient-pathways/:id", requireSubscription, async (req, res, next) => {
+                                                                          ~~~
+
+server/routes.ts:2546:75 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2546   app.patch("/api/patient-pathways/:id", requireSubscription, async (req, res, next) => {
+                                                                               ~~~
+
+server/routes.ts:2546:80 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2546   app.patch("/api/patient-pathways/:id", requireSubscription, async (req, res, next) => {
+                                                                                    ~~~~
+
+server/routes.ts:2557:63 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2557   app.get("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:2557:68 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2557   app.get("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:2557:73 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2557   app.get("/api/recommendations", requireSubscription, async (req, res, next) => {
+                                                                             ~~~~
+
+server/routes.ts:2566:75 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2566   app.post("/api/recommendations/for-scores", requireSubscription, async (req, res, next) => {
+                                                                               ~~~
+
+server/routes.ts:2566:80 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2566   app.post("/api/recommendations/for-scores", requireSubscription, async (req, res, next) => {
+                                                                                    ~~~
+
+server/routes.ts:2566:85 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2566   app.post("/api/recommendations/for-scores", requireSubscription, async (req, res, next) => {
+                                                                                         ~~~~
+
+server/routes.ts:2585:63 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2585   app.post("/api/admin/recommendations", requireAdmin, async (req, res, next) => {
+                                                                   ~~~
+
+server/routes.ts:2585:68 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2585   app.post("/api/admin/recommendations", requireAdmin, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:2585:73 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2585   app.post("/api/admin/recommendations", requireAdmin, async (req, res, next) => {
+                                                                             ~~~~
+
+server/routes.ts:2594:69 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2594   app.delete("/api/admin/recommendations/:id", requireAdmin, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:2594:74 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2594   app.delete("/api/admin/recommendations/:id", requireAdmin, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:2594:79 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2594   app.delete("/api/admin/recommendations/:id", requireAdmin, async (req, res, next) => {
+                                                                                   ~~~~
+
+server/routes.ts:2604:57 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2604   app.get("/api/admin/audit-logs", requireAdmin, async (req, res, next) => {
+                                                             ~~~
+
+server/routes.ts:2604:62 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2604   app.get("/api/admin/audit-logs", requireAdmin, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:2604:67 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2604   app.get("/api/admin/audit-logs", requireAdmin, async (req, res, next) => {
+                                                                       ~~~~
+
+server/routes.ts:2619:61 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2619   app.get("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:2619:66 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2619   app.get("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                      ~~~
+
+server/routes.ts:2619:71 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2619   app.get("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                           ~~~~
+
+server/routes.ts:2628:62 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2628   app.post("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                  ~~~
+
+server/routes.ts:2628:67 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2628   app.post("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:2628:72 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2628   app.post("/api/admin/data-inventory", requireAdmin, async (req, res, next) => {
+                                                                            ~~~~
+
+server/routes.ts:2643:67 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2643   app.patch("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:2643:72 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2643   app.patch("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2643:77 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2643   app.patch("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:2658:68 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2658   app.delete("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                        ~~~
+
+server/routes.ts:2658:73 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2658   app.delete("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:2658:78 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2658   app.delete("/api/admin/data-inventory/:id", requireAdmin, async (req, res, next) => {
+                                                                                  ~~~~
+
+server/routes.ts:2674:56 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2674   app.get("/api/admin/analytics", requireAdmin, async (req, res, next) => {
+                                                            ~~~
+
+server/routes.ts:2674:61 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2674   app.get("/api/admin/analytics", requireAdmin, async (req, res, next) => {
+                                                                 ~~~
+
+server/routes.ts:2674:66 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2674   app.get("/api/admin/analytics", requireAdmin, async (req, res, next) => {
+                                                                      ~~~~
+
+server/routes.ts:2737:60 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2737   app.get("/api/admin/feature-flags", requireAdmin, async (req, res, next) => {
+                                                                ~~~
+
+server/routes.ts:2737:65 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2737   app.get("/api/admin/feature-flags", requireAdmin, async (req, res, next) => {
+                                                                     ~~~
+
+server/routes.ts:2737:70 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2737   app.get("/api/admin/feature-flags", requireAdmin, async (req, res, next) => {
+                                                                          ~~~~
+
+server/routes.ts:2746:67 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2746   app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
+                                                                       ~~~
+
+server/routes.ts:2746:72 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2746   app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2746:77 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2746   app.patch("/api/admin/feature-flags/:key", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~~
+
+server/routes.ts:2762:9 - error TS2322: Type '"feature_flag"' is not assignable to type 'ResourceType | undefined'.
+
+2762         resourceType: 'feature_flag',
+             ~~~~~~~~~~~~
+
+server/routes.ts:2781:73 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2781   app.get("/api/admin/feature-flags/:key/history", requireAdmin, async (req, res, next) => {
+                                                                             ~~~
+
+server/routes.ts:2781:78 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2781   app.get("/api/admin/feature-flags/:key/history", requireAdmin, async (req, res, next) => {
+                                                                                  ~~~
+
+server/routes.ts:2781:83 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2781   app.get("/api/admin/feature-flags/:key/history", requireAdmin, async (req, res, next) => {
+                                                                                       ~~~~
+
+server/routes.ts:2801:72 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2801   app.get("/api/admin/feature-flags/history/all", requireAdmin, async (req, res, next) => {
+                                                                            ~~~
+
+server/routes.ts:2801:77 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2801   app.get("/api/admin/feature-flags/history/all", requireAdmin, async (req, res, next) => {
+                                                                                 ~~~
+
+server/routes.ts:2801:82 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2801   app.get("/api/admin/feature-flags/history/all", requireAdmin, async (req, res, next) => {
+                                                                                      ~~~~
+
+server/routes.ts:2821:53 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2821   app.get("/api/feature-flags", requireAuth, async (req, res, next) => {
+                                                         ~~~
+
+server/routes.ts:2821:58 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2821   app.get("/api/feature-flags", requireAuth, async (req, res, next) => {
+                                                              ~~~
+
+server/routes.ts:2821:63 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2821   app.get("/api/feature-flags", requireAuth, async (req, res, next) => {
+                                                                   ~~~~
+
+server/routes.ts:2839:88 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2839   app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                            ~~~
+
+server/routes.ts:2839:93 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2839   app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                 ~~~
+
+server/routes.ts:2839:98 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2839   app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                      ~~~~
+
+server/routes.ts:2841:32 - error TS2304: Cannot find name 'User'.
+
+2841       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2857:9 - error TS2554: Expected 3-4 arguments, but got 9.
+
+2857         user.id,
+             ~~~~~~~~
+2858         false,
+     ~~~~~~~~~~~~~~
+ ... 
+2860         'success',
+     ~~~~~~~~~~~~~~~~~~
+2861         { action: 'persona_switch', toPersona }
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+server/routes.ts:2874:87 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2874   app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                           ~~~
+
+server/routes.ts:2874:92 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2874   app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                ~~~
+
+server/routes.ts:2874:97 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2874   app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                     ~~~~
+
+server/routes.ts:2876:32 - error TS2304: Cannot find name 'User'.
+
+2876       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2884:9 - error TS2554: Expected 3-4 arguments, but got 9.
+
+2884         user.id,
+             ~~~~~~~~
+2885         false,
+     ~~~~~~~~~~~~~~
+ ... 
+2887         'success',
+     ~~~~~~~~~~~~~~~~~~
+2888         { action: 'persona_clear' }
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+server/routes.ts:2897:88 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2897   app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                            ~~~
+
+server/routes.ts:2897:93 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2897   app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                 ~~~
+
+server/routes.ts:2897:98 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2897   app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                      ~~~~
+
+server/routes.ts:2899:32 - error TS2304: Cannot find name 'User'.
+
+2899       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2908:98 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2908   app.get("/api/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                      ~~~
+
+server/routes.ts:2908:103 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2908   app.get("/api/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                           ~~~
+
+server/routes.ts:2908:108 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2908   app.get("/api/super-admin/users/:userId/permissions", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                ~~~~
+
+server/routes.ts:2918:105 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2918   app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                             ~~~
+
+server/routes.ts:2918:110 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2918   app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                  ~~~
+
+server/routes.ts:2918:115 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2918   app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                       ~~~~
+
+server/routes.ts:2920:32 - error TS2304: Cannot find name 'User'.
+
+2920       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2941:9 - error TS2554: Expected 3-4 arguments, but got 9.
+
+2941         userId,
+             ~~~~~~~
+2942         false,
+     ~~~~~~~~~~~~~~
+ ... 
+2944         'success',
+     ~~~~~~~~~~~~~~~~~~
+2945         { action: 'permission_grant', permissionName, targetUserId: userId }
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+server/routes.ts:2954:106 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2954   app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                              ~~~
+
+server/routes.ts:2954:111 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2954   app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                   ~~~
+
+server/routes.ts:2954:116 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2954   app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                        ~~~~
+
+server/routes.ts:2956:32 - error TS2304: Cannot find name 'User'.
+
+2956       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2971:9 - error TS2554: Expected 3-4 arguments, but got 9.
+
+2971         userId,
+             ~~~~~~~
+2972         false,
+     ~~~~~~~~~~~~~~
+ ... 
+2974         'success',
+     ~~~~~~~~~~~~~~~~~~
+2975         { action: 'permission_revoke', permissionName, targetUserId: userId }
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+server/routes.ts:2984:105 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+2984   app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                             ~~~
+
+server/routes.ts:2984:110 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+2984   app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                  ~~~
+
+server/routes.ts:2984:115 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+2984   app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
+                                                                                                                       ~~~~
+
+server/routes.ts:2986:32 - error TS2304: Cannot find name 'User'.
+
+2986       const user = req.user as User;
+                                    ~~~~
+
+server/routes.ts:2995:9 - error TS2554: Expected 3-4 arguments, but got 9.
+
+2995         userId,
+             ~~~~~~~
+2996         false,
+     ~~~~~~~~~~~~~~
+ ... 
+2998         'success',
+     ~~~~~~~~~~~~~~~~~~
+2999         { action: 'permission_remove', permissionOverrideId: id, targetUserId: userId }
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+server/routes.ts:3009:82 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+3009   app.post("/api/packets/:screeningId/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                                      ~~~
+
+server/routes.ts:3009:87 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+3009   app.post("/api/packets/:screeningId/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                                           ~~~
+
+server/routes.ts:3009:92 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+3009   app.post("/api/packets/:screeningId/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                                                ~~~~
+
+server/routes.ts:3099:69 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+3099   app.post("/api/content/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                         ~~~
+
+server/routes.ts:3099:74 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+3099   app.post("/api/content/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                              ~~~
+
+server/routes.ts:3099:79 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+3099   app.post("/api/content/generate-pdf", requireSubscription, async (req, res, next) => {
+                                                                                   ~~~~
+
+server/routes/password-reset.ts:1:30 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import type { Express } from "express";
+                               ~~~~~~~~~
+
+server/routes/password-reset.ts:8:43 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+8   app.post("/api/forgot-password", async (req, res, next) => {
+                                            ~~~
+
+server/routes/password-reset.ts:8:48 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+8   app.post("/api/forgot-password", async (req, res, next) => {
+                                                 ~~~
+
+server/routes/password-reset.ts:8:53 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+8   app.post("/api/forgot-password", async (req, res, next) => {
+                                                      ~~~~
+
+server/routes/password-reset.ts:42:42 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+42   app.post("/api/reset-password", async (req, res, next) => {
+                                            ~~~
+
+server/routes/password-reset.ts:42:47 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+42   app.post("/api/reset-password", async (req, res, next) => {
+                                                 ~~~
+
+server/routes/password-reset.ts:42:52 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+42   app.post("/api/reset-password", async (req, res, next) => {
+                                                      ~~~~
+
+server/routes/patient-portal.ts:1:63 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import type { Express, NextFunction, Request, Response } from "express";
+                                                                ~~~~~~~~~
+
+server/routes/patient-portal.ts:17:93 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+17   app.post("/api/patient-portal/auth", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                               ~~~
+
+server/routes/patient-portal.ts:17:98 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+17   app.post("/api/patient-portal/auth", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                                    ~~~
+
+server/routes/patient-portal.ts:17:103 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+17   app.post("/api/patient-portal/auth", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                                         ~~~~
+
+server/routes/patient-portal.ts:147:95 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+147   app.get("/api/patient-portal/content", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                                  ~~~
+
+server/routes/patient-portal.ts:147:100 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+147   app.get("/api/patient-portal/content", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                                       ~~~
+
+server/routes/patient-portal.ts:147:105 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+147   app.get("/api/patient-portal/content", requireFeatureFlag("patient_portal_enabled"), async (req, res, next) => {
+                                                                                                            ~~~~
+
+server/routes/public-content.ts:1:30 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import type { Express } from "express";
+                               ~~~~~~~~~
+
+server/routes/public-content.ts:6:53 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+6   app.get("/api/public/content-view/:token", async (req, res, next) => {
+                                                      ~~~
+
+server/routes/public-content.ts:6:58 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+6   app.get("/api/public/content-view/:token", async (req, res, next) => {
+                                                           ~~~
+
+server/routes/public-content.ts:6:63 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+6   app.get("/api/public/content-view/:token", async (req, res, next) => {
+                                                                ~~~~
+
+server/routes/public-content.ts:45:59 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+45   app.post("/api/public/content-view/:token/time", async (req, res, next) => {
+                                                             ~~~
+
+server/routes/public-content.ts:45:64 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+45   app.post("/api/public/content-view/:token/time", async (req, res, next) => {
+                                                                  ~~~
+
+server/routes/public-content.ts:45:69 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+45   app.post("/api/public/content-view/:token/time", async (req, res, next) => {
+                                                                       ~~~~
+
+server/serializers/user.ts:16:5 - error TS2322: Type 'boolean | null' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+
+16     onboardingCompleted: user.onboardingCompleted,
+       ~~~~~~~~~~~~~~~~~~~
+
+  shared/api-types.ts:19:3
+    19   onboardingCompleted?: boolean;
+         ~~~~~~~~~~~~~~~~~~~
+    The expected type comes from property 'onboardingCompleted' which is declared here on type 'PublicUser'
+
+server/serializers/user.ts:17:5 - error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.
+
+17     onboardingStep: user.onboardingStep,
+       ~~~~~~~~~~~~~~
+
+  shared/api-types.ts:20:3
+    20   onboardingStep?: number;
+         ~~~~~~~~~~~~~~
+    The expected type comes from property 'onboardingStep' which is declared here on type 'PublicUser'
+
+server/serializers/user.ts:18:5 - error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+
+18     emailDeliveryMode: user.emailDeliveryMode,
+       ~~~~~~~~~~~~~~~~~
+
+  shared/api-types.ts:21:3
+    21   emailDeliveryMode?: string;
+         ~~~~~~~~~~~~~~~~~
+    The expected type comes from property 'emailDeliveryMode' which is declared here on type 'PublicUser'
+
+server/static.ts:1:39 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import express, { type Express } from "express";
+                                        ~~~~~~~~~
+
+server/static.ts:16:17 - error TS7006: Parameter '_req' implicitly has an 'any' type.
+
+16   app.use("*", (_req, res) => {
+                   ~~~~
+
+server/static.ts:16:23 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+16   app.use("*", (_req, res) => {
+                         ~~~
+
+server/storage.ts:57:21 - error TS7016: Could not find a declaration file for module 'express-session'. '/home/runner/workspace/node_modules/express-session/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express-session` if it exists or add a new declaration (.d.ts) file containing `declare module 'express-session';`
+
+57 import session from "express-session";
+                       ~~~~~~~~~~~~~~~~~
+
+server/storage.ts:58:23 - error TS7016: Could not find a declaration file for module 'connect-pg-simple'. '/home/runner/workspace/node_modules/connect-pg-simple/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/connect-pg-simple` if it exists or add a new declaration (.d.ts) file containing `declare module 'connect-pg-simple';`
+
+58 import connectPg from "connect-pg-simple";
+                         ~~~~~~~~~~~~~~~~~~~
+
+server/vite.ts:1:30 - error TS7016: Could not find a declaration file for module 'express'. '/home/runner/workspace/node_modules/express/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`
+
+1 import { type Express } from "express";
+                               ~~~~~~~~~
+
+server/vite.ts:34:23 - error TS7006: Parameter 'req' implicitly has an 'any' type.
+
+34   app.use("*", async (req, res, next) => {
+                         ~~~
+
+server/vite.ts:34:28 - error TS7006: Parameter 'res' implicitly has an 'any' type.
+
+34   app.use("*", async (req, res, next) => {
+                              ~~~
+
+server/vite.ts:34:33 - error TS7006: Parameter 'next' implicitly has an 'any' type.
+
+34   app.use("*", async (req, res, next) => {
+                                   ~~~~
+
+vite.config.ts:2:19 - error TS2307: Cannot find module '@vitejs/plugin-react' or its corresponding type declarations.
+
+2 import react from "@vitejs/plugin-react";
+                    ~~~~~~~~~~~~~~~~~~~~~~
+
+vite.config.ts:3:25 - error TS2307: Cannot find module '@tailwindcss/vite' or its corresponding type declarations.
+
+3 import tailwindcss from "@tailwindcss/vite";
+                          ~~~~~~~~~~~~~~~~~~~
+
+vite.config.ts:5:33 - error TS2307: Cannot find module '@replit/vite-plugin-runtime-error-modal' or its corresponding type declarations.
+
+5 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+vite.config.ts:17:24 - error TS2307: Cannot find module '@replit/vite-plugin-cartographer' or its corresponding type declarations.
+
+17           await import("@replit/vite-plugin-cartographer").then((m) =>
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+vite.config.ts:20:24 - error TS2307: Cannot find module '@replit/vite-plugin-dev-banner' or its corresponding type declarations.
+
+20           await import("@replit/vite-plugin-dev-banner").then((m) =>
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Found 511 errors in 18 files.
+
+Errors  Files
+     3  client/src/pages/admin/feature-flags.tsx:254
+     6  client/src/pages/admin/user-detail.tsx:587
+     7  client/src/pages/history.tsx:462
+    10  client/src/pages/settings.tsx:68
+     1  server/audit.ts:2
+    24  server/auth.ts:1
+     1  server/background-jobs.ts:51
+    11  server/index.ts:1
+     1  server/rbac.ts:1
+   409  server/routes.ts:1
+     7  server/routes/password-reset.ts:1
+     7  server/routes/patient-portal.ts:1
+     7  server/routes/public-content.ts:1
+     3  server/serializers/user.ts:16
+     3  server/static.ts:1
+     2  server/storage.ts:57
+     4  server/vite.ts:1
+     5  vite.config.ts:2

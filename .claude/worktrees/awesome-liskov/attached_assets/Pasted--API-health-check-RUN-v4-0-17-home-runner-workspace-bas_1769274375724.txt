@@ -1,0 +1,289 @@
+
+→ API health check...
+
+ RUN  v4.0.17 /home/runner/workspace
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ✓ tests/api/health.test.ts > Health Check API > GET /api/health > should return healthy status 20ms
+ ✓ tests/api/health.test.ts > Health Check API > Server Availability > should respond to root path 7ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  17:05:38
+   Duration  652ms (transform 67ms, setup 0ms, import 199ms, tests 29ms, environment 0ms)
+
+→ Basic E2E auth...
+
+Running 8 tests using 4 workers
+
+  ✓  1 [chromium] › tests/e2e/auth.spec.ts:39:3 › Authentication › should logout successfully (8.1s)
+  ✓  2 …ium] › tests/e2e/auth.spec.ts:25:3 › Authentication › should reject invalid credentials (3.4s)
+  ✓  3 [chromium] › tests/e2e/auth.spec.ts:4:3 › Authentication › should display login page (3.4s)
+  ✓  4 …m] › tests/e2e/auth.spec.ts:10:3 › Authentication › should login with valid credentials (4.3s)
+  ✘  5 [mobile] › tests/e2e/auth.spec.ts:4:3 › Authentication › should display login page (32ms)
+  ✘  6 …e] › tests/e2e/auth.spec.ts:10:3 › Authentication › should login with valid credentials (20ms)
+  ✘  7 …bile] › tests/e2e/auth.spec.ts:25:3 › Authentication › should reject invalid credentials (8ms)
+  ✘  8 [mobile] › tests/e2e/auth.spec.ts:39:3 › Authentication › should logout successfully (6ms)
+
+
+  1) [mobile] › tests/e2e/auth.spec.ts:4:3 › Authentication › should display login page ────────────
+
+    Error: browserType.launch: 
+    ╔══════════════════════════════════════════════════════╗
+    ║ Host system is missing dependencies to run browsers. ║
+    ║ Missing libraries:                                   ║
+    ║     libgstreamer-1.0.so.0                            ║
+    ║     libgtk-4.so.1                                    ║
+    ║     libgdk_pixbuf-2.0.so.0                           ║
+    ║     libvulkan.so.1                                   ║
+    ║     libgraphene-1.0.so.0                             ║
+    ║     libicudata.so.74                                 ║
+    ║     libicui18n.so.74                                 ║
+    ║     libatomic.so.1                                   ║
+    ║     libicuuc.so.74                                   ║
+    ║     libxml2.so.2                                     ║
+    ║     libsqlite3.so.0                                  ║
+    ║     libxslt.so.1                                     ║
+    ║     liblcms2.so.2                                    ║
+    ║     libwoff2dec.so.1.0.2                             ║
+    ║     libvpx.so.9                                      ║
+    ║     libevent-2.1.so.7                                ║
+    ║     libopus.so.0                                     ║
+    ║     libgstallocators-1.0.so.0                        ║
+    ║     libgstapp-1.0.so.0                               ║
+    ║     libgstbase-1.0.so.0                              ║
+    ║     libgstpbutils-1.0.so.0                           ║
+    ║     libgstaudio-1.0.so.0                             ║
+    ║     libgsttag-1.0.so.0                               ║
+    ║     libgstvideo-1.0.so.0                             ║
+    ║     libgstgl-1.0.so.0                                ║
+    ║     libgstcodecparsers-1.0.so.0                      ║
+    ║     libgstfft-1.0.so.0                               ║
+    ║     libflite.so.1                                    ║
+    ║     libflite_usenglish.so.1                          ║
+    ║     libflite_cmu_grapheme_lang.so.1                  ║
+    ║     libflite_cmu_grapheme_lex.so.1                   ║
+    ║     libflite_cmu_indic_lang.so.1                     ║
+    ║     libflite_cmu_indic_lex.so.1                      ║
+    ║     libflite_cmulex.so.1                             ║
+    ║     libflite_cmu_time_awb.so.1                       ║
+    ║     libflite_cmu_us_awb.so.1                         ║
+    ║     libflite_cmu_us_kal16.so.1                       ║
+    ║     libflite_cmu_us_kal.so.1                         ║
+    ║     libflite_cmu_us_rms.so.1                         ║
+    ║     libflite_cmu_us_slt.so.1                         ║
+    ║     libwebpdemux.so.2                                ║
+    ║     libavif.so.16                                    ║
+    ║     libharfbuzz-icu.so.0                             ║
+    ║     libepoxy.so.0                                    ║
+    ║     libjpeg.so.8                                     ║
+    ║     libwebpmux.so.3                                  ║
+    ║     libwebp.so.7                                     ║
+    ║     libenchant-2.so.2                                ║
+    ║     libsecret-1.so.0                                 ║
+    ║     libhyphen.so.0                                   ║
+    ║     libwayland-server.so.0                           ║
+    ║     libwayland-egl.so.1                              ║
+    ║     libwayland-client.so.0                           ║
+    ║     libmanette-0.2.so.0                              ║
+    ║     libGLESv2.so.2                                   ║
+    ║     libx264.so                                       ║
+    ╚══════════════════════════════════════════════════════╝
+
+  2) [mobile] › tests/e2e/auth.spec.ts:10:3 › Authentication › should login with valid credentials ─
+
+    Error: browserType.launch: 
+    ╔══════════════════════════════════════════════════════╗
+    ║ Host system is missing dependencies to run browsers. ║
+    ║ Missing libraries:                                   ║
+    ║     libgstreamer-1.0.so.0                            ║
+    ║     libgtk-4.so.1                                    ║
+    ║     libgdk_pixbuf-2.0.so.0                           ║
+    ║     libvulkan.so.1                                   ║
+    ║     libgraphene-1.0.so.0                             ║
+    ║     libicudata.so.74                                 ║
+    ║     libicui18n.so.74                                 ║
+    ║     libatomic.so.1                                   ║
+    ║     libicuuc.so.74                                   ║
+    ║     libxml2.so.2                                     ║
+    ║     libsqlite3.so.0                                  ║
+    ║     libxslt.so.1                                     ║
+    ║     liblcms2.so.2                                    ║
+    ║     libwoff2dec.so.1.0.2                             ║
+    ║     libvpx.so.9                                      ║
+    ║     libevent-2.1.so.7                                ║
+    ║     libopus.so.0                                     ║
+    ║     libgstallocators-1.0.so.0                        ║
+    ║     libgstapp-1.0.so.0                               ║
+    ║     libgstbase-1.0.so.0                              ║
+    ║     libgstpbutils-1.0.so.0                           ║
+    ║     libgstaudio-1.0.so.0                             ║
+    ║     libgsttag-1.0.so.0                               ║
+    ║     libgstvideo-1.0.so.0                             ║
+    ║     libgstgl-1.0.so.0                                ║
+    ║     libgstcodecparsers-1.0.so.0                      ║
+    ║     libgstfft-1.0.so.0                               ║
+    ║     libflite.so.1                                    ║
+    ║     libflite_usenglish.so.1                          ║
+    ║     libflite_cmu_grapheme_lang.so.1                  ║
+    ║     libflite_cmu_grapheme_lex.so.1                   ║
+    ║     libflite_cmu_indic_lang.so.1                     ║
+    ║     libflite_cmu_indic_lex.so.1                      ║
+    ║     libflite_cmulex.so.1                             ║
+    ║     libflite_cmu_time_awb.so.1                       ║
+    ║     libflite_cmu_us_awb.so.1                         ║
+    ║     libflite_cmu_us_kal16.so.1                       ║
+    ║     libflite_cmu_us_kal.so.1                         ║
+    ║     libflite_cmu_us_rms.so.1                         ║
+    ║     libflite_cmu_us_slt.so.1                         ║
+    ║     libwebpdemux.so.2                                ║
+    ║     libavif.so.16                                    ║
+    ║     libharfbuzz-icu.so.0                             ║
+    ║     libepoxy.so.0                                    ║
+    ║     libjpeg.so.8                                     ║
+    ║     libwebpmux.so.3                                  ║
+    ║     libwebp.so.7                                     ║
+    ║     libenchant-2.so.2                                ║
+    ║     libsecret-1.so.0                                 ║
+    ║     libhyphen.so.0                                   ║
+    ║     libwayland-server.so.0                           ║
+    ║     libwayland-egl.so.1                              ║
+    ║     libwayland-client.so.0                           ║
+    ║     libmanette-0.2.so.0                              ║
+    ║     libGLESv2.so.2                                   ║
+    ║     libx264.so                                       ║
+    ╚══════════════════════════════════════════════════════╝
+
+  3) [mobile] › tests/e2e/auth.spec.ts:25:3 › Authentication › should reject invalid credentials ───
+
+    Error: browserType.launch: 
+    ╔══════════════════════════════════════════════════════╗
+    ║ Host system is missing dependencies to run browsers. ║
+    ║ Missing libraries:                                   ║
+    ║     libgstreamer-1.0.so.0                            ║
+    ║     libgtk-4.so.1                                    ║
+    ║     libgdk_pixbuf-2.0.so.0                           ║
+    ║     libvulkan.so.1                                   ║
+    ║     libgraphene-1.0.so.0                             ║
+    ║     libicudata.so.74                                 ║
+    ║     libicui18n.so.74                                 ║
+    ║     libatomic.so.1                                   ║
+    ║     libicuuc.so.74                                   ║
+    ║     libxml2.so.2                                     ║
+    ║     libsqlite3.so.0                                  ║
+    ║     libxslt.so.1                                     ║
+    ║     liblcms2.so.2                                    ║
+    ║     libwoff2dec.so.1.0.2                             ║
+    ║     libvpx.so.9                                      ║
+    ║     libevent-2.1.so.7                                ║
+    ║     libopus.so.0                                     ║
+    ║     libgstallocators-1.0.so.0                        ║
+    ║     libgstapp-1.0.so.0                               ║
+    ║     libgstbase-1.0.so.0                              ║
+    ║     libgstpbutils-1.0.so.0                           ║
+    ║     libgstaudio-1.0.so.0                             ║
+    ║     libgsttag-1.0.so.0                               ║
+    ║     libgstvideo-1.0.so.0                             ║
+    ║     libgstgl-1.0.so.0                                ║
+    ║     libgstcodecparsers-1.0.so.0                      ║
+    ║     libgstfft-1.0.so.0                               ║
+    ║     libflite.so.1                                    ║
+    ║     libflite_usenglish.so.1                          ║
+    ║     libflite_cmu_grapheme_lang.so.1                  ║
+    ║     libflite_cmu_grapheme_lex.so.1                   ║
+    ║     libflite_cmu_indic_lang.so.1                     ║
+    ║     libflite_cmu_indic_lex.so.1                      ║
+    ║     libflite_cmulex.so.1                             ║
+    ║     libflite_cmu_time_awb.so.1                       ║
+    ║     libflite_cmu_us_awb.so.1                         ║
+    ║     libflite_cmu_us_kal16.so.1                       ║
+    ║     libflite_cmu_us_kal.so.1                         ║
+    ║     libflite_cmu_us_rms.so.1                         ║
+    ║     libflite_cmu_us_slt.so.1                         ║
+    ║     libwebpdemux.so.2                                ║
+    ║     libavif.so.16                                    ║
+    ║     libharfbuzz-icu.so.0                             ║
+    ║     libepoxy.so.0                                    ║
+    ║     libjpeg.so.8                                     ║
+    ║     libwebpmux.so.3                                  ║
+    ║     libwebp.so.7                                     ║
+    ║     libenchant-2.so.2                                ║
+    ║     libsecret-1.so.0                                 ║
+    ║     libhyphen.so.0                                   ║
+    ║     libwayland-server.so.0                           ║
+    ║     libwayland-egl.so.1                              ║
+    ║     libwayland-client.so.0                           ║
+    ║     libmanette-0.2.so.0                              ║
+    ║     libGLESv2.so.2                                   ║
+    ║     libx264.so                                       ║
+    ╚══════════════════════════════════════════════════════╝
+
+  4) [mobile] › tests/e2e/auth.spec.ts:39:3 › Authentication › should logout successfully ──────────
+
+    Error: browserType.launch: 
+    ╔══════════════════════════════════════════════════════╗
+    ║ Host system is missing dependencies to run browsers. ║
+    ║ Missing libraries:                                   ║
+    ║     libgstreamer-1.0.so.0                            ║
+    ║     libgtk-4.so.1                                    ║
+    ║     libgdk_pixbuf-2.0.so.0                           ║
+    ║     libvulkan.so.1                                   ║
+    ║     libgraphene-1.0.so.0                             ║
+    ║     libicudata.so.74                                 ║
+    ║     libicui18n.so.74                                 ║
+    ║     libatomic.so.1                                   ║
+    ║     libicuuc.so.74                                   ║
+    ║     libxml2.so.2                                     ║
+    ║     libsqlite3.so.0                                  ║
+    ║     libxslt.so.1                                     ║
+    ║     liblcms2.so.2                                    ║
+    ║     libwoff2dec.so.1.0.2                             ║
+    ║     libvpx.so.9                                      ║
+    ║     libevent-2.1.so.7                                ║
+    ║     libopus.so.0                                     ║
+    ║     libgstallocators-1.0.so.0                        ║
+    ║     libgstapp-1.0.so.0                               ║
+    ║     libgstbase-1.0.so.0                              ║
+    ║     libgstpbutils-1.0.so.0                           ║
+    ║     libgstaudio-1.0.so.0                             ║
+    ║     libgsttag-1.0.so.0                               ║
+    ║     libgstvideo-1.0.so.0                             ║
+    ║     libgstgl-1.0.so.0                                ║
+    ║     libgstcodecparsers-1.0.so.0                      ║
+    ║     libgstfft-1.0.so.0                               ║
+    ║     libflite.so.1                                    ║
+    ║     libflite_usenglish.so.1                          ║
+    ║     libflite_cmu_grapheme_lang.so.1                  ║
+    ║     libflite_cmu_grapheme_lex.so.1                   ║
+    ║     libflite_cmu_indic_lang.so.1                     ║
+    ║     libflite_cmu_indic_lex.so.1                      ║
+    ║     libflite_cmulex.so.1                             ║
+    ║     libflite_cmu_time_awb.so.1                       ║
+    ║     libflite_cmu_us_awb.so.1                         ║
+    ║     libflite_cmu_us_kal16.so.1                       ║
+    ║     libflite_cmu_us_kal.so.1                         ║
+    ║     libflite_cmu_us_rms.so.1                         ║
+    ║     libflite_cmu_us_slt.so.1                         ║
+    ║     libwebpdemux.so.2                                ║
+    ║     libavif.so.16                                    ║
+    ║     libharfbuzz-icu.so.0                             ║
+    ║     libepoxy.so.0                                    ║
+    ║     libjpeg.so.8                                     ║
+    ║     libwebpmux.so.3                                  ║
+    ║     libwebp.so.7                                     ║
+    ║     libenchant-2.so.2                                ║
+    ║     libsecret-1.so.0                                 ║
+    ║     libhyphen.so.0                                   ║
+    ║     libwayland-server.so.0                           ║
+    ║     libwayland-egl.so.1                              ║
+    ║     libwayland-client.so.0                           ║
+    ║     libmanette-0.2.so.0                              ║
+    ║     libGLESv2.so.2                                   ║
+    ║     libx264.so                                       ║
+    ╚══════════════════════════════════════════════════════╝
+
+  4 failed
+    [mobile] › tests/e2e/auth.spec.ts:4:3 › Authentication › should display login page ─────────────
+    [mobile] › tests/e2e/auth.spec.ts:10:3 › Authentication › should login with valid credentials ──
+    [mobile] › tests/e2e/auth.spec.ts:25:3 › Authentication › should reject invalid credentials ────
+    [mobile] › tests/e2e/auth.spec.ts:39:3 › Authentication › should logout successfully ─

@@ -1,0 +1,321 @@
+# Replit issue labeler + Project "Type" setter with manual (bulk) run support
+name: Replit issue labeler & project Type setter (with bulk/manual run)
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Run scope: "single" (an issue) or "all_open" (all open issues)'
+        required: true
+        default: 'single'
+        type: choice
+        options:
+          - single
+          - all_open
+      issue_number:
+        description: 'When scope is "single", the issue number to process (leave empty to use event issue)'
+        required: false
+        type: string
+      actor_filter:
+        description: 'Limit automated processing to issues created by this actor (use "all" to skip filtering)'
+        required: false
+        default: 'replit'
+        type: string
+      project_title:
+        description: 'Projects V2 project title to operate on'
+        required: false
+        default: 'App Version Roadmap'
+        type: string
+
+permissions:
+  issues: write
+  # Expected value for `contents`: the literal string "read" — indicates the file's contents were read/loaded and should be included here.
+  contents: read
+
+jobs:
+  label-and-set-type:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label & set project Type (handles single or bulk runs)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Inputs from workflow_dispatch or default behavior
+            const inputs = {
+              scope: process.env.INPUT_SCOPE || context.payload.inputs?.scope || 'single',
+              issue_number_input: process.env.INPUT_ISSUE_NUMBER || context.payload.inputs?.issue_number,
+              actor_filter: process.env.INPUT_ACTOR_FILTER || context.payload.inputs?.actor_filter || 'replit',
+              projectTitle: process.env.INPUT_PROJECT_TITLE || context.payload.inputs?.project_title || 'App Version Roadmap'
+            };
+
+            // Label and type mappings (customize as needed)
+            const titleToLabels = [
+              { prefix: "feature:", labels: ["type:feature", "feature"], typeValue: "Feature" },
+              { prefix: "bug:", labels: ["type:bug", "bug"], typeValue: "Bug" },
+              { prefix: "chore:", labels: ["type:chore", "chore"], typeValue: "Chore" }
+              // add more mappings here
+            ];
+
+            const labelToType = {
+              "type:feature": "Feature",
+              "feature": "Feature",
+              "type:bug": "Bug",
+              "bug": "Bug",
+              "type:chore": "Chore",
+              "chore": "Chore"
+            };
+
+            // GraphQL query to load Projects V2 for repository (projects and fields)
+            const projectsQuery = `
+              query($owner:String!, $repo:String!) {
+                repository(owner:$owner, name:$repo) {
+                  projectsV2(first:100) {
+                    nodes {
+                      id
+                      title
+                      fields(first:100) {
+                        nodes {
+                          __typename
+                          id
+                          name
+                          ... on ProjectV2SingleSelectField {
+                            singleSelectOptions(first:200) {
+                              nodes { id name }
+                            }
+                          }
+                        }
+                      }
+                      items(first:200) {
+                        nodes {
+                          id
+                          content {
+                            __typename
+                            ... on Issue { id number }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            // Helper: process a single issue object (REST issue)
+            async function processIssueObject(issue) {
+              const issue_number = issue.number;
+              const issueNodeId = issue.node_id;
+
+              // actor filter: if configured, skip issues not authored by that actor
+              if (inputs.actor_filter && inputs.actor_filter !== 'all') {
+                const author = (issue.user && issue.user.login) || '';
+                if (author.toLowerCase() !== inputs.actor_filter.toLowerCase()) {
+                  core.info(`Skipping issue #${issue_number} (author '${author}' != filter '${inputs.actor_filter}').`);
+                  return;
+                }
+              }
+
+              const title = (issue.title || "").trim();
+              const titleLower = title.toLowerCase();
+
+              // find title-based mapping
+              const matched = titleToLabels.find(m => titleLower.startsWith(m.prefix));
+              if (matched) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number,
+                    labels: matched.labels
+                  });
+                  core.info(`Added labels for #${issue_number}: ${matched.labels.join(", ")}`);
+                } catch (err) {
+                  core.info(`Failed to add labels to #${issue_number}: ${err.message}`);
+                }
+              }
+
+              // refresh labels list for this issue
+              const { data: refreshed } = await github.rest.issues.get({ owner, repo, issue_number });
+              const currentLabels = (refreshed.labels || []).map(l => (l.name || "").toLowerCase());
+
+              // determine desired Type value
+              let desiredType = null;
+              for (const l of currentLabels) {
+                if (labelToType[l]) {
+                  desiredType = labelToType[l];
+                  break;
+                }
+              }
+              if (!desiredType && matched && matched.typeValue) {
+                desiredType = matched.typeValue;
+              }
+
+              if (!desiredType) {
+                core.info(`No desired Type for #${issue_number}; skipping project field update.`);
+                return;
+              }
+
+              // Load projects and fields
+              let projectsResp;
+              try {
+                projectsResp = await github.graphql(projectsQuery, { owner, repo });
+              } catch (err) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `I determined the Type should be "${desiredType}" but couldn't load repository projects: ${err.message}`
+                });
+                core.info(`GraphQL fetch failed for #${issue_number}: ${err.message}`);
+                return;
+              }
+
+              const projects = projectsResp.repository.projectsV2.nodes || [];
+              const project = projects.find(p => (p.title || "").toLowerCase() === inputs.projectTitle.toLowerCase());
+              if (!project) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `I determined the Type should be "${desiredType}" but could not find a Projects V2 project titled "${inputs.projectTitle}" in this repository. Please add the issue to the project or set the "Type" field manually.`
+                });
+                core.info(`Project '${inputs.projectTitle}' not found for #${issue_number}.`);
+                return;
+              }
+
+              // find Type field
+              const typeField = (project.fields.nodes || []).find(f => (f.name || "").toLowerCase() === "type");
+              if (!typeField) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `I determined the Type should be "${desiredType}" but could not find a project field named "Type" on project "${inputs.projectTitle}". Please create the field or set it manually.`
+                });
+                core.info(`Type field not found in project '${inputs.projectTitle}' for #${issue_number}.`);
+                return;
+              }
+
+              // ensure single-select and find option id
+              let optionId = null;
+              if (typeField.__typename === "ProjectV2SingleSelectField") {
+                const options = (typeField.singleSelectOptions || {}).nodes || [];
+                const matchedOption = options.find(o => (o.name || "").toLowerCase() === desiredType.toLowerCase());
+                if (matchedOption) {
+                  optionId = matchedOption.id;
+                } else {
+                  // Option missing -- notify
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number,
+                    body: `I need to set the project's "Type" field to "${desiredType}", but that option does not exist on the project's single-select field. Please add an option named "${desiredType}" to the "Type" field in the "${inputs.projectTitle}" project (or set the field manually).`
+                  });
+                  core.info(`Option '${desiredType}' not found for field 'Type' on project '${inputs.projectTitle}'.`);
+                  return;
+                }
+              } else {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `I determined the Type should be "${desiredType}", but the project field "Type" is not a single-select field that I can modify programmatically. Please set it manually.`
+                });
+                core.info(`Field 'Type' is not single-select for project '${inputs.projectTitle}'.`);
+                return;
+              }
+
+              // find project item for issue; if missing, add it
+              const items = (project.items && project.items.nodes) || [];
+              let projectItem = items.find(it => it.content && it.content.id === issueNodeId);
+              if (!projectItem) {
+                core.info(`Issue #${issue_number} not in project yet; attempting to add.`);
+                const addItemMutation = `
+                  mutation($projectId:ID!, $contentId:ID!) {
+                    addProjectV2ItemByContent(input:{projectId:$projectId, contentId:$contentId}) {
+                      item { id }
+                    }
+                  }
+                `;
+                try {
+                  const addResp = await github.graphql(addItemMutation, { projectId: project.id, contentId: issueNodeId });
+                  projectItem = { id: addResp.addProjectV2ItemByContent.item.id };
+                } catch (err) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number,
+                    body: `I tried to add this issue to project "${inputs.projectTitle}" so I could set the "Type" field, but adding failed: ${err.message}. Please add the issue to the project and set the field manually if needed.`
+                  });
+                  core.info(`Failed to add issue #${issue_number} to project: ${err.message}`);
+                  return;
+                }
+              }
+
+              // set the field value
+              const setFieldMutation = `
+                mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $optionId:ID!) {
+                  updateProjectV2ItemFieldValue(input:{projectId:$projectId, itemId:$itemId, fieldId:$fieldId, value:{singleSelectOptionId:$optionId}}) {
+                    projectV2Item { id }
+                  }
+                }
+              `;
+              try {
+                await github.graphql(setFieldMutation, {
+                  projectId: project.id,
+                  itemId: projectItem.id,
+                  fieldId: typeField.id,
+                  optionId
+                });
+                core.info(`Set project field "Type" => "${desiredType}" for issue #${issue_number}.`);
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `Set project "${inputs.projectTitle}" field "Type" -> **${desiredType}** based on labels.`
+                });
+              } catch (err) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `Failed to set project field "Type" to "${desiredType}": ${err.message}`
+                });
+                core.info(`Failed to set project field for #${issue_number}: ${err.message}`);
+                return;
+              }
+            }
+
+            // Entry point
+            (async () => {
+              try {
+                if (inputs.scope === 'all_open') {
+                  core.info('Bulk run: processing all open issues (this may take a while)...');
+                  // paginate open issues (exclude pull requests)
+                  const iterator = github.paginate.iterator(github.rest.issues.listForRepo, {
+                    owner,
+                    repo,
+                    state: 'open',
+                    per_page: 100
+                  });
+
+                  for await (const response of iterator) {
+                    for (const issue of response.data) {
+                      // skip PRs
+                      if (issue.pull_request) continue;
+                      await processIssueObject(issue);
+                    }
+                  }
+                  core.info('Bulk run completed.');
+                } else {
+                  // single run: determine issue to process
+                  let issueToProcess = null;
+
+                  // priority: workflow_dispatch input issue_number, then event.issue (if fired by issues)
+                  const issueNumberFromInput = inputs.issue_number_input ? parseInt(inputs.issue_number_input, 10) : null;
+                  if (issueNumberFromInput) {
+                    const { data: iss } = await github.rest.issues.get({ owner, repo, issue_number: issueNumberFromInput });
+                    issueToProcess = iss;
+                  } else if (context.payload.issue) {
+                    issueToProcess = context.payload.issue;
+                  } else {
+                    core.setFailed('No issue specified for single run; provide issue_number input or run from an issues event.');
+                    return;
+                  }
+
+                  await processIssueObject(issueToProcess);
+                }
+              } catch (err) {
+                core.setFailed(`Workflow failed: ${err.message}`);
+              }
+            })();
+
