@@ -30,6 +30,7 @@ import AdminFeatureFlagsPage from "@/pages/admin/feature-flags";
 import AdminHealthDashboard from "@/pages/admin/health";
 import AdminSubscriptionsPage from "@/pages/admin/subscriptions";
 import SubscriptionDetailPage from "@/pages/admin/subscription-detail";
+import { ModerationQueue } from "@/pages/admin/moderation-queue";
 import SubscriptionPage from "@/pages/subscription";
 import SettingsPage from "@/pages/settings";
 import FollowUpsPage from "@/pages/follow-ups";
@@ -149,6 +150,13 @@ function Router() {
         {() => (
           <RequireAdmin>
             <SubscriptionDetailPage />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/moderation">
+        {() => (
+          <RequireAdmin>
+            <ModerationQueue />
           </RequireAdmin>
         )}
       </Route>

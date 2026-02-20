@@ -83,6 +83,13 @@ export const contentItems = pgTable("content_items", {
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   imageUrl: text("image_url"),
   readTime: text("read_time").default("5 min"),
+
+  // Moderation fields (Issue #64)
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // Nullable for system content, set for user submission
+  moderationStatus: text("moderation_status").notNull().default("approved"), // 'pending' | 'approved' | 'rejected'
+  moderationNote: text("moderation_note"), // Reason for rejection or edits
+  submittedAt: timestamp("submitted_at"), // When the user submitted it
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

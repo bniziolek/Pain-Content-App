@@ -15,7 +15,13 @@ export async function createContent(
   ctx: AppContext,
   input: CreateContentInput
 ): Promise<ContentItem> {
-  const content = await ctx.storage.createContent(input.data);
+  const isModerator = input.clinician.role === 'admin' || input.clinician.role === 'super_admin';
+  const content = await ctx.storage.createContent({
+    ...input.data,
+    clinicianUserId: input.clinician.id,
+    moderationStatus: isModerator ? 'approved' : 'pending',
+    submittedAt: new Date(),
+  });
 
   await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_create', {
     resourceType: 'content',

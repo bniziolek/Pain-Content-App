@@ -17,6 +17,7 @@ import {
   ToggleLeft,
   Crown,
   HeartPulse,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
       icon: Sparkles,
     },
     { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft },
+    { href: "/admin/moderation", label: "Moderation Queue", icon: ListChecks },
     { href: "/library", label: "Content Oversight", icon: Library },
     { href: "/settings", label: "Settings", icon: Settings },
   ];

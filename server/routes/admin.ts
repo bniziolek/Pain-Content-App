@@ -552,4 +552,46 @@ router.get("/users/:userId/feature-flags/audit", requireAdmin, async (req, res, 
   }
 });
 
+// ====== Content Moderation Routes ======
+
+// Get pending moderation queue
+router.get("/moderation/queue", requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await appContext.storage.getModerationQueue();
+    res.json(queue);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Approve content item
+router.post("/moderation/:id/approve", requireAdmin, async (req, res, next) => {
+  try {
+    const content = await appContext.storage.updateContent(req.params.id, {
+      moderationStatus: 'approved',
+      moderationNote: req.body.note ?? null,
+    });
+    if (!content) return res.status(404).send("Content not found");
+    res.json(content);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Reject content item
+router.post("/moderation/:id/reject", requireAdmin, async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+    const content = await appContext.storage.updateContent(req.params.id, {
+      moderationStatus: 'rejected',
+      moderationNote: reason,
+    });
+    if (!content) return res.status(404).send("Content not found");
+    res.json(content);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export { router as adminRouter };
