@@ -125,7 +125,7 @@ All interactive elements require `data-testid` attributes:
 
 1. All PHI access must be logged via `logClinicianAction()` in `server/infrastructure/audit/`
 2. Never expose access codes in API responses, logs, or console output
-3. Hash secrets with PBKDF2 — never MD5, SHA1, or plain bcrypt
+3. Use PBKDF2 for access code hashing and scrypt for password hashing — never MD5, SHA1, or plain bcrypt
 4. Patient sessions must expire after 24 hours — do not modify this timeout
 5. Feature-gated routes must use `requireFeatureFlag` middleware
 

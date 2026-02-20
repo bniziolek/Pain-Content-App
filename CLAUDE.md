@@ -120,7 +120,7 @@ Do NOT proceed without explicit confirmation from the human for:
 
 - All PHI access must call `logClinicianAction()` for audit logging
 - Never log or expose access codes in responses or server console
-- Use PBKDF2 for all secret hashing (never MD5, SHA1, or plain bcrypt)
+- Use PBKDF2 for access code hashing and scrypt for password hashing (never MD5, SHA1, or plain bcrypt)
 - Patient sessions expire after 24 hours — do not change this
 
 ---
