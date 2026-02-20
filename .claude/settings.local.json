@@ -26,7 +26,16 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(claude mcp add:*)",
+      "WebFetch(domain:docs.github.com)",
+      "Bash(docker:*)",
+      "Bash(docker info:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(node --version:*)",
+      "Bash(nvm list:*)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
     ]
   }
 }
