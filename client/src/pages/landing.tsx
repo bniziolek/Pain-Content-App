@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Check, ArrowRight, Shield, Activity, Brain, Users } from "lucide-react";
-import heroImage from '@assets/generated_images/clinician_consulting_patient_in_modern_office.png';
+import heroImage from '@/assets/generated_images/clinician_consulting_patient_in_modern_office.png';
 
 export default function LandingPage() {
   return (
