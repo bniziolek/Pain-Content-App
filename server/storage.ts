@@ -2289,12 +2289,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentErrors(limit: number = 10): Promise<schema.HealthMetric[]> {
-    const [errors] = await db.select()
+    return db.select()
       .from(schema.healthMetrics)
       .where(eq(schema.healthMetrics.status, 'error'))
       .orderBy(desc(schema.healthMetrics.timestamp))
       .limit(limit);
-    return Promise.resolve([errors].filter(Boolean) as schema.HealthMetric[]); // Added filter for SAFETY
   }
 
   async getSlowEndpoints(since: Date, thresholdMs: number = 1000): Promise<{
