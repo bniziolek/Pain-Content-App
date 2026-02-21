@@ -11,8 +11,10 @@ export interface ListContentInput {
 
 export async function listContent(
   ctx: AppContext,
-  _input: ListContentInput
+  input: ListContentInput
 ): Promise<ContentItem[]> {
   // Read exclusively from database. Content is synced via `npm run contentful:sync`.
-  return ctx.storage.getAllContent();
+  const all = await ctx.storage.getAllContent();
+  const isModerator = input.clinician.role === 'admin' || input.clinician.role === 'super_admin';
+  return isModerator ? all : all.filter(item => item.moderationStatus === 'approved');
 }
