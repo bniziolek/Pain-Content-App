@@ -36,6 +36,7 @@ import {
   updateUserSubscription,
 } from "../application";
 import { toPublicUser, toPublicUsers } from "../serializers/user";
+import { buildAuditRequestContext } from "../http/audit-context";
 
 const router = Router();
 const appContext = createAppContext();
@@ -547,6 +548,65 @@ router.get("/users/:userId/feature-flags/audit", requireAdmin, async (req, res, 
   try {
     const auditLog = await appContext.storage.getFeatureFlagAuditLog(req.params.userId);
     res.json(auditLog);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ====== Content Moderation Routes ======
+
+// Get pending moderation queue
+router.get("/moderation/queue", requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await appContext.storage.getModerationQueue();
+    res.json(queue);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Approve a content item
+router.post("/moderation/:id/approve", requireAdmin, async (req, res, next) => {
+  try {
+    const content = await appContext.storage.updateContent(req.params.id, {
+      moderationStatus: 'approved',
+      moderationNote: req.body.note ?? null,
+    });
+
+    if (!content) return res.status(404).json({ error: "Content not found" });
+
+    await appContext.audit.logClinicianAction(buildAuditRequestContext(req), req.user!, 'content_update', {
+      resourceType: 'content',
+      resourceId: content.id,
+      details: { action: 'approve', title: content.title },
+    });
+
+    res.json(content);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Reject a content item
+router.post("/moderation/:id/reject", requireAdmin, async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+    const content = await appContext.storage.updateContent(req.params.id, {
+      moderationStatus: 'rejected',
+      moderationNote: reason,
+    });
+
+    if (!content) return res.status(404).json({ error: "Content not found" });
+
+    await appContext.audit.logClinicianAction(buildAuditRequestContext(req), req.user!, 'content_update', {
+      resourceType: 'content',
+      resourceId: content.id,
+      details: { action: 'reject', title: content.title, reason },
+    });
+
+    res.json(content);
   } catch (error) {
     next(error);
   }
