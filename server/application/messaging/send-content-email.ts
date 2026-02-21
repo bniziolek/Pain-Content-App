@@ -44,7 +44,7 @@ export async function sendContentEmailFlow(
   
   const contentItems = (await Promise.all(
     input.contentIds.map((id: string) => ctx.storage.getContentById(id))
-  )).filter(Boolean);
+  )).filter((item): item is NonNullable<typeof item> => !!item && item.moderationStatus === 'approved');
   
   // Fetch branding for Pro/Enterprise users with active subscriptions
   let branding: EmailBrandingConfig | undefined;
