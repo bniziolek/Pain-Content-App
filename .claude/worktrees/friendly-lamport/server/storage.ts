@@ -1,0 +1,2372 @@
+/**
+ * Architecture: Data layer. Implements database access used by application services.
+ */
+
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import * as schema from "@shared/schema";
+import {
+  type User,
+  type InsertUser,
+  type ContentItem,
+  type InsertContentItem,
+  type AssessmentInvite,
+  type InsertAssessmentInvite,
+  type InternalScreening,
+  type InsertInternalScreening,
+  type EmailLog,
+  type InsertEmailLog,
+  type Assessment,
+  type InsertAssessment,
+  type AssessmentResponse,
+  type InsertAssessmentResponse,
+  type ContentView,
+  type InsertContentView,
+  type FollowUpRule,
+  type InsertFollowUpRule,
+  type ScheduledFollowUp,
+  type InsertScheduledFollowUp,
+  type CarePathway,
+  type InsertCarePathway,
+  type PathwayMilestone,
+  type InsertPathwayMilestone,
+  type PatientPathway,
+  type InsertPatientPathway,
+  type ContentRecommendation,
+  type InsertContentRecommendation,
+  type AuditLog,
+  type InsertAuditLog,
+  type UserTemplatePreference,
+  type InsertUserTemplatePreference,
+  type PatientSession,
+  type InsertPatientSession,
+  type Permission,
+  type InsertPermission,
+  type RolePermission,
+  type InsertRolePermission,
+  type DataInventory,
+  type InsertDataInventory,
+  type RecommendationConfig,
+  type InsertRecommendationConfig,
+  type PatientRecommendation,
+  type InsertPatientRecommendation,
+  type UserEmailConnection,
+  type InsertUserEmailConnection,
+  type AdminNote,
+  type InsertAdminNote,
+  type LoginHistory,
+  type InsertLoginHistory
+} from "@shared/schema";
+import crypto from "crypto";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { eq, desc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
+
+const PostgresSessionStore = connectPg(session);
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL!,
+});
+
+export const getPool = () => pool;
+export const db = drizzle({ client: pool, schema });
+
+export type FeatureFlagHistoryEntry = AuditLog;
+
+export interface UserActivityAnalytics {
+  windowDays: number;
+  startDate: Date;
+  endDate: Date;
+  logins: number;
+  uniqueUsers: number;
+  emailsSent: number;
+  assessmentsSent: number;
+}
+
+export interface ContentUsageAnalytics {
+  totalViews: number;
+  totalTimeSeconds: number;
+  averageTimeSeconds: number;
+  topContent: Array<{ contentId: string; title: string; views: number }>;
+}
+
+export interface SubscriptionMetrics {
+  statusCounts: Array<{ status: string; count: number }>;
+  tierCounts: Array<{ tier: string; count: number }>;
+}
+
+export interface IStorage {
+  // Auth
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: string, updates: {
+    name?: string;
+    email?: string;
+    role?: string;
+    phone?: string;
+    clinicName?: string;
+    credentials?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  }): Promise<void>;
+  updateUserRole(userId: string, role: string): Promise<void>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  updateLastLogin(userId: string): Promise<void>;
+  updateUserSubscription(
+    userId: string,
+    subscription: {
+      stripeCustomerId?: string;
+      stripeSubscriptionId?: string;
+      subscriptionStatus?: string;
+      subscriptionPeriodEnd?: Date;
+    }
+  ): Promise<void>;
+  updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void>;
+  updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void>;
+
+  // Stripe-related
+  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
+  getTierFromPriceId(priceId: string): Promise<string | null>;
+  updateSubscriptionTier(userId: string, tier: string): Promise<void>;
+  getStripePlans(): Promise<Array<{ id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>>;
+
+  // Email connections
+  getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined>;
+  createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection>;
+  updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void>;
+  deleteEmailConnection(userId: string): Promise<void>;
+
+  // Content
+  getAllContent(): Promise<ContentItem[]>;
+  getContentById(id: string): Promise<ContentItem | undefined>;
+  createContent(content: InsertContentItem): Promise<ContentItem>;
+  updateContent(id: string, content: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
+  deleteContent(id: string): Promise<void>;
+  upsertContentItems(items: ContentItem[]): Promise<void>;
+
+  // Assessments
+  getDefaultAssessment(): Promise<Assessment | undefined>;
+  getAssessmentById(id: string): Promise<Assessment | undefined>;
+  getAssessmentsByClinicianId(clinicianId: string): Promise<Assessment[]>;
+  getTemplateAssessments(): Promise<Assessment[]>;
+  getAllAssessments(): Promise<Assessment[]>;
+  createAssessment(assessment: InsertAssessment): Promise<Assessment>;
+  updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined>;
+  deleteAssessment(id: string): Promise<void>;
+
+  // Assessment responses
+  createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse>;
+  getAssessmentResponseByInviteId(inviteId: string): Promise<AssessmentResponse | undefined>;
+
+  // Assessment invites
+  createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite>;
+  getAssessmentInviteById(id: string): Promise<AssessmentInvite | undefined>;
+  getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]>;
+  getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]>;
+  getAssessmentInvitesByPatientEmailPublic(patientEmail: string): Promise<AssessmentInvite[]>;
+  getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined>;
+  updateAssessmentInviteStatus(id: string, status: string, completedAt?: Date): Promise<void>;
+
+  // Internal screenings
+  createInternalScreening(screening: InsertInternalScreening): Promise<InternalScreening>;
+  getInternalScreeningById(id: string): Promise<InternalScreening | undefined>;
+  getInternalScreeningsByClinicianId(clinicianId: string): Promise<InternalScreening[]>;
+
+  // Email logs
+  createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
+  getEmailLogById(id: string): Promise<EmailLog | undefined>;
+  getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]>;
+  getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]>;
+  getEmailLogsByPatientEmailAndAccessCode(patientEmail: string, accessCode: string): Promise<EmailLog[]>;
+  getEmailLogByAccessCode(accessCode: string): Promise<EmailLog | undefined>;
+  updateEmailLogStatus(id: string, status: string): Promise<void>;
+  updateEmailLogLockout(id: string, updates: { failedAttempts?: number; lockedUntil?: Date | null; permanentlyLocked?: boolean }): Promise<void>;
+  unlockEmailLog(id: string): Promise<void>;
+
+  // Content views
+  createContentView(view: InsertContentView): Promise<ContentView>;
+  getContentViewByToken(token: string): Promise<ContentView | undefined>;
+  updateContentView(id: string, updates: { viewedAt?: Date; timeSpentSeconds?: number }): Promise<void>;
+  getContentViewsByEmailLogId(emailLogId: string): Promise<ContentView[]>;
+
+  // Admin functions
+  getAllUsers(): Promise<User[]>;
+  deleteUser(userId: string): Promise<void>;
+
+  // Follow-up rules
+  createFollowUpRule(rule: InsertFollowUpRule): Promise<FollowUpRule>;
+  getFollowUpRulesByClinicianId(clinicianId: string): Promise<FollowUpRule[]>;
+  getTemplateFollowUpRules(): Promise<FollowUpRule[]>;
+  updateFollowUpRule(id: string, updates: Partial<InsertFollowUpRule> & { isActive?: boolean }): Promise<void>;
+  deleteFollowUpRule(id: string): Promise<void>;
+
+  // User template preferences
+  getUserTemplatePreferences(userId: string): Promise<UserTemplatePreference[]>;
+  setUserTemplatePreference(userId: string, templateRuleId: string, isEnabled: boolean): Promise<UserTemplatePreference>;
+  getEnabledTemplatesForUser(userId: string): Promise<FollowUpRule[]>;
+
+  // Scheduled follow-ups
+  createScheduledFollowUp(followUp: InsertScheduledFollowUp): Promise<ScheduledFollowUp>;
+  getPendingFollowUps(): Promise<ScheduledFollowUp[]>;
+  getScheduledFollowUpsByClinicianId(clinicianId: string): Promise<ScheduledFollowUp[]>;
+  updateScheduledFollowUpStatus(id: string, status: string, sentAt?: Date): Promise<void>;
+
+  // Care pathways
+  createCarePathway(pathway: InsertCarePathway): Promise<CarePathway>;
+  getCarePathways(clinicianId?: string): Promise<CarePathway[]>;
+  getCarePathwayById(id: string): Promise<CarePathway | undefined>;
+  updateCarePathway(id: string, updates: Partial<InsertCarePathway> & { isActive?: boolean }): Promise<void>;
+  deleteCarePathway(id: string): Promise<void>;
+
+  // Pathway milestones
+  createPathwayMilestone(milestone: InsertPathwayMilestone): Promise<PathwayMilestone>;
+  getMilestonesByPathwayId(pathwayId: string): Promise<PathwayMilestone[]>;
+  updatePathwayMilestone(id: string, updates: Partial<InsertPathwayMilestone>): Promise<void>;
+  deletePathwayMilestone(id: string): Promise<void>;
+
+  // Patient pathways
+  createPatientPathway(enrollment: InsertPatientPathway): Promise<PatientPathway>;
+  getPatientPathwaysByClinicianId(clinicianId: string): Promise<PatientPathway[]>;
+  getPatientPathwayById(id: string): Promise<PatientPathway | undefined>;
+  updatePatientPathway(id: string, updates: Partial<PatientPathway>): Promise<void>;
+
+  // Content recommendations (legacy simple rules)
+  createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation>;
+  getContentRecommendations(filters?: { tag?: string; minScore?: number; maxScore?: number }): Promise<ContentRecommendation[]>;
+  getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]>;
+  deleteContentRecommendation(id: string): Promise<void>;
+
+  // Recommendation configs (advanced rules with pathway support)
+  createRecommendationConfig(config: InsertRecommendationConfig): Promise<RecommendationConfig>;
+  getRecommendationConfigs(filters?: { clinicianId?: string; assessmentId?: string; pathwayId?: string; isActive?: boolean }): Promise<RecommendationConfig[]>;
+  getAllRecommendationConfigs(): Promise<RecommendationConfig[]>;
+  getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined>;
+  updateRecommendationConfig(id: string, updates: Partial<InsertRecommendationConfig> & { isActive?: boolean }): Promise<RecommendationConfig | undefined>;
+  deleteRecommendationConfig(id: string): Promise<void>;
+
+  // Patient recommendations (tracking what was recommended)
+  createPatientRecommendation(rec: InsertPatientRecommendation): Promise<PatientRecommendation>;
+  getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string; status?: string }): Promise<PatientRecommendation[]>;
+  getPatientRecommendationById(id: string): Promise<PatientRecommendation | undefined>;
+  updatePatientRecommendationStatus(id: string, status: string, emailLogId?: string): Promise<void>;
+
+  // Audit logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; resourceType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]>;
+
+  // Patient sessions (persistent)
+  createPatientSession(session: InsertPatientSession): Promise<PatientSession>;
+  getPatientSessionByToken(token: string): Promise<PatientSession | undefined>;
+  updatePatientSessionActivity(token: string): Promise<void>;
+  invalidatePatientSession(token: string): Promise<void>;
+  invalidateExpiredSessions(): Promise<number>;
+
+  // Access code hashing
+  hashAccessCode(code: string): Promise<{ hash: string; salt: string }>;
+  verifyAccessCode(code: string, hash: string, salt: string): Promise<boolean>;
+  createEmailLogWithHashedCode(log: InsertEmailLog, plainCode: string): Promise<EmailLog>;
+  getEmailLogByHashedCode(patientEmail: string, plainCode: string): Promise<EmailLog | undefined>;
+
+  // Permissions (RBAC)
+  getPermissions(): Promise<Permission[]>;
+  getPermissionsByRole(role: string): Promise<Permission[]>;
+  createPermission(permission: InsertPermission): Promise<Permission>;
+  assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission>;
+  removePermissionFromRole(role: string, permissionId: string): Promise<void>;
+  hasPermission(role: string, permissionName: string): Promise<boolean>;
+
+  // User-level permission overrides
+  getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null>;
+  getUserPermissions(userId: string): Promise<schema.UserPermission[]>;
+  grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission>;
+  revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission>;
+  removeUserPermission(id: string): Promise<void>;
+
+  // Persona switching
+  switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch>;
+  clearPersona(userId: string): Promise<void>;
+  getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]>;
+
+  // Data inventory
+  getDataInventory(): Promise<DataInventory[]>;
+  createDataInventoryItem(item: InsertDataInventory): Promise<DataInventory>;
+  updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void>;
+  deleteDataInventoryItem(id: string): Promise<void>;
+
+  // Password reset tokens
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
+
+  // Feature flags
+  getFeatureFlags(): Promise<schema.FeatureFlag[]>;
+  getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined>;
+  createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag>;
+  updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined>;
+  getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]>;
+  getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]>;
+  getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]>;
+  setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride>;
+  deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void>;
+
+  // Feature flag audit log
+  createFeatureFlagAuditLog(entry: schema.InsertFeatureFlagAuditLog): Promise<schema.FeatureFlagAuditLog>;
+  getFeatureFlagAuditLog(userId: string): Promise<(schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[]>;
+
+  // Admin analytics
+  getAdminStats(): Promise<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    totalContentSent: number;
+    totalAssessments: number;
+    recentSignups: number;
+    mrr: number;
+  }>;
+
+  // Enhanced admin analytics
+  getEnhancedAdminStats(): Promise<{
+    activeUsersDaily: number;
+    activeUsersWeekly: number;
+    activeUsersMonthly: number;
+    recentSignups: Array<{ id: string; email: string; name: string | null; createdAt: Date }>;
+    churned: number;
+    subscriptionBreakdown: { tier: string; count: number }[];
+  }>;
+
+  // Admin notes
+  getAdminNotes(userId: string): Promise<AdminNote[]>;
+  createAdminNote(note: InsertAdminNote): Promise<AdminNote>;
+  updateAdminNote(id: string, note: string): Promise<AdminNote | undefined>;
+  deleteAdminNote(id: string): Promise<void>;
+
+  // Login history
+  getLoginHistory(userId: string, limit?: number): Promise<LoginHistory[]>;
+  createLoginHistory(entry: InsertLoginHistory): Promise<LoginHistory>;
+
+  // User activity
+  getUserContentActivity(userId: string): Promise<Array<{
+    contentId: string;
+    contentTitle: string;
+    patientEmail: string;
+    sentAt: Date;
+    status: string;
+  }>>;
+  getUserActivityAnalytics(days: number): Promise<UserActivityAnalytics>;
+  getContentUsageAnalytics(): Promise<ContentUsageAnalytics>;
+  getSubscriptionMetrics(): Promise<SubscriptionMetrics>;
+
+  // Favorites
+  getUserFavorites(userId: string): Promise<Array<{ contentId: string; title: string; createdAt: Date }>>;
+  addFavorite(userId: string, contentId: string): Promise<void>;
+  removeFavorite(userId: string, contentId: string): Promise<void>;
+  isFavorite(userId: string, contentId: string): Promise<boolean>;
+  getFrequentlyUsedContent(userId: string, limit?: number): Promise<Array<{ contentId: string; title: string; sendCount: number }>>;
+
+  // Collections
+  getUserCollections(userId: string): Promise<schema.ContentCollection[]>;
+  getCollectionById(id: string): Promise<schema.ContentCollection | undefined>;
+  createCollection(collection: schema.InsertContentCollection): Promise<schema.ContentCollection>;
+  updateCollection(id: string, updates: { name?: string; description?: string; sortOrder?: number }): Promise<schema.ContentCollection | undefined>;
+  deleteCollection(id: string): Promise<void>;
+  getCollectionItems(collectionId: string): Promise<schema.CollectionItem[]>;
+  addItemToCollection(collectionId: string, contentId: string, sortOrder?: number): Promise<void>;
+  removeItemFromCollection(collectionId: string, contentId: string): Promise<void>;
+  reorderCollectionItems(collectionId: string, items: Array<{ contentId: string; sortOrder: number }>): Promise<void>;
+
+  // Clinic Branding
+  getClinicBranding(userId: string): Promise<schema.ClinicBranding | undefined>;
+  createClinicBranding(branding: schema.InsertClinicBranding): Promise<schema.ClinicBranding>;
+  updateClinicBranding(userId: string, updates: Partial<schema.InsertClinicBranding>): Promise<schema.ClinicBranding | undefined>;
+  deleteClinicBranding(userId: string): Promise<void>;
+
+  // Health metrics
+  getDatabasePoolStats(): Promise<{
+    totalConnections: number;
+    maxConnections: number;
+    activeConnections: number;
+    idleConnections: number;
+  }>;
+  getApiMetrics(since: Date): Promise<{
+    totalRequests: number;
+    successCount: number;
+    errorCount: number;
+    errorRate: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  }>;
+  getEmailMetrics(since: Date): Promise<{
+    totalSent: number;
+    delivered: number;
+    bounced: number;
+  }>;
+  recordHealthMetric(metric: schema.InsertHealthMetric): Promise<void>;
+  getRecentErrors(limit?: number): Promise<schema.HealthMetric[]>;
+  getSlowEndpoints(since: Date, thresholdMs?: number): Promise<{
+    endpoint: string;
+    avgResponseTime: number;
+    maxResponseTime: number;
+    requestCount: number;
+  }[]>;
+
+  // Packet access codes
+  createPacketAccessCode(code: schema.InsertPacketAccessCode): Promise<schema.PacketAccessCode>;
+  getPacketAccessCodeByCode(code: string): Promise<schema.PacketAccessCode | undefined>;
+  getPacketAccessCodesByClinicianId(clinicianId: string): Promise<schema.PacketAccessCode[]>;
+  incrementPacketAccessCount(code: string): Promise<void>;
+  deactivatePacketAccessCode(id: string): Promise<void>;
+
+  sessionStore: session.Store;
+}
+
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
+    });
+  }
+
+  // Auth methods
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(schema.users).values(insertUser).returning();
+    return user!;
+  }
+
+  async updateUser(userId: string, updates: {
+    name?: string;
+    email?: string;
+    role?: string;
+    phone?: string;
+    clinicName?: string;
+    credentials?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  }): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ lastLogin: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateUserSubscription(
+    userId: string,
+    subscription: {
+      stripeCustomerId?: string;
+      stripeSubscriptionId?: string;
+      subscriptionStatus?: string;
+      subscriptionPeriodEnd?: Date;
+    }
+  ): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...subscription, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateOnboardingStatus(userId: string, updates: { onboardingCompleted?: boolean; onboardingStep?: number }): Promise<void> {
+    await db.update(schema.users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async updateEmailDeliveryMode(userId: string, mode: 'central' | 'personal'): Promise<void> {
+    await db.update(schema.users)
+      .set({ emailDeliveryMode: mode, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
+    const [user] = await db.select()
+      .from(schema.users)
+      .where(eq(schema.users.stripeCustomerId, customerId));
+    return user;
+  }
+
+  async getTierFromPriceId(priceId: string): Promise<string | null> {
+    // Map Stripe price IDs to subscription tiers
+    // These IDs should be set when creating products in Stripe
+    const tierMapping: Record<string, string> = {
+      // Basic tier prices (monthly and annual)
+      'price_basic_monthly': 'basic',
+      'price_basic_annual': 'basic',
+      // Pro tier prices (monthly and annual)
+      'price_pro_monthly': 'pro',
+      'price_pro_annual': 'pro',
+      // Enterprise tier prices
+      'price_enterprise_monthly': 'enterprise',
+      'price_enterprise_annual': 'enterprise',
+    };
+
+    // First check hardcoded mapping
+    if (tierMapping[priceId]) {
+      return tierMapping[priceId];
+    }
+
+    // Fall back to checking price metadata in Stripe
+    try {
+      const result = await db.execute(
+        sql`SELECT metadata FROM stripe.prices WHERE id = ${priceId}`
+      );
+      const row = result.rows[0] as { metadata?: { tier?: string } } | undefined;
+      if (row?.metadata?.tier) {
+        return row.metadata.tier;
+      }
+    } catch (error) {
+      console.error('Error fetching tier from price:', error);
+    }
+
+    // Default to basic if we can't determine the tier
+    return 'basic';
+  }
+
+  async updateSubscriptionTier(userId: string, tier: string): Promise<void> {
+    await db.update(schema.users)
+      .set({ subscriptionTier: tier, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getStripePlans(): Promise<Array<{ id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        p.id as product_id,
+        p.name as product_name,
+        p.description as product_description,
+        p.metadata as product_metadata,
+        pr.id as price_id,
+        pr.unit_amount,
+        pr.currency,
+        pr.recurring,
+        pr.metadata as price_metadata
+      FROM stripe.products p
+      LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+      WHERE p.active = true
+      ORDER BY pr.unit_amount ASC
+    `);
+
+    const productsMap = new Map<string, { id: string; name: string; description: string | null; metadata: unknown; prices: Array<{ id: string; unitAmount: number | null; currency: string | null; recurring: unknown; metadata: unknown }> }>();
+    for (const row of result.rows as any[]) {
+      if (!productsMap.has(row.product_id)) {
+        productsMap.set(row.product_id, {
+          id: row.product_id,
+          name: row.product_name,
+          description: row.product_description,
+          metadata: row.product_metadata,
+          prices: [],
+        });
+      }
+      if (row.price_id) {
+        productsMap.get(row.product_id)!.prices.push({
+          id: row.price_id,
+          unitAmount: row.unit_amount,
+          currency: row.currency,
+          recurring: row.recurring,
+          metadata: row.price_metadata,
+        });
+      }
+    }
+
+    return Array.from(productsMap.values());
+  }
+
+  // Email connection methods
+  async getEmailConnectionByUserId(userId: string): Promise<UserEmailConnection | undefined> {
+    const [connection] = await db.select()
+      .from(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
+    return connection;
+  }
+
+  async createEmailConnection(connection: InsertUserEmailConnection): Promise<UserEmailConnection> {
+    const [created] = await db.insert(schema.userEmailConnections)
+      .values(connection)
+      .returning();
+    return created!;
+  }
+
+  async updateEmailConnection(userId: string, updates: Partial<Omit<UserEmailConnection, 'id' | 'userId' | 'createdAt'>>): Promise<void> {
+    await db.update(schema.userEmailConnections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userEmailConnections.userId, userId));
+  }
+
+  async deleteEmailConnection(userId: string): Promise<void> {
+    await db.delete(schema.userEmailConnections)
+      .where(eq(schema.userEmailConnections.userId, userId));
+  }
+
+  // Content methods
+  async getAllContent(): Promise<ContentItem[]> {
+    return await db.select().from(schema.contentItems).orderBy(desc(schema.contentItems.createdAt));
+  }
+
+  async getContentById(id: string): Promise<ContentItem | undefined> {
+    const [item] = await db.select().from(schema.contentItems).where(eq(schema.contentItems.id, id));
+    return item;
+  }
+
+  async createContent(content: InsertContentItem): Promise<ContentItem> {
+    const [item] = await db.insert(schema.contentItems).values(content).returning();
+    return item!;
+  }
+
+  async updateContent(id: string, content: Partial<InsertContentItem>): Promise<ContentItem | undefined> {
+    const [item] = await db.update(schema.contentItems)
+      .set({ ...content, updatedAt: new Date() })
+      .where(eq(schema.contentItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteContent(id: string): Promise<void> {
+    await db.delete(schema.contentItems).where(eq(schema.contentItems.id, id));
+  }
+
+  async upsertContentItems(items: ContentItem[]): Promise<void> {
+    if (items.length === 0) {
+      return;
+    }
+
+    const values = items.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      body: item.body,
+      tags: item.tags ?? [],
+      imageUrl: item.imageUrl ?? null,
+      readTime: item.readTime ?? "5 min",
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }));
+
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.contentItems)
+        .values(values)
+        .onConflictDoUpdate({
+          target: schema.contentItems.id,
+          set: {
+            title: sql`excluded.title`,
+            summary: sql`excluded.summary`,
+            body: sql`excluded.body`,
+            tags: sql`excluded.tags`,
+            imageUrl: sql`excluded.image_url`,
+            readTime: sql`excluded.read_time`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+    });
+  }
+
+  // Assessment methods
+  async getDefaultAssessment(): Promise<Assessment | undefined> {
+    const [assessment] = await db.select().from(schema.assessments).where(eq(schema.assessments.isPublished, true)).limit(1);
+    return assessment;
+  }
+
+  async getAssessmentById(id: string): Promise<Assessment | undefined> {
+    const [assessment] = await db.select().from(schema.assessments).where(eq(schema.assessments.id, id));
+    return assessment;
+  }
+
+  async getAssessmentsByClinicianId(clinicianId: string): Promise<Assessment[]> {
+    return await db.select()
+      .from(schema.assessments)
+      .where(eq(schema.assessments.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async getTemplateAssessments(): Promise<Assessment[]> {
+    return await db.select()
+      .from(schema.assessments)
+      .where(eq(schema.assessments.isTemplate, true))
+      .orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async getAllAssessments(): Promise<Assessment[]> {
+    return await db.select().from(schema.assessments).orderBy(desc(schema.assessments.createdAt));
+  }
+
+  async createAssessment(assessment: InsertAssessment): Promise<Assessment> {
+    const [created] = await db.insert(schema.assessments).values(assessment).returning();
+    return created!;
+  }
+
+  async updateAssessment(id: string, updates: Partial<InsertAssessment> & { isPublished?: boolean }): Promise<Assessment | undefined> {
+    const [updated] = await db.update(schema.assessments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.assessments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAssessment(id: string): Promise<void> {
+    await db.delete(schema.assessments).where(eq(schema.assessments.id, id));
+  }
+
+  // Assessment response methods
+  async createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse> {
+    const [created] = await db.insert(schema.assessmentResponses).values(response).returning();
+    return created!;
+  }
+
+  async getAssessmentResponseByInviteId(inviteId: string): Promise<AssessmentResponse | undefined> {
+    const [response] = await db.select()
+      .from(schema.assessmentResponses)
+      .where(eq(schema.assessmentResponses.inviteId, inviteId));
+    return response;
+  }
+
+  // Assessment invite methods
+  async createAssessmentInvite(invite: InsertAssessmentInvite): Promise<AssessmentInvite> {
+    const token = crypto.randomUUID();
+    const [created] = await db.insert(schema.assessmentInvites)
+      .values({ ...invite, token })
+      .returning();
+    return created!;
+  }
+
+  async getAssessmentInviteById(id: string): Promise<AssessmentInvite | undefined> {
+    const [invite] = await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.id, id));
+    return invite;
+  }
+
+  async getAssessmentInvitesByClinicianId(clinicianId: string): Promise<AssessmentInvite[]> {
+    return await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.assessmentInvites.createdAt));
+  }
+
+  async getAssessmentInvitesByPatientEmail(clinicianId: string, patientEmail: string): Promise<AssessmentInvite[]> {
+    return await db.select()
+      .from(schema.assessmentInvites)
+      .where(
+        and(
+          eq(schema.assessmentInvites.clinicianUserId, clinicianId),
+          eq(schema.assessmentInvites.patientEmail, patientEmail)
+        )
+      )
+      .orderBy(desc(schema.assessmentInvites.createdAt));
+  }
+
+  async getAssessmentInvitesByPatientEmailPublic(patientEmail: string): Promise<AssessmentInvite[]> {
+    return await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.patientEmail, patientEmail))
+      .orderBy(desc(schema.assessmentInvites.createdAt));
+  }
+
+  async getAssessmentInviteByToken(token: string): Promise<AssessmentInvite | undefined> {
+    const [invite] = await db.select()
+      .from(schema.assessmentInvites)
+      .where(eq(schema.assessmentInvites.token, token));
+    return invite;
+  }
+
+  async updateAssessmentInviteStatus(id: string, status: string, completedAt?: Date): Promise<void> {
+    await db.update(schema.assessmentInvites)
+      .set({ status, completedAt })
+      .where(eq(schema.assessmentInvites.id, id));
+  }
+
+  // Internal screening methods
+  async createInternalScreening(screening: InsertInternalScreening): Promise<InternalScreening> {
+    const [created] = await db.insert(schema.internalScreenings).values(screening).returning();
+    return created!;
+  }
+
+  async getInternalScreeningById(id: string): Promise<InternalScreening | undefined> {
+    const [screening] = await db.select()
+      .from(schema.internalScreenings)
+      .where(eq(schema.internalScreenings.id, id));
+    return screening;
+  }
+
+  async getInternalScreeningsByClinicianId(clinicianId: string): Promise<InternalScreening[]> {
+    return await db.select()
+      .from(schema.internalScreenings)
+      .where(eq(schema.internalScreenings.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.internalScreenings.createdAt));
+  }
+
+  // Email log methods
+  async createEmailLog(log: InsertEmailLog): Promise<EmailLog> {
+    const [created] = await db.insert(schema.emailLogs).values(log).returning();
+    return created!;
+  }
+
+  async getEmailLogById(id: string): Promise<EmailLog | undefined> {
+    const [log] = await db.select()
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.id, id));
+    return log;
+  }
+
+  async getEmailLogsByClinicianId(clinicianId: string): Promise<EmailLog[]> {
+    return await db.select()
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async getEmailLogsByPatientEmail(clinicianId: string, patientEmail: string): Promise<EmailLog[]> {
+    return await db.select()
+      .from(schema.emailLogs)
+      .where(
+        and(
+          eq(schema.emailLogs.clinicianUserId, clinicianId),
+          eq(schema.emailLogs.patientEmail, patientEmail)
+        )
+      )
+      .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async getEmailLogsByPatientEmailAndAccessCode(patientEmail: string, accessCode: string): Promise<EmailLog[]> {
+    return await db.select()
+      .from(schema.emailLogs)
+      .where(
+        and(
+          eq(schema.emailLogs.patientEmail, patientEmail),
+          eq(schema.emailLogs.accessCode, accessCode)
+        )
+      )
+      .orderBy(desc(schema.emailLogs.sentAt));
+  }
+
+  async updateEmailLogStatus(id: string, status: string): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set({ status })
+      .where(eq(schema.emailLogs.id, id));
+  }
+
+  async updateEmailLogLockout(id: string, updates: {
+    failedAttempts?: number;
+    lockedUntil?: Date | null;
+    permanentlyLocked?: boolean;
+  }): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set(updates)
+      .where(eq(schema.emailLogs.id, id));
+  }
+
+  async getEmailLogByAccessCode(accessCode: string): Promise<EmailLog | undefined> {
+    const [log] = await db.select()
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.accessCode, accessCode));
+    return log;
+  }
+
+  async unlockEmailLog(id: string): Promise<void> {
+    await db.update(schema.emailLogs)
+      .set({
+        failedAttempts: 0,
+        lockedUntil: null,
+        permanentlyLocked: false
+      })
+      .where(eq(schema.emailLogs.id, id));
+  }
+
+  // Content view methods
+  async createContentView(view: InsertContentView): Promise<ContentView> {
+    const token = crypto.randomUUID();
+    const [created] = await db.insert(schema.contentViews).values({ ...view, token }).returning();
+    return created!;
+  }
+
+  async getContentViewByToken(token: string): Promise<ContentView | undefined> {
+    const [view] = await db.select()
+      .from(schema.contentViews)
+      .where(eq(schema.contentViews.token, token));
+    return view;
+  }
+
+  async updateContentView(id: string, updates: { viewedAt?: Date; timeSpentSeconds?: number }): Promise<void> {
+    await db.update(schema.contentViews)
+      .set(updates)
+      .where(eq(schema.contentViews.id, id));
+  }
+
+  async getContentViewsByEmailLogId(emailLogId: string): Promise<ContentView[]> {
+    return await db.select()
+      .from(schema.contentViews)
+      .where(eq(schema.contentViews.emailLogId, emailLogId))
+      .orderBy(desc(schema.contentViews.createdAt));
+  }
+
+  // Admin methods
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(schema.users).orderBy(desc(schema.users.createdAt));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(schema.users).where(eq(schema.users.id, userId));
+  }
+
+  // Follow-up rule methods
+  async createFollowUpRule(rule: InsertFollowUpRule): Promise<FollowUpRule> {
+    const [created] = await db.insert(schema.followUpRules).values(rule).returning();
+    return created!;
+  }
+
+  async getFollowUpRulesByClinicianId(clinicianId: string): Promise<FollowUpRule[]> {
+    return await db.select()
+      .from(schema.followUpRules)
+      .where(eq(schema.followUpRules.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.followUpRules.createdAt));
+  }
+
+  async updateFollowUpRule(id: string, updates: Partial<InsertFollowUpRule> & { isActive?: boolean }): Promise<void> {
+    await db.update(schema.followUpRules)
+      .set(updates)
+      .where(eq(schema.followUpRules.id, id));
+  }
+
+  async deleteFollowUpRule(id: string): Promise<void> {
+    await db.delete(schema.followUpRules).where(eq(schema.followUpRules.id, id));
+  }
+
+  async getTemplateFollowUpRules(): Promise<FollowUpRule[]> {
+    return await db.select()
+      .from(schema.followUpRules)
+      .where(eq(schema.followUpRules.isTemplate, true))
+      .orderBy(schema.followUpRules.triggerDays);
+  }
+
+  async getUserTemplatePreferences(userId: string): Promise<UserTemplatePreference[]> {
+    return await db.select()
+      .from(schema.userTemplatePreferences)
+      .where(eq(schema.userTemplatePreferences.userId, userId));
+  }
+
+  async setUserTemplatePreference(userId: string, templateRuleId: string, isEnabled: boolean): Promise<UserTemplatePreference> {
+    const existing = await db.select()
+      .from(schema.userTemplatePreferences)
+      .where(and(
+        eq(schema.userTemplatePreferences.userId, userId),
+        eq(schema.userTemplatePreferences.templateRuleId, templateRuleId)
+      ));
+
+    if (existing.length > 0) {
+      await db.update(schema.userTemplatePreferences)
+        .set({ isEnabled })
+        .where(eq(schema.userTemplatePreferences.id, existing[0].id));
+      return { ...existing[0], isEnabled };
+    }
+
+    const [created] = await db.insert(schema.userTemplatePreferences)
+      .values({ userId, templateRuleId, isEnabled })
+      .returning();
+    return created!;
+  }
+
+  async getEnabledTemplatesForUser(userId: string): Promise<FollowUpRule[]> {
+    const prefs = await this.getUserTemplatePreferences(userId);
+    const enabledIds = prefs.filter(p => p.isEnabled).map(p => p.templateRuleId);
+
+    if (enabledIds.length === 0) {
+      return [];
+    }
+
+    const templates = await this.getTemplateFollowUpRules();
+    return templates.filter(t => enabledIds.includes(t.id));
+  }
+
+  // Scheduled follow-up methods
+  async createScheduledFollowUp(followUp: InsertScheduledFollowUp): Promise<ScheduledFollowUp> {
+    const [created] = await db.insert(schema.scheduledFollowUps).values(followUp).returning();
+    return created!;
+  }
+
+  async getPendingFollowUps(): Promise<ScheduledFollowUp[]> {
+    return await db.select()
+      .from(schema.scheduledFollowUps)
+      .where(eq(schema.scheduledFollowUps.status, 'pending'))
+      .orderBy(schema.scheduledFollowUps.scheduledFor);
+  }
+
+  async getScheduledFollowUpsByClinicianId(clinicianId: string): Promise<ScheduledFollowUp[]> {
+    const followUps = await db.select()
+      .from(schema.scheduledFollowUps)
+      .innerJoin(schema.followUpRules, eq(schema.scheduledFollowUps.ruleId, schema.followUpRules.id))
+      .where(eq(schema.followUpRules.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.scheduledFollowUps.scheduledFor));
+    return followUps.map(f => f.scheduled_follow_ups);
+  }
+
+  async updateScheduledFollowUpStatus(id: string, status: string, sentAt?: Date): Promise<void> {
+    await db.update(schema.scheduledFollowUps)
+      .set({ status, sentAt })
+      .where(eq(schema.scheduledFollowUps.id, id));
+  }
+
+  // Care pathway methods
+  async createCarePathway(pathway: InsertCarePathway): Promise<CarePathway> {
+    const [created] = await db.insert(schema.carePathways).values(pathway).returning();
+    return created!;
+  }
+
+  async getCarePathways(clinicianId?: string): Promise<CarePathway[]> {
+    if (clinicianId) {
+      return await db.select()
+        .from(schema.carePathways)
+        .where(eq(schema.carePathways.clinicianUserId, clinicianId))
+        .orderBy(desc(schema.carePathways.createdAt));
+    }
+    return await db.select()
+      .from(schema.carePathways)
+      .where(eq(schema.carePathways.isTemplate, true))
+      .orderBy(desc(schema.carePathways.createdAt));
+  }
+
+  async getCarePathwayById(id: string): Promise<CarePathway | undefined> {
+    const [pathway] = await db.select()
+      .from(schema.carePathways)
+      .where(eq(schema.carePathways.id, id));
+    return pathway;
+  }
+
+  async updateCarePathway(id: string, updates: Partial<InsertCarePathway> & { isActive?: boolean }): Promise<void> {
+    await db.update(schema.carePathways)
+      .set(updates)
+      .where(eq(schema.carePathways.id, id));
+  }
+
+  async deleteCarePathway(id: string): Promise<void> {
+    await db.delete(schema.carePathways).where(eq(schema.carePathways.id, id));
+  }
+
+  // Pathway milestone methods
+  async createPathwayMilestone(milestone: InsertPathwayMilestone): Promise<PathwayMilestone> {
+    const [created] = await db.insert(schema.pathwayMilestones).values(milestone).returning();
+    return created!;
+  }
+
+  async getMilestonesByPathwayId(pathwayId: string): Promise<PathwayMilestone[]> {
+    return await db.select()
+      .from(schema.pathwayMilestones)
+      .where(eq(schema.pathwayMilestones.pathwayId, pathwayId))
+      .orderBy(schema.pathwayMilestones.weekNumber);
+  }
+
+  async updatePathwayMilestone(id: string, updates: Partial<InsertPathwayMilestone>): Promise<void> {
+    await db.update(schema.pathwayMilestones)
+      .set(updates)
+      .where(eq(schema.pathwayMilestones.id, id));
+  }
+
+  async deletePathwayMilestone(id: string): Promise<void> {
+    await db.delete(schema.pathwayMilestones).where(eq(schema.pathwayMilestones.id, id));
+  }
+
+  // Patient pathway methods
+  async createPatientPathway(enrollment: InsertPatientPathway): Promise<PatientPathway> {
+    const [created] = await db.insert(schema.patientPathways).values(enrollment).returning();
+    return created!;
+  }
+
+  async getPatientPathwaysByClinicianId(clinicianId: string): Promise<PatientPathway[]> {
+    return await db.select()
+      .from(schema.patientPathways)
+      .where(eq(schema.patientPathways.clinicianUserId, clinicianId))
+      .orderBy(desc(schema.patientPathways.createdAt));
+  }
+
+  async getPatientPathwayById(id: string): Promise<PatientPathway | undefined> {
+    const [enrollment] = await db.select()
+      .from(schema.patientPathways)
+      .where(eq(schema.patientPathways.id, id));
+    return enrollment;
+  }
+
+  async updatePatientPathway(id: string, updates: Partial<PatientPathway>): Promise<void> {
+    await db.update(schema.patientPathways)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.patientPathways.id, id));
+  }
+
+  // Content recommendation methods
+  async createContentRecommendation(rec: InsertContentRecommendation): Promise<ContentRecommendation> {
+    const [created] = await db.insert(schema.contentRecommendations).values(rec).returning();
+    return created!;
+  }
+
+  async getContentRecommendations(filters?: { tag?: string; minScore?: number; maxScore?: number }): Promise<ContentRecommendation[]> {
+    const conditions = [];
+    if (filters?.tag) {
+      conditions.push(eq(schema.contentRecommendations.tag, filters.tag));
+    }
+    if (filters?.minScore !== undefined) {
+      conditions.push(gte(schema.contentRecommendations.minScore, filters.minScore));
+    }
+    if (filters?.maxScore !== undefined) {
+      conditions.push(lte(schema.contentRecommendations.maxScore, filters.maxScore));
+    }
+
+    if (conditions.length > 0) {
+      return db
+        .select()
+        .from(schema.contentRecommendations)
+        .where(and(...conditions))
+        .orderBy(schema.contentRecommendations.priority);
+    }
+
+    return db
+      .select()
+      .from(schema.contentRecommendations)
+      .orderBy(schema.contentRecommendations.priority);
+  }
+
+  async getRecommendationsForScores(tagScores: Record<string, number>): Promise<ContentRecommendation[]> {
+    const allRecs = await this.getContentRecommendations();
+    return allRecs.filter(rec => {
+      const score = tagScores[rec.tag];
+      if (score === undefined) return false;
+      return score >= (rec.minScore ?? 0) && score <= (rec.maxScore ?? 100);
+    });
+  }
+
+  async deleteContentRecommendation(id: string): Promise<void> {
+    await db.delete(schema.contentRecommendations).where(eq(schema.contentRecommendations.id, id));
+  }
+
+  // Recommendation config methods (advanced rules)
+  async createRecommendationConfig(config: InsertRecommendationConfig): Promise<RecommendationConfig> {
+    const [created] = await db.insert(schema.recommendationConfigs).values(config).returning();
+    return created!;
+  }
+
+  async getRecommendationConfigs(filters?: { clinicianId?: string; assessmentId?: string; pathwayId?: string; isActive?: boolean }): Promise<RecommendationConfig[]> {
+    const conditions = [];
+    if (filters?.clinicianId) {
+      conditions.push(eq(schema.recommendationConfigs.clinicianUserId, filters.clinicianId));
+    }
+    if (filters?.assessmentId) {
+      conditions.push(eq(schema.recommendationConfigs.assessmentId, filters.assessmentId));
+    }
+    if (filters?.pathwayId) {
+      conditions.push(eq(schema.recommendationConfigs.pathwayId, filters.pathwayId));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(schema.recommendationConfigs.isActive, filters.isActive));
+    }
+
+    if (conditions.length > 0) {
+      return db.select().from(schema.recommendationConfigs).where(and(...conditions)).orderBy(schema.recommendationConfigs.priority);
+    }
+    return db.select().from(schema.recommendationConfigs).orderBy(schema.recommendationConfigs.priority);
+  }
+
+  async getAllRecommendationConfigs(): Promise<RecommendationConfig[]> {
+    return db.select().from(schema.recommendationConfigs).orderBy(schema.recommendationConfigs.priority);
+  }
+
+  async getRecommendationConfigById(id: string): Promise<RecommendationConfig | undefined> {
+    const [config] = await db.select().from(schema.recommendationConfigs).where(eq(schema.recommendationConfigs.id, id));
+    return config;
+  }
+
+  async updateRecommendationConfig(id: string, updates: Partial<InsertRecommendationConfig> & { isActive?: boolean }): Promise<RecommendationConfig | undefined> {
+    const [updated] = await db.update(schema.recommendationConfigs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.recommendationConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteRecommendationConfig(id: string): Promise<void> {
+    await db.delete(schema.recommendationConfigs).where(eq(schema.recommendationConfigs.id, id));
+  }
+
+  // Patient recommendation methods (tracking)
+  async createPatientRecommendation(rec: InsertPatientRecommendation): Promise<PatientRecommendation> {
+    const [created] = await db.insert(schema.patientRecommendations).values(rec).returning();
+    return created!;
+  }
+
+  async getPatientRecommendations(filters: { clinicianId?: string; patientEmail?: string; source?: string; status?: string }): Promise<PatientRecommendation[]> {
+    const conditions = [];
+    if (filters.clinicianId) {
+      conditions.push(eq(schema.patientRecommendations.clinicianUserId, filters.clinicianId));
+    }
+    if (filters.patientEmail) {
+      conditions.push(eq(schema.patientRecommendations.patientEmail, filters.patientEmail));
+    }
+    if (filters.source) {
+      conditions.push(eq(schema.patientRecommendations.source, filters.source));
+    }
+    if (filters.status) {
+      conditions.push(eq(schema.patientRecommendations.status, filters.status));
+    }
+
+    if (conditions.length > 0) {
+      return db.select().from(schema.patientRecommendations).where(and(...conditions)).orderBy(desc(schema.patientRecommendations.createdAt));
+    }
+    return db.select().from(schema.patientRecommendations).orderBy(desc(schema.patientRecommendations.createdAt));
+  }
+
+  async getPatientRecommendationById(id: string): Promise<PatientRecommendation | undefined> {
+    const [rec] = await db.select().from(schema.patientRecommendations).where(eq(schema.patientRecommendations.id, id));
+    return rec;
+  }
+
+  async updatePatientRecommendationStatus(id: string, status: string, emailLogId?: string): Promise<void> {
+    const updates: any = { status };
+    if (emailLogId) {
+      updates.sentViaEmailLogId = emailLogId;
+    }
+    await db.update(schema.patientRecommendations).set(updates).where(eq(schema.patientRecommendations.id, id));
+  }
+
+  // Audit log methods
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(schema.auditLogs).values(log).returning();
+    return created!;
+  }
+
+  async getAuditLogs(filters?: { userId?: string; action?: string; actorType?: string; resourceType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<AuditLog[]> {
+    let query = db.select().from(schema.auditLogs);
+
+    const conditions = [];
+    if (filters?.userId) {
+      conditions.push(eq(schema.auditLogs.userId, filters.userId));
+    }
+    if (filters?.action) {
+      conditions.push(eq(schema.auditLogs.action, filters.action));
+    }
+    if (filters?.actorType) {
+      conditions.push(eq(schema.auditLogs.actorType, filters.actorType));
+    }
+    if (filters?.resourceType) {
+      conditions.push(eq(schema.auditLogs.resourceType, filters.resourceType));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(schema.auditLogs.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(schema.auditLogs.createdAt, filters.endDate));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    const results = await query.orderBy(desc(schema.auditLogs.createdAt)).limit(filters?.limit ?? 100);
+    return results;
+  }
+
+  // Patient session methods
+  async createPatientSession(sessionData: InsertPatientSession): Promise<PatientSession> {
+    const [created] = await db.insert(schema.patientSessions).values(sessionData).returning();
+    return created!;
+  }
+
+  async getPatientSessionByToken(token: string): Promise<PatientSession | undefined> {
+    const [session] = await db.select()
+      .from(schema.patientSessions)
+      .where(and(
+        eq(schema.patientSessions.token, token),
+        eq(schema.patientSessions.isActive, true)
+      ));
+    return session;
+  }
+
+  async updatePatientSessionActivity(token: string): Promise<void> {
+    await db.update(schema.patientSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(schema.patientSessions.token, token));
+  }
+
+  async invalidatePatientSession(token: string): Promise<void> {
+    await db.update(schema.patientSessions)
+      .set({ isActive: false })
+      .where(eq(schema.patientSessions.token, token));
+  }
+
+  async invalidateExpiredSessions(): Promise<number> {
+    const result = await db.update(schema.patientSessions)
+      .set({ isActive: false })
+      .where(and(
+        eq(schema.patientSessions.isActive, true),
+        lte(schema.patientSessions.expiresAt, new Date())
+      ))
+      .returning();
+    return result.length;
+  }
+
+  // Access code hashing methods
+  async hashAccessCode(code: string): Promise<{ hash: string; salt: string }> {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(code, salt, 100000, 64, 'sha512').toString('hex');
+    return { hash, salt };
+  }
+
+  async verifyAccessCode(code: string, hash: string, salt: string): Promise<boolean> {
+    const testHash = crypto.pbkdf2Sync(code, salt, 100000, 64, 'sha512').toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(testHash));
+  }
+
+  async createEmailLogWithHashedCode(log: InsertEmailLog, plainCode: string): Promise<EmailLog> {
+    const { hash, salt } = await this.hashAccessCode(plainCode);
+    const [created] = await db.insert(schema.emailLogs).values({
+      ...log,
+      accessCode: plainCode, // Keep plaintext for now during transition
+      accessCodeHash: hash,
+      accessCodeSalt: salt,
+      accessCodeGeneratedAt: new Date(),
+    }).returning();
+    return created!;
+  }
+
+  async getEmailLogByHashedCode(patientEmail: string, plainCode: string): Promise<EmailLog | undefined> {
+    // First, try to find by email and verify hash
+    const logs = await db.select()
+      .from(schema.emailLogs)
+      .where(and(
+        eq(schema.emailLogs.patientEmail, patientEmail),
+        sql`${schema.emailLogs.accessCodeHash} IS NOT NULL`
+      ));
+
+    for (const log of logs) {
+      if (log.accessCodeHash && log.accessCodeSalt) {
+        const isValid = await this.verifyAccessCode(plainCode, log.accessCodeHash, log.accessCodeSalt);
+        if (isValid) return log;
+      }
+    }
+
+    // Fallback to plaintext check during transition
+    const [legacyLog] = await db.select()
+      .from(schema.emailLogs)
+      .where(and(
+        eq(schema.emailLogs.patientEmail, patientEmail),
+        eq(schema.emailLogs.accessCode, plainCode)
+      ));
+
+    return legacyLog;
+  }
+
+  // Permission methods (RBAC)
+  async getPermissions(): Promise<Permission[]> {
+    return await db.select().from(schema.permissions);
+  }
+
+  async getPermissionsByRole(role: string): Promise<Permission[]> {
+    const results = await db.select({
+      permission: schema.permissions
+    })
+      .from(schema.rolePermissions)
+      .innerJoin(schema.permissions, eq(schema.rolePermissions.permissionId, schema.permissions.id))
+      .where(eq(schema.rolePermissions.role, role));
+
+    return results.map(r => r.permission);
+  }
+
+  async createPermission(permission: InsertPermission): Promise<Permission> {
+    const [created] = await db.insert(schema.permissions).values(permission).returning();
+    return created!;
+  }
+
+  async assignPermissionToRole(role: string, permissionId: string): Promise<RolePermission> {
+    const [created] = await db.insert(schema.rolePermissions).values({ role, permissionId }).returning();
+    return created!;
+  }
+
+  async removePermissionFromRole(role: string, permissionId: string): Promise<void> {
+    await db.delete(schema.rolePermissions).where(and(
+      eq(schema.rolePermissions.role, role),
+      eq(schema.rolePermissions.permissionId, permissionId)
+    ));
+  }
+
+  async hasPermission(role: string, permissionName: string): Promise<boolean> {
+    // Super admin and admin have all permissions
+    if (role === 'admin' || role === 'super_admin') return true;
+
+    const permissions = await this.getPermissionsByRole(role);
+    return permissions.some(p => p.name === permissionName);
+  }
+
+  // User-level permission overrides
+  async getUserPermissionOverride(userId: string, permissionName: string): Promise<boolean | null> {
+    const permission = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (permission.length === 0) return null;
+
+    const [override] = await db.select()
+      .from(schema.userPermissions)
+      .where(and(
+        eq(schema.userPermissions.userId, userId),
+        eq(schema.userPermissions.permissionId, permission[0].id)
+      ))
+      .limit(1);
+
+    if (!override) return null;
+
+    // Check expiration
+    if (override.expiresAt && override.expiresAt < new Date()) {
+      return null;
+    }
+
+    return override.granted;
+  }
+
+  async getUserPermissions(userId: string): Promise<schema.UserPermission[]> {
+    return await db.select()
+      .from(schema.userPermissions)
+      .where(eq(schema.userPermissions.userId, userId));
+  }
+
+  async grantUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string, expiresAt?: Date): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: true,
+      grantedBy,
+      reason,
+      expiresAt
+    }).returning();
+
+    return created!;
+  }
+
+  async revokeUserPermission(userId: string, permissionName: string, grantedBy: string, reason?: string): Promise<schema.UserPermission> {
+    const [permission] = await db.select().from(schema.permissions).where(eq(schema.permissions.name, permissionName)).limit(1);
+    if (!permission) throw new Error(`Permission not found: ${permissionName}`);
+
+    // Remove existing override if any
+    await db.delete(schema.userPermissions).where(and(
+      eq(schema.userPermissions.userId, userId),
+      eq(schema.userPermissions.permissionId, permission.id)
+    ));
+
+    const [created] = await db.insert(schema.userPermissions).values({
+      userId,
+      permissionId: permission.id,
+      granted: false,
+      grantedBy,
+      reason
+    }).returning();
+
+    return created!;
+  }
+
+  async removeUserPermission(id: string): Promise<void> {
+    await db.delete(schema.userPermissions).where(eq(schema.userPermissions.id, id));
+  }
+
+  // Persona switching
+  async switchPersona(userId: string, toPersona: string, ipAddress?: string, userAgent?: string): Promise<schema.PersonaSwitch> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+
+    const fromPersona = user.activePersona || user.role;
+
+    // Update user's active persona
+    await db.update(schema.users)
+      .set({ activePersona: toPersona, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+
+    // Log the switch
+    const [log] = await db.insert(schema.personaSwitches).values({
+      userId,
+      fromPersona,
+      toPersona,
+      ipAddress,
+      userAgent
+    }).returning();
+
+    return log!;
+  }
+
+  async clearPersona(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+
+    // Mark the most recent switch as switched back
+    await db.update(schema.personaSwitches)
+      .set({ switchedBackAt: new Date() })
+      .where(and(
+        eq(schema.personaSwitches.userId, userId),
+        isNull(schema.personaSwitches.switchedBackAt)
+      ));
+
+    // Clear the active persona
+    await db.update(schema.users)
+      .set({ activePersona: null, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  }
+
+  async getPersonaSwitchHistory(userId: string): Promise<schema.PersonaSwitch[]> {
+    return await db.select()
+      .from(schema.personaSwitches)
+      .where(eq(schema.personaSwitches.userId, userId))
+      .orderBy(desc(schema.personaSwitches.switchedAt))
+      .limit(50);
+  }
+
+  // Data inventory methods
+  async getDataInventory(): Promise<DataInventory[]> {
+    return await db.select().from(schema.dataInventory).orderBy(schema.dataInventory.dataAssetName);
+  }
+
+  async createDataInventoryItem(item: InsertDataInventory): Promise<DataInventory> {
+    const [created] = await db.insert(schema.dataInventory).values(item).returning();
+    return created!;
+  }
+
+  async updateDataInventoryItem(id: string, updates: Partial<InsertDataInventory>): Promise<void> {
+    await db.update(schema.dataInventory)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.dataInventory.id, id));
+  }
+
+  async deleteDataInventoryItem(id: string): Promise<void> {
+    await db.delete(schema.dataInventory).where(eq(schema.dataInventory.id, id));
+  }
+
+  // Password reset token methods
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(schema.passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined> {
+    const [result] = await db.select().from(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.token, token));
+    return result;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(schema.passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(schema.passwordResetTokens.token, token));
+  }
+
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    await db.delete(schema.passwordResetTokens).where(lte(schema.passwordResetTokens.expiresAt, new Date()));
+  }
+
+  // Admin analytics methods
+  async getAdminStats(): Promise<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    totalContentSent: number;
+    totalAssessments: number;
+    recentSignups: number;
+    mrr: number;
+  }> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [usersResult] = await db.select({ count: count() }).from(schema.users);
+    const [activeSubsResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(eq(schema.users.subscriptionStatus, 'active'));
+    const [emailsResult] = await db.select({ count: count() }).from(schema.emailLogs);
+    const [assessmentsResult] = await db.select({ count: count() }).from(schema.assessmentInvites);
+    const [recentSignupsResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.createdAt, thirtyDaysAgo));
+
+    const activeSubs = activeSubsResult?.count ?? 0;
+    const mrr = Number(activeSubs) * 49; // $49/month per subscription
+
+    return {
+      totalUsers: usersResult?.count ?? 0,
+      activeSubscriptions: activeSubs,
+      totalContentSent: emailsResult?.count ?? 0,
+      totalAssessments: assessmentsResult?.count ?? 0,
+      recentSignups: recentSignupsResult?.count ?? 0,
+      mrr,
+    };
+  }
+
+  // Feature flag methods
+  async getFeatureFlags(): Promise<schema.FeatureFlag[]> {
+    return await db.select().from(schema.featureFlags).orderBy(schema.featureFlags.category, schema.featureFlags.name);
+  }
+
+  async getFeatureFlagByKey(key: string): Promise<schema.FeatureFlag | undefined> {
+    const [flag] = await db.select().from(schema.featureFlags).where(eq(schema.featureFlags.key, key));
+    return flag;
+  }
+
+  async createFeatureFlag(flag: schema.InsertFeatureFlag): Promise<schema.FeatureFlag> {
+    const [created] = await db.insert(schema.featureFlags).values(flag).returning();
+    return created!;
+  }
+
+  async updateFeatureFlag(key: string, updates: { isEnabled?: boolean; value?: string; payload?: any; name?: string; description?: string; category?: string }): Promise<schema.FeatureFlag | undefined> {
+    const [updated] = await db.update(schema.featureFlags)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.featureFlags.key, key))
+      .returning();
+    return updated;
+  }
+
+  async getFeatureFlagHistory(): Promise<FeatureFlagHistoryEntry[]> {
+    return db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.resourceType, "feature_flag"))
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(200);
+  }
+
+  async getFeatureFlagHistoryByKey(key: string): Promise<FeatureFlagHistoryEntry[]> {
+    return db
+      .select()
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.resourceType, "feature_flag"), eq(schema.auditLogs.resourceId, key)))
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(200);
+  }
+
+  async getUserFeatureOverrides(userId: string): Promise<schema.UserFeatureOverride[]> {
+    return db.select().from(schema.userFeatureOverrides).where(eq(schema.userFeatureOverrides.userId, userId));
+  }
+
+  async setUserFeatureOverride(userId: string, featureFlagId: string, isEnabled: boolean, adminId?: string, reason?: string): Promise<schema.UserFeatureOverride> {
+    // We use a manual delete-then-insert approach because of issues with ON CONFLICT and unique indices
+    await db.delete(schema.userFeatureOverrides)
+      .where(and(
+        eq(schema.userFeatureOverrides.userId, userId),
+        eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)
+      ));
+
+    const [result] = await db.insert(schema.userFeatureOverrides)
+      .values({
+        userId,
+        featureFlagId,
+        isEnabled,
+        setByAdminId: adminId,
+        reason,
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return result;
+  }
+
+  async deleteUserFeatureOverride(userId: string, featureFlagId: string): Promise<void> {
+    await db.delete(schema.userFeatureOverrides)
+      .where(and(eq(schema.userFeatureOverrides.userId, userId), eq(schema.userFeatureOverrides.featureFlagId, featureFlagId)));
+  }
+
+  async createFeatureFlagAuditLog(entry: schema.InsertFeatureFlagAuditLog): Promise<schema.FeatureFlagAuditLog> {
+    const [created] = await db.insert(schema.featureFlagAuditLog)
+      .values(entry)
+      .returning();
+    return created;
+  }
+
+  async getFeatureFlagAuditLog(userId: string): Promise<(schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[]> {
+    const results = await db.select({
+      id: schema.featureFlagAuditLog.id,
+      userId: schema.featureFlagAuditLog.userId,
+      featureFlagId: schema.featureFlagAuditLog.featureFlagId,
+      adminId: schema.featureFlagAuditLog.adminId,
+      action: schema.featureFlagAuditLog.action,
+      previousValue: schema.featureFlagAuditLog.previousValue,
+      newValue: schema.featureFlagAuditLog.newValue,
+      reason: schema.featureFlagAuditLog.reason,
+      createdAt: schema.featureFlagAuditLog.createdAt,
+      adminEmail: schema.users.email,
+      flagKey: schema.featureFlags.key,
+      flagName: schema.featureFlags.name,
+    })
+      .from(schema.featureFlagAuditLog)
+      .leftJoin(schema.users, eq(schema.featureFlagAuditLog.adminId, schema.users.id))
+      .leftJoin(schema.featureFlags, eq(schema.featureFlagAuditLog.featureFlagId, schema.featureFlags.id))
+      .where(eq(schema.featureFlagAuditLog.userId, userId))
+      .orderBy(desc(schema.featureFlagAuditLog.createdAt));
+    return results as (schema.FeatureFlagAuditLog & { adminEmail?: string | null; flagKey?: string | null; flagName?: string | null })[];
+  }
+
+  // Enhanced admin analytics
+  async getEnhancedAdminStats(): Promise<{
+    activeUsersDaily: number;
+    activeUsersWeekly: number;
+    activeUsersMonthly: number;
+    recentSignups: Array<{ id: string; email: string; name: string | null; createdAt: Date }>;
+    churned: number;
+    subscriptionBreakdown: { tier: string; count: number }[];
+  }> {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [dailyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, oneDayAgo));
+
+    const [weeklyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, oneWeekAgo));
+
+    const [monthlyResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(gte(schema.users.lastLogin, thirtyDaysAgo));
+
+    const recentSignups = await db.select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      createdAt: schema.users.createdAt,
+    })
+      .from(schema.users)
+      .orderBy(desc(schema.users.createdAt))
+      .limit(10);
+
+    const [churnedResult] = await db.select({ count: count() })
+      .from(schema.users)
+      .where(eq(schema.users.subscriptionStatus, 'canceled'));
+
+    const tierCounts = await db.select({
+      tier: schema.users.subscriptionTier,
+      count: count(),
+    })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionTier);
+
+    return {
+      activeUsersDaily: dailyResult?.count ?? 0,
+      activeUsersWeekly: weeklyResult?.count ?? 0,
+      activeUsersMonthly: monthlyResult?.count ?? 0,
+      recentSignups,
+      churned: churnedResult?.count ?? 0,
+      subscriptionBreakdown: tierCounts.map(tc => ({
+        tier: tc.tier || 'basic',
+        count: tc.count,
+      })),
+    };
+  }
+
+  // Admin notes methods
+  async getAdminNotes(userId: string): Promise<AdminNote[]> {
+    return await db.select()
+      .from(schema.adminNotes)
+      .where(eq(schema.adminNotes.userId, userId))
+      .orderBy(desc(schema.adminNotes.createdAt));
+  }
+
+  async createAdminNote(note: InsertAdminNote): Promise<AdminNote> {
+    const [created] = await db.insert(schema.adminNotes).values(note).returning();
+    return created!;
+  }
+
+  async updateAdminNote(id: string, note: string): Promise<AdminNote | undefined> {
+    const [updated] = await db.update(schema.adminNotes)
+      .set({ note, updatedAt: new Date() })
+      .where(eq(schema.adminNotes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAdminNote(id: string): Promise<void> {
+    await db.delete(schema.adminNotes).where(eq(schema.adminNotes.id, id));
+  }
+
+  // Login history methods
+  async getLoginHistory(userId: string, limit: number = 20): Promise<LoginHistory[]> {
+    return await db.select()
+      .from(schema.loginHistory)
+      .where(eq(schema.loginHistory.userId, userId))
+      .orderBy(desc(schema.loginHistory.createdAt))
+      .limit(limit);
+  }
+
+  async createLoginHistory(entry: InsertLoginHistory): Promise<LoginHistory> {
+    const [created] = await db.insert(schema.loginHistory).values(entry).returning();
+    return created!;
+  }
+
+  // User content activity
+  async getUserContentActivity(userId: string): Promise<Array<{
+    contentId: string;
+    contentTitle: string;
+    patientEmail: string;
+    sentAt: Date;
+    status: string;
+  }>> {
+    const emailLogs = await db.select({
+      contentIds: schema.emailLogs.contentIds,
+      patientEmail: schema.emailLogs.patientEmail,
+      sentAt: schema.emailLogs.sentAt,
+      status: schema.emailLogs.status,
+    })
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.clinicianUserId, userId))
+      .orderBy(desc(schema.emailLogs.sentAt))
+      .limit(50);
+
+    const allContentIds = new Set<string>();
+    emailLogs.forEach(log => {
+      (log.contentIds || []).forEach(id => allContentIds.add(id));
+    });
+
+    const contentItems = allContentIds.size > 0
+      ? await db.select({ id: schema.contentItems.id, title: schema.contentItems.title })
+        .from(schema.contentItems)
+        .where(sql`${schema.contentItems.id} = ANY(${Array.from(allContentIds)})`)
+      : [];
+
+    const contentMap = new Map(contentItems.map(c => [c.id, c.title]));
+
+    const result: Array<{
+      contentId: string;
+      contentTitle: string;
+      patientEmail: string;
+      sentAt: Date;
+      status: string;
+    }> = [];
+
+    emailLogs.forEach(log => {
+      (log.contentIds || []).forEach(contentId => {
+        result.push({
+          contentId,
+          contentTitle: contentMap.get(contentId) || 'Unknown Content',
+          patientEmail: log.patientEmail,
+          sentAt: log.sentAt,
+          status: log.status || 'sent',
+        });
+      });
+    });
+
+    return result;
+  }
+
+  async getUserActivityAnalytics(_days: number): Promise<UserActivityAnalytics> {
+    const since = new Date(Date.now() - _days * 24 * 60 * 60 * 1000);
+    const [loginCount] = await db
+      .select({ count: count() })
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.action, "login"), gte(schema.auditLogs.createdAt, since)));
+
+    const [uniqueUsers] = await db
+      .select({ count: sql<number>`count(distinct ${schema.auditLogs.userId})` })
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.action, "login"), gte(schema.auditLogs.createdAt, since)));
+
+    const [emailsSent] = await db
+      .select({ count: count() })
+      .from(schema.emailLogs)
+      .where(gte(schema.emailLogs.sentAt, since));
+
+    const [assessmentsSent] = await db
+      .select({ count: count() })
+      .from(schema.assessmentInvites)
+      .where(gte(schema.assessmentInvites.createdAt, since));
+
+    return {
+      windowDays: _days,
+      startDate: since,
+      endDate: new Date(),
+      logins: loginCount?.count ?? 0,
+      uniqueUsers: uniqueUsers?.count ?? 0,
+      emailsSent: emailsSent?.count ?? 0,
+      assessmentsSent: assessmentsSent?.count ?? 0,
+    };
+  }
+
+  async getContentUsageAnalytics(): Promise<ContentUsageAnalytics> {
+    const [viewStats] = await db
+      .select({
+        totalViews: count(),
+        totalTimeSeconds: sql<number>`coalesce(sum(${schema.contentViews.timeSpentSeconds}), 0)`,
+      })
+      .from(schema.contentViews);
+
+    const viewsCount = count();
+    const topContentRows = await db
+      .select({
+        contentId: schema.contentViews.contentId,
+        views: viewsCount,
+      })
+      .from(schema.contentViews)
+      .groupBy(schema.contentViews.contentId)
+      .orderBy(desc(viewsCount))
+      .limit(10);
+
+    const contentIds = topContentRows.map((row) => row.contentId);
+    const contentItems = contentIds.length
+      ? await db
+        .select({ id: schema.contentItems.id, title: schema.contentItems.title })
+        .from(schema.contentItems)
+        .where(inArray(schema.contentItems.id, contentIds))
+      : [];
+    const titleMap = new Map(contentItems.map((item) => [item.id, item.title]));
+
+    return {
+      totalViews: viewStats?.totalViews ?? 0,
+      totalTimeSeconds: viewStats?.totalTimeSeconds ?? 0,
+      averageTimeSeconds:
+        viewStats && viewStats.totalViews
+          ? Math.round((viewStats.totalTimeSeconds ?? 0) / Number(viewStats.totalViews))
+          : 0,
+      topContent: topContentRows.map((row) => ({
+        contentId: row.contentId,
+        title: titleMap.get(row.contentId) || "Unknown Content",
+        views: row.views,
+      })),
+    };
+  }
+
+  async getSubscriptionMetrics(): Promise<SubscriptionMetrics> {
+    const statusCounts = await db
+      .select({
+        status: schema.users.subscriptionStatus,
+        count: count(),
+      })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionStatus);
+
+    const tierCounts = await db
+      .select({
+        tier: schema.users.subscriptionTier,
+        count: count(),
+      })
+      .from(schema.users)
+      .groupBy(schema.users.subscriptionTier);
+
+    return {
+      statusCounts: statusCounts.map((row) => ({
+        status: row.status || "unknown",
+        count: row.count,
+      })),
+      tierCounts: tierCounts.map((row) => ({
+        tier: row.tier || "unknown",
+        count: row.count,
+      })),
+    };
+  }
+
+  // Favorites methods
+  async getUserFavorites(userId: string): Promise<Array<{ contentId: string; title: string; createdAt: Date }>> {
+    const favorites = await db.select({
+      contentId: schema.userFavorites.contentId,
+      title: schema.contentItems.title,
+      createdAt: schema.userFavorites.createdAt,
+    })
+      .from(schema.userFavorites)
+      .leftJoin(schema.contentItems, eq(schema.userFavorites.contentId, schema.contentItems.id))
+      .where(eq(schema.userFavorites.userId, userId))
+      .orderBy(desc(schema.userFavorites.createdAt));
+    return favorites.map(f => ({
+      contentId: f.contentId,
+      title: f.title || 'Unknown Content',
+      createdAt: f.createdAt,
+    }));
+  }
+
+  async addFavorite(userId: string, contentId: string): Promise<void> {
+    await db.insert(schema.userFavorites)
+      .values({ userId, contentId })
+      .onConflictDoNothing();
+  }
+
+  async removeFavorite(userId: string, contentId: string): Promise<void> {
+    await db.delete(schema.userFavorites)
+      .where(and(
+        eq(schema.userFavorites.userId, userId),
+        eq(schema.userFavorites.contentId, contentId)
+      ));
+  }
+
+  async isFavorite(userId: string, contentId: string): Promise<boolean> {
+    const [fav] = await db.select()
+      .from(schema.userFavorites)
+      .where(and(
+        eq(schema.userFavorites.userId, userId),
+        eq(schema.userFavorites.contentId, contentId)
+      ));
+    return !!fav;
+  }
+
+  async getFrequentlyUsedContent(userId: string, limit: number = 10): Promise<Array<{ contentId: string; title: string; sendCount: number }>> {
+    const logs = await db.select({
+      contentIds: schema.emailLogs.contentIds,
+    })
+      .from(schema.emailLogs)
+      .where(eq(schema.emailLogs.clinicianUserId, userId));
+
+    const counts = new Map<string, number>();
+    logs.forEach(log => {
+      (log.contentIds || []).forEach(id => {
+        counts.set(id, (counts.get(id) || 0) + 1);
+      });
+    });
+
+    const sorted = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit);
+
+    if (sorted.length === 0) return [];
+
+    const contentIds = sorted.map(([id]) => id);
+    const contentItems = await db.select({
+      id: schema.contentItems.id,
+      title: schema.contentItems.title,
+    })
+      .from(schema.contentItems)
+      .where(inArray(schema.contentItems.id, contentIds));
+
+    const titleMap = new Map(contentItems.map(c => [c.id, c.title]));
+
+    return sorted.map(([contentId, sendCount]) => ({
+      contentId,
+      title: titleMap.get(contentId) || 'Unknown Content',
+      sendCount,
+    }));
+  }
+
+  // Collections methods
+  async getUserCollections(userId: string): Promise<schema.ContentCollection[]> {
+    return await db.select()
+      .from(schema.contentCollections)
+      .where(eq(schema.contentCollections.userId, userId))
+      .orderBy(schema.contentCollections.sortOrder);
+  }
+
+  async getCollectionById(id: string): Promise<schema.ContentCollection | undefined> {
+    const [collection] = await db.select()
+      .from(schema.contentCollections)
+      .where(eq(schema.contentCollections.id, id));
+    return collection;
+  }
+
+  async createCollection(collection: schema.InsertContentCollection): Promise<schema.ContentCollection> {
+    const [created] = await db.insert(schema.contentCollections)
+      .values(collection)
+      .returning();
+    return created!;
+  }
+
+  async updateCollection(id: string, updates: { name?: string; description?: string; sortOrder?: number }): Promise<schema.ContentCollection | undefined> {
+    const [updated] = await db.update(schema.contentCollections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.contentCollections.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCollection(id: string): Promise<void> {
+    await db.delete(schema.collectionItems).where(eq(schema.collectionItems.collectionId, id));
+    await db.delete(schema.contentCollections).where(eq(schema.contentCollections.id, id));
+  }
+
+  async getCollectionItems(collectionId: string): Promise<schema.CollectionItem[]> {
+    return await db.select()
+      .from(schema.collectionItems)
+      .where(eq(schema.collectionItems.collectionId, collectionId))
+      .orderBy(schema.collectionItems.sortOrder);
+  }
+
+  async addItemToCollection(collectionId: string, contentId: string, sortOrder: number = 0): Promise<void> {
+    await db.insert(schema.collectionItems)
+      .values({ collectionId, contentId, sortOrder })
+      .onConflictDoNothing();
+  }
+
+  async removeItemFromCollection(collectionId: string, contentId: string): Promise<void> {
+    await db.delete(schema.collectionItems)
+      .where(and(
+        eq(schema.collectionItems.collectionId, collectionId),
+        eq(schema.collectionItems.contentId, contentId)
+      ));
+  }
+
+  async reorderCollectionItems(collectionId: string, items: Array<{ contentId: string; sortOrder: number }>): Promise<void> {
+    for (const item of items) {
+      await db.update(schema.collectionItems)
+        .set({ sortOrder: item.sortOrder })
+        .where(and(
+          eq(schema.collectionItems.collectionId, collectionId),
+          eq(schema.collectionItems.contentId, item.contentId)
+        ));
+    }
+  }
+
+  // Clinic Branding methods
+  async getClinicBranding(userId: string): Promise<schema.ClinicBranding | undefined> {
+    const [branding] = await db.select()
+      .from(schema.clinicBranding)
+      .where(eq(schema.clinicBranding.userId, userId));
+    return branding;
+  }
+
+  async createClinicBranding(branding: schema.InsertClinicBranding): Promise<schema.ClinicBranding> {
+    const [created] = await db.insert(schema.clinicBranding)
+      .values(branding)
+      .returning();
+    return created!;
+  }
+
+  async updateClinicBranding(
+    userId: string,
+    updates: Partial<Omit<schema.InsertClinicBranding, "userId" | "createdAt" | "updatedAt" | "isActive">>,
+  ): Promise<schema.ClinicBranding | undefined> {
+    const [updated] = await db.update(schema.clinicBranding)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.clinicBranding.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  async deleteClinicBranding(userId: string): Promise<void> {
+    await db.delete(schema.clinicBranding)
+      .where(eq(schema.clinicBranding.userId, userId));
+  }
+
+  // Health metrics methods
+  async getDatabasePoolStats(): Promise<{
+    totalConnections: number;
+    maxConnections: number;
+    activeConnections: number;
+    idleConnections: number;
+  }> {
+    const totalConnections = pool.totalCount;
+    const idleConnections = pool.idleCount;
+    const activeConnections = totalConnections - idleConnections;
+
+    // Get max connections from database
+    const result = await db.execute(sql`SHOW max_connections;`);
+    const maxConnections = result.rows[0] ? parseInt(result.rows[0].max_connections as string, 10) : 100;
+
+    return {
+      totalConnections,
+      maxConnections,
+      activeConnections,
+      idleConnections,
+    };
+  }
+
+  async getApiMetrics(since: Date): Promise<{
+    totalRequests: number;
+    successCount: number;
+    errorCount: number;
+    errorRate: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  }> {
+    const metrics = await db.select()
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'api_request'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    if (metrics.length === 0) {
+      return {
+        totalRequests: 0,
+        successCount: 0,
+        errorCount: 0,
+        errorRate: 0,
+        p50: 0,
+        p95: 0,
+        p99: 0,
+      };
+    }
+
+    const responseTimes = metrics
+      .filter(m => m.value !== null)
+      .map(m => m.value!)
+      .sort((a, b) => a - b);
+
+    const successCount = metrics.filter(m => m.status === 'success').length;
+    const errorCount = metrics.filter(m => m.status === 'error').length;
+    const totalRequests = metrics.length;
+
+    // Calculate percentiles correctly
+    const calculatePercentile = (arr: number[], percentile: number): number => {
+      if (arr.length === 0) return 0;
+      const index = Math.ceil(arr.length * percentile) - 1;
+      return arr[Math.max(0, Math.min(index, arr.length - 1))];
+    };
+
+    return {
+      totalRequests,
+      successCount,
+      errorCount,
+      errorRate: totalRequests > 0 ? (errorCount / totalRequests) * 100 : 0,
+      p50: calculatePercentile(responseTimes, 0.5),
+      p95: calculatePercentile(responseTimes, 0.95),
+      p99: calculatePercentile(responseTimes, 0.99),
+    };
+  }
+
+  async getEmailMetrics(since: Date): Promise<{
+    totalSent: number;
+    delivered: number;
+    bounced: number;
+  }> {
+    const sent = await db.select({ count: count() })
+      .from(schema.emailLogs)
+      .where(gte(schema.emailLogs.sentAt, since));
+
+    // Count successfully sent emails (not bounced) as delivered
+    // Note: In the future, we should add a 'delivered' status to track actual delivery confirmation
+    const delivered = await db.select({ count: count() })
+      .from(schema.emailLogs)
+      .where(
+        and(
+          gte(schema.emailLogs.sentAt, since),
+          eq(schema.emailLogs.status, 'sent')
+        )
+      );
+
+    // For bounced, we'll use a health metric if tracked
+    const bouncedMetrics = await db.select({ count: count() })
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'email_bounced'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    return {
+      totalSent: sent[0]?.count || 0,
+      delivered: delivered[0]?.count || 0,
+      bounced: bouncedMetrics[0]?.count || 0,
+    };
+  }
+
+  async recordHealthMetric(metric: schema.InsertHealthMetric): Promise<void> {
+    await db.insert(schema.healthMetrics).values(metric);
+  }
+
+  async getRecentErrors(limit: number = 10): Promise<schema.HealthMetric[]> {
+    return await db.select()
+      .from(schema.healthMetrics)
+      .where(eq(schema.healthMetrics.status, 'error'))
+      .orderBy(desc(schema.healthMetrics.timestamp))
+      .limit(limit);
+  }
+
+  async getSlowEndpoints(since: Date, thresholdMs: number = 1000): Promise<{
+    endpoint: string;
+    avgResponseTime: number;
+    maxResponseTime: number;
+    requestCount: number;
+  }[]> {
+    const metrics = await db.select()
+      .from(schema.healthMetrics)
+      .where(
+        and(
+          eq(schema.healthMetrics.metricType, 'api_request'),
+          gte(schema.healthMetrics.timestamp, since)
+        )
+      );
+
+    // Group by endpoint
+    const endpointStats = new Map<string, number[]>();
+
+    metrics.forEach(m => {
+      if (m.value !== null && m.metricName) {
+        if (!endpointStats.has(m.metricName)) {
+          endpointStats.set(m.metricName, []);
+        }
+        endpointStats.get(m.metricName)!.push(m.value);
+      }
+    });
+
+    const slowEndpoints = Array.from(endpointStats.entries())
+      .map(([endpoint, times]) => {
+        const avgResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
+        const maxResponseTime = Math.max(...times);
+        return {
+          endpoint,
+          avgResponseTime: Math.round(avgResponseTime),
+          maxResponseTime,
+          requestCount: times.length,
+        };
+      })
+      .filter(e => e.avgResponseTime > thresholdMs)
+      .sort((a, b) => b.avgResponseTime - a.avgResponseTime);
+
+    return slowEndpoints;
+  }
+
+  // Packet access codes
+  async createPacketAccessCode(codeData: schema.InsertPacketAccessCode): Promise<schema.PacketAccessCode> {
+    const [result] = await db.insert(schema.packetAccessCodes).values(codeData).returning();
+    return result;
+  }
+
+  async getPacketAccessCodeByCode(code: string): Promise<schema.PacketAccessCode | undefined> {
+    const [result] = await db.select()
+      .from(schema.packetAccessCodes)
+      .where(eq(sql`lower(${schema.packetAccessCodes.code})`, code.toLowerCase()));
+    return result;
+  }
+
+  async getPacketAccessCodesByClinicianId(clinicianId: string): Promise<schema.PacketAccessCode[]> {
+    return await db.select()
+      .from(schema.packetAccessCodes)
+      .where(eq(schema.packetAccessCodes.clinicianId, clinicianId))
+      .orderBy(desc(schema.packetAccessCodes.createdAt));
+  }
+
+  async incrementPacketAccessCount(code: string): Promise<void> {
+    await db.update(schema.packetAccessCodes)
+      .set({
+        accessCount: sql`${schema.packetAccessCodes.accessCount} + 1`,
+        lastAccessedAt: new Date(),
+      })
+      .where(eq(sql`lower(${schema.packetAccessCodes.code})`, code.toLowerCase()));
+  }
+
+  async deactivatePacketAccessCode(id: string): Promise<void> {
+    await db.update(schema.packetAccessCodes)
+      .set({ isActive: false })
+      .where(eq(schema.packetAccessCodes.id, id));
+  }
+}
+
+export const storage = new DatabaseStorage();
