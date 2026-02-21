@@ -12,7 +12,7 @@ import { comparePasswords, hashPassword } from "./domain/password";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser { }
   }
 }
 
@@ -56,7 +56,7 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
-  
+
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
@@ -83,12 +83,12 @@ export function requireSubscription(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
     return res.status(401).send("Authentication required");
   }
-  
+
   const user = req.user as SelectUser;
   if (user.subscriptionStatus !== "active") {
     return res.status(403).send("Active subscription required");
   }
-  
+
   next();
 }
 
@@ -97,55 +97,55 @@ export function requireAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
     return res.status(401).send("Authentication required");
   }
-  
+
   const user = req.user as SelectUser;
   if (user.role !== "admin") {
     return res.status(403).send("Admin access required");
   }
-  
+
   next();
 }
 
 // Middleware factory to check if user has required subscription tier
 export function requireTier(requiredTier: SubscriptionTier | SubscriptionTier[]) {
   const requiredTiers = Array.isArray(requiredTier) ? requiredTier : [requiredTier];
-  
+
   return (req: any, res: any, next: any) => {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Authentication required");
     }
-    
+
     const user = req.user as SelectUser;
     if (user.subscriptionStatus !== "active") {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: "Active subscription required",
         code: "SUBSCRIPTION_REQUIRED"
       });
     }
-    
+
     const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
     const userTierLevel = SUBSCRIPTION_TIERS[userTier]?.level ?? 0;
-    
+
     // Check if user's tier level meets any of the required tiers
     const hasAccess = requiredTiers.some(tier => {
       const requiredLevel = SUBSCRIPTION_TIERS[tier]?.level ?? 0;
       return userTierLevel >= requiredLevel;
     });
-    
+
     if (!hasAccess) {
       const minRequiredTier = requiredTiers.reduce((min, tier) => {
         const level = SUBSCRIPTION_TIERS[tier]?.level ?? 99;
         return level < (SUBSCRIPTION_TIERS[min]?.level ?? 99) ? tier : min;
       }, requiredTiers[0]);
-      
-      return res.status(403).json({ 
+
+      return res.status(403).json({
         error: `${SUBSCRIPTION_TIERS[minRequiredTier].name} tier or higher required`,
         code: "TIER_UPGRADE_REQUIRED",
         requiredTier: minRequiredTier,
         currentTier: userTier
       });
     }
-    
+
     next();
   };
 }
@@ -156,30 +156,30 @@ export function requireFeatureEntitlement(featureKey: string) {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Authentication required");
     }
-    
+
     const user = req.user as SelectUser;
     if (user.subscriptionStatus !== "active") {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: "Active subscription required",
         code: "SUBSCRIPTION_REQUIRED"
       });
     }
-    
+
     const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
     const allowedTiers = TIER_ENTITLEMENTS[featureKey];
-    
+
     if (!allowedTiers) {
       // Feature not in entitlement matrix, allow access
       return next();
     }
-    
+
     if (!allowedTiers.includes(userTier)) {
       const minRequiredTier = allowedTiers.reduce((min, tier) => {
         const level = SUBSCRIPTION_TIERS[tier]?.level ?? 99;
         return level < (SUBSCRIPTION_TIERS[min]?.level ?? 99) ? tier : min;
       }, allowedTiers[0]);
-      
-      return res.status(403).json({ 
+
+      return res.status(403).json({
         error: `${SUBSCRIPTION_TIERS[minRequiredTier].name} tier or higher required for this feature`,
         code: "TIER_UPGRADE_REQUIRED",
         feature: featureKey,
@@ -187,7 +187,7 @@ export function requireFeatureEntitlement(featureKey: string) {
         currentTier: userTier
       });
     }
-    
+
     next();
   };
 }
@@ -196,10 +196,10 @@ export function requireFeatureEntitlement(featureKey: string) {
 export function hasTierAccess(user: SelectUser, featureKey: string): boolean {
   const userTier = (user.subscriptionTier || 'basic') as SubscriptionTier;
   const allowedTiers = TIER_ENTITLEMENTS[featureKey];
-  
+
   if (!allowedTiers) {
     return true; // Feature not in entitlement matrix, allow access
   }
-  
+
   return allowedTiers.includes(userTier);
 }

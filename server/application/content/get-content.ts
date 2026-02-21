@@ -18,13 +18,20 @@ export async function getContent(
   // Read exclusively from database. Content is synced via `npm run contentful:sync`.
   const content: ContentItem | null = (await ctx.storage.getContentById(input.contentId)) ?? null;
 
-  if (content) {
-    await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_access', {
-      resourceType: 'content',
-      resourceId: input.contentId,
-      details: { title: content.title },
-    });
+  if (!content) {
+    return null;
   }
+
+  const isModerator = input.clinician.role === 'admin' || input.clinician.role === 'super_admin';
+  if (!isModerator && content.moderationStatus !== 'approved') {
+    return null;
+  }
+
+  await ctx.audit.logClinicianAction(input.auditContext, input.clinician, 'content_access', {
+    resourceType: 'content',
+    resourceId: input.contentId,
+    details: { title: content.title },
+  });
 
   return content;
 }

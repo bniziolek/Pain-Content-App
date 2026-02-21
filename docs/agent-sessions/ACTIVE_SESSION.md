@@ -1,50 +1,59 @@
 # Active Session State
-Last updated: 2026-02-20 20:24 UTC
-Agent: Codex
-GitHub Issue: N/A - CI fix (PR #181 Docker build)
-Branch: claude/thirsty-roentgen
+Last updated: 2026-02-21 UTC
+Agent: Claude (claude-sonnet-4-6)
+GitHub Issue: #64 — Content Moderation Queue
+Branch: claude/github-issue-64-7LbZG
 
 ---
 
 ## Session Summary
-Addressed PR #181 Docker build failure caused by `client/src/lib/mockData.ts` importing images from `@assets`, while `.dockerignore` excludes `attached_assets/` from Docker context. Switched those references to `client/public/images` URLs and copied required PNGs.
+
+Issue #64 implemented a content moderation queue but wired it into the legacy
+`server/routes.ts` file. The server now uses `server/routes/index.ts` which
+loads `server/routes/admin.ts` — so the moderation endpoints were never reachable.
+This session fixed that gap.
 
 ---
 
 ## What Was Accomplished
 
-- Updated `client/src/lib/mockData.ts` to remove static `@assets/generated_images/*` imports and use public URL paths under `/images/*`.
-- Added required image assets to `client/public/images/`:
-  - `abstract_spine_anatomy_illustration.png`
-  - `nervous_system_conceptual_art.png`
-  - `healthy_person_stretching.png`
-  - `brain_processing_signals.png`
-- Confirmed `.dockerignore` excludes `attached_assets/`, validating why Docker CI failed with ENOENT.
+- Merged origin/main (3 commits behind — only `.mcp.json` + `.claude/` changes).
+- Added moderation queue routes to `server/routes/admin.ts`:
+  - `GET  /api/admin/moderation/queue`
+  - `POST /api/admin/moderation/:id/approve`
+  - `POST /api/admin/moderation/:id/reject`
+- Fixed `server/routes/content.ts` POST `/api/content` to enforce
+  `moderationStatus` based on user role (admins → 'approved', others → 'pending'),
+  preventing clinicians from self-approving content.
+- TypeScript check passes cleanly (`npm run check`).
+- Committed and pushed to `claude/github-issue-64-7LbZG`.
 
 ---
 
 ## Current State
 
-**Status:** In Progress
+**Status:** Complete (pending PR review)
 
 **What is working:**
-- Build no longer depends on `attached_assets/` for mock data image references.
-- All four previously imported images are now in `client/public/images/` and referenced via string URLs.
+- Moderation queue endpoints are registered in the active route system.
+- Content creation enforces role-based moderation status.
+- TypeScript compiles without errors.
 
 **What is NOT working / incomplete:**
-- Local build verification is incomplete in this worktree because dependencies are not installed (`tsx` missing; `node_modules` absent).
-- Smoke tests were not run for the same reason.
+- Smoke tests could not be run against a live server (no DATABASE_URL configured
+  in this environment). Health check tests fail with ECONNREFUSED as expected.
+- The legacy moderation routes in `server/routes.ts` remain but are no longer
+  called (the file is not imported anywhere in the active server). They are
+  harmless dead code; a future cleanup PR can remove them.
 
 ---
 
 ## Next Steps for the Next Agent
 
-Do these in order:
-
-1. Run dependency install in this worktree (`make setup` or equivalent) so build scripts are available.
-2. Run `npm run build` (or project-standard build command) and confirm the previous ENOENT asset error is resolved.
-3. Run `./scripts/test.sh smoke` before marking complete.
-4. If CI still fails, inspect logs for the next missing asset/import and apply same public-assets pattern if needed.
+1. Open a PR from `claude/github-issue-64-7LbZG` → `main`.
+2. Optionally clean up the dead moderation code in `server/routes.ts` (lines
+   2010–2063) in a follow-up.
+3. Run the full test suite with a live DB to confirm the moderation API tests pass.
 
 ---
 
@@ -52,31 +61,20 @@ Do these in order:
 
 | Decision | Reasoning | Alternatives Rejected |
 |----------|-----------|----------------------|
-| Use public image URLs in `mockData.ts` | Removes Docker build-time dependency on `attached_assets/` (excluded by `.dockerignore`) and makes build reproducible | Including `attached_assets/` in Docker context (larger context, keeps fragile coupling) |
-| Copy four referenced PNGs into `client/public/images` | Keeps existing UI behavior while changing only asset resolution mechanism | Replacing with placeholders or deleting images |
+| Add moderation routes to `server/routes/admin.ts` directly using `appContext.storage` | Consistent with existing admin route patterns; no new app-layer service needed for a simple CRUD operation | Creating separate application service files (over-engineering for three small routes) |
+| Use `appContextWithInfrastructure` → `appContext` for audit | Both share the same audit logger; `appContext` is already instantiated at file top | Importing `logClinicianAction` directly from infrastructure (bypasses DI) |
+| Fix moderationStatus enforcement in content route layer | `req.user.role` is HTTP context; route layer is the right place to apply it | Pushing role logic into the application service (adds coupling to HTTP concept) |
 
 ---
 
 ## Open Questions for the Human
 
-- [ ] None.
-
----
-
-## In-Code Breadcrumbs
-
-- None.
+- [ ] Should the dead moderation code in `server/routes.ts` be removed in this PR or a follow-up?
 
 ---
 
 ## Test Status
 
-- [ ] `./scripts/test.sh smoke` - NOT RUN (dependencies missing)
-- [ ] Relevant feature tests - NOT RUN
-- [ ] `npm run build` - FAIL in local worktree due to missing `tsx`/`node_modules`, not due to image path after code change
-
----
-
-## Context Needed to Resume
-
-The key root cause was confirmed in `.dockerignore`: `attached_assets/` is explicitly excluded. The previous import style in `client/src/lib/mockData.ts` required that excluded path during Vite bundling.
+- [x] `npm run check` — PASS (TypeScript clean)
+- [ ] `./scripts/test.sh smoke` — NOT RUN (no live server / DB in this environment)
+- [ ] `tests/api/moderation.test.ts` — NOT RUN (requires live server)

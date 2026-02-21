@@ -31,6 +31,9 @@ npm run db:push
 ## Migration Files
 
 - **0001_add_user_feature_overrides_and_audit_log.sql** - Adds tables for user-level feature flag overrides and their audit trail. Required for the User Support Dashboard feature (issue #60).
+- **0002_add_user_lockout_fields.sql** - Adds account lockout fields to the users table.
+- **0003_add_packet_access_codes.sql** - Adds the packet_access_codes table for quick content lookup from printed PDFs.
+- **0004_fix_fk_on_delete_strategies.sql** - Adds explicit `ON DELETE` strategies to all foreign keys that reference `users.id`. Nullable FK columns use `SET NULL` (preserves the row, orphans the reference) and NOT NULL FK columns use `CASCADE` (deletes child rows when the user is deleted). Required to allow admin user deletion without FK constraint violations.
 
 ## Notes
 

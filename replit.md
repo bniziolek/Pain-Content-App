@@ -71,3 +71,14 @@ The application adheres to the **DriverPath Style Guide**, featuring:
     - `CONTENTFUL_SPACE_ID`
     - `CONTENTFUL_ACCESS_TOKEN`
 
+## Recent Changes
+
+### Admin Dashboard Enhancements (January 2026)
+- **Enhanced Dashboard Stats**: Added active user trends (daily/weekly/monthly), subscription tier breakdown, churned user count
+- **Recent Signups List**: Dashboard shows last 10 signups with timestamps
+- **User Search & Filters**: Search by name/email, filter by subscription tier and status
+- **Sortable User Table**: Click column headers to sort by name, email, created date, or last login
+- **Login History Tracking**: New `login_history` table tracks all login attempts (success/failure) with IP and user agent
+- **Content Activity**: User detail page shows content sending patterns
+- **Admin Notes**: New `admin_notes` table allows admins to add/view/delete notes on user records
+- **User Data Export**: Compliance-ready JSON export of user data, notes, login history, and activity

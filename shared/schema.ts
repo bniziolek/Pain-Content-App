@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,26 +10,26 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name"),
   role: text("role").notNull().default("clinician"), // 'clinician' | 'admin' | 'super_admin'
-  
+
   // Subscription fields
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"), // 'active' | 'inactive' | 'past_due' | 'canceled'
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
   subscriptionTier: text("subscription_tier").default("basic"), // 'free' | 'basic' | 'pro' | 'enterprise'
-  
+
   lastLogin: timestamp("last_login"),
-  
+
   // Onboarding tracking
   onboardingCompleted: boolean("onboarding_completed").default(false),
   onboardingStep: integer("onboarding_step").default(0), // Current step if abandoned mid-flow
-  
+
   // Email delivery preference
   emailDeliveryMode: text("email_delivery_mode").default("central"), // 'central' | 'personal'
-  
+
   // Persona switching for super admins
   activePersona: text("active_persona"), // When super admin is viewing as another role, stores the persona
-  
+
   // Clinician demographic/profile information
   phone: text("phone"),
   clinicName: text("clinic_name"),
@@ -38,11 +38,11 @@ export const users = pgTable("users", {
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
-  
+
   // Account lockout fields
   lockedUntil: timestamp("locked_until"),
   permanentlyLocked: boolean("permanently_locked").default(false),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -50,7 +50,7 @@ export const users = pgTable("users", {
 // Password reset tokens
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
@@ -60,7 +60,7 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 // User email connections - stores OAuth tokens for personal Gmail
 export const userEmailConnections = pgTable("user_email_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
   provider: text("provider").notNull().default("gmail"), // 'gmail' for now
   email: text("email").notNull(), // The connected email address
   accessToken: text("access_token").notNull(), // Encrypted
@@ -83,6 +83,13 @@ export const contentItems = pgTable("content_items", {
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   imageUrl: text("image_url"),
   readTime: text("read_time").default("5 min"),
+
+  // Moderation fields
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'set null' }), // Nullable for system content, set for user submission
+  moderationStatus: text("moderation_status").notNull().default("approved"), // 'pending' | 'approved' | 'rejected'
+  moderationNote: text("moderation_note"), // Reason for rejection or edits
+  submittedAt: timestamp("submitted_at"), // When the user submitted it
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -90,7 +97,7 @@ export const contentItems = pgTable("content_items", {
 // Assessment definitions - supports SurveyJS format
 export const assessments = pgTable("assessments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system assessments
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'set null' }), // null for system assessments
   name: text("name").notNull(),
   description: text("description"),
   version: text("version").default("1.0"),
@@ -108,7 +115,7 @@ export const assessments = pgTable("assessments", {
 // Patient invites (external assessments)
 export const assessmentInvites = pgTable("assessment_invites", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   assessmentId: varchar("assessment_id").references(() => assessments.id).notNull(),
   patientEmail: text("patient_email").notNull(),
   token: text("token").notNull().unique(),
@@ -130,7 +137,7 @@ export const assessmentResponses = pgTable("assessment_responses", {
 // Internal screenings (done by clinician during visit)
 export const internalScreenings = pgTable("internal_screenings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   assessmentId: varchar("assessment_id").references(() => assessments.id).notNull(),
   patientName: text("patient_name").notNull(),
   notes: text("notes"),
@@ -144,7 +151,7 @@ export const internalScreenings = pgTable("internal_screenings", {
 // Email send log
 export const emailLogs = pgTable("email_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   patientEmail: text("patient_email").notNull(),
   subject: text("subject").notNull(),
   type: text("type").notNull(), // 'content_bundle' | 'assessment_invite' | 'assessment_results' | 'follow_up_reminder'
@@ -181,7 +188,7 @@ export const contentViews = pgTable("content_views", {
 // Automated follow-up rules
 export const followUpRules = pgTable("follow_up_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system templates
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'set null' }), // null for system templates
   name: text("name").notNull(),
   triggerType: text("trigger_type").notNull(), // 'no_view' | 'partial_view' | 'time_based' | 'assessment_complete'
   triggerDays: integer("trigger_days").notNull().default(3), // days after initial send
@@ -197,7 +204,7 @@ export const followUpRules = pgTable("follow_up_rules", {
 // User preferences for template follow-up rules
 export const userTemplatePreferences = pgTable("user_template_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   templateRuleId: varchar("template_rule_id").references(() => followUpRules.id).notNull(),
   isEnabled: boolean("is_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -218,7 +225,7 @@ export const scheduledFollowUps = pgTable("scheduled_follow_ups", {
 // Care pathways - structured treatment protocols
 export const carePathways = pgTable("care_pathways", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'set null' }),
   name: text("name").notNull(),
   description: text("description"),
   condition: text("condition"), // e.g., 'low_back_pain', 'neck_pain'
@@ -243,7 +250,7 @@ export const pathwayMilestones = pgTable("pathway_milestones", {
 // Patient pathway enrollments
 export const patientPathways = pgTable("patient_pathways", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   pathwayId: varchar("pathway_id").references(() => carePathways.id).notNull(),
   patientEmail: text("patient_email").notNull(),
   patientName: text("patient_name"),
@@ -271,23 +278,23 @@ export const contentRecommendations = pgTable("content_recommendations", {
 // Recommendation configs - links assessments, pathways, and content with clinician rules
 export const recommendationConfigs = pgTable("recommendation_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id), // null for system rules
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'set null' }), // null for system rules
   name: text("name").notNull(), // descriptive name for the rule
   assessmentId: varchar("assessment_id").references(() => assessments.id), // required: which assessment triggers this rule
   pathwayId: varchar("pathway_id").references(() => carePathways.id), // optional: scope to specific pathway
   pathwayWeek: integer("pathway_week"), // optional: scope to specific week in pathway
-  
+
   // Answer-based trigger configuration
   questionName: text("question_name"), // the specific question this rule triggers on
   questionType: text("question_type"), // 'boolean' | 'rating' | 'radiogroup' | 'dropdown' | 'checkbox' | 'text'
   matchOperator: text("match_operator").default("equals"), // 'equals' | 'in' | 'not_equals' | 'greater_than' | 'less_than' | 'between'
   matchValues: jsonb("match_values"), // the answer value(s) that trigger this rule (e.g., ["Yes"], [4, 5], {"min": 60, "max": 100})
-  
+
   // Legacy tag-based scoring (kept for backward compatibility)
   tag: text("tag").notNull().default(""), // the assessment tag this rule triggers on (legacy)
   minScore: integer("min_score").default(0),
   maxScore: integer("max_score").default(100),
-  
+
   priority: integer("priority").default(1), // lower = higher priority
   contentIds: text("content_ids").array().notNull().default(sql`ARRAY[]::text[]`), // content to recommend
   rationale: text("rationale"), // clinician-facing explanation of why this rule exists
@@ -300,7 +307,7 @@ export const recommendationConfigs = pgTable("recommendation_configs", {
 export const patientRecommendations = pgTable("patient_recommendations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   patientEmail: text("patient_email").notNull(),
-  clinicianUserId: varchar("clinician_user_id").references(() => users.id).notNull(),
+  clinicianUserId: varchar("clinician_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   source: text("source").notNull(), // 'assessment' | 'pathway_milestone' | 'manual'
   sourceId: text("source_id"), // assessment_response_id or patient_pathway_id
   assessmentId: varchar("assessment_id").references(() => assessments.id),
@@ -318,7 +325,7 @@ export const patientRecommendations = pgTable("patient_recommendations", {
 // Audit log for compliance tracking (HIPAA-compliant immutable log)
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // null for patient portal or system actions
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }), // null for patient portal or system actions
   actorType: text("actor_type").notNull().default("clinician"), // 'clinician' | 'admin' | 'patient' | 'system'
   actorEmail: text("actor_email"), // email of actor (useful for patient portal where no userId)
   action: text("action").notNull(), // 'login' | 'logout' | 'login_failed' | 'content_access' | 'phi_view' | 'phi_export' | 'email_sent' | 'settings_change' | 'user_create' | 'user_update' | 'password_change' | 'session_timeout'
@@ -368,10 +375,10 @@ export const rolePermissions = pgTable("role_permissions", {
 // User-level permission overrides - allows granting/revoking permissions for specific users
 export const userPermissions = pgTable("user_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   permissionId: varchar("permission_id").references(() => permissions.id).notNull(),
   granted: boolean("granted").notNull().default(true), // true = grant, false = revoke
-  grantedBy: varchar("granted_by").references(() => users.id).notNull(),
+  grantedBy: varchar("granted_by").references(() => users.id, { onDelete: 'set null' }), // nullable: preserve permission records when granting admin is deleted
   reason: text("reason"), // Why this override was applied
   expiresAt: timestamp("expires_at"), // Optional expiration for temporary grants
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -380,7 +387,7 @@ export const userPermissions = pgTable("user_permissions", {
 // Persona switch audit log - tracks when super admins switch personas
 export const personaSwitches = pgTable("persona_switches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   fromPersona: text("from_persona").notNull(), // Original role
   toPersona: text("to_persona").notNull(), // Switched to role
   ipAddress: text("ip_address"),
@@ -405,7 +412,7 @@ export const dataInventory = pgTable("data_inventory", {
   disposalMethod: text("disposal_method"), // 'secure_delete' | 'anonymize' | 'archive'
   accessRoles: text("access_roles").array(), // which roles can access this data
   lastReviewedAt: timestamp("last_reviewed_at"),
-  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -413,8 +420,8 @@ export const dataInventory = pgTable("data_inventory", {
 // Admin notes on user records
 export const adminNotes = pgTable("admin_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  adminId: varchar("admin_id").references(() => users.id, { onDelete: 'set null' }), // nullable: preserve notes when admin is deleted
   note: text("note").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -423,7 +430,7 @@ export const adminNotes = pgTable("admin_notes", {
 // User login history for tracking
 export const loginHistory = pgTable("login_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   outcome: text("outcome").notNull().default("success"), // 'success' | 'failure'
@@ -690,10 +697,10 @@ export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
   content_concierge: ['basic', 'pro', 'enterprise'],
   content_packets: ['basic', 'pro', 'enterprise'],
   internal_screenings: ['basic', 'pro', 'enterprise'],
-  
+
   // Limited features - basic has limits
   assessment_builder: ['basic', 'pro', 'enterprise'], // Basic limited to 5 assessments
-  
+
   // Pro-only features
   patient_portal: ['pro', 'enterprise'],
   email_delivery: ['pro', 'enterprise'],
@@ -701,7 +708,7 @@ export const TIER_ENTITLEMENTS: Record<string, SubscriptionTier[]> = {
   follow_up_automation: ['pro', 'enterprise'],
   priority_support: ['pro', 'enterprise'],
   custom_branding: ['pro', 'enterprise'],
-  
+
   // Enterprise-only
   white_label: ['enterprise'],
   api_access: ['enterprise'],
@@ -734,10 +741,10 @@ export type FeatureFlag = typeof featureFlags.$inferSelect;
 // User feature overrides - per-user feature flag overrides set by admins
 export const userFeatureOverrides = pgTable("user_feature_overrides", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
   isEnabled: boolean("is_enabled").notNull(),
-  setByAdminId: varchar("set_by_admin_id").references(() => users.id),
+  setByAdminId: varchar("set_by_admin_id").references(() => users.id, { onDelete: 'set null' }),
   reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -756,9 +763,9 @@ export type UserFeatureOverride = typeof userFeatureOverrides.$inferSelect;
 // Feature flag audit log - tracks all changes to user feature flag overrides
 export const featureFlagAuditLog = pgTable("feature_flag_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   featureFlagId: varchar("feature_flag_id").references(() => featureFlags.id).notNull(),
-  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  adminId: varchar("admin_id").references(() => users.id, { onDelete: 'set null' }), // nullable: preserve audit log when admin is deleted
   action: text("action").notNull(), // 'enable' | 'disable' | 'reset'
   previousValue: boolean("previous_value"), // null if no previous override existed
   newValue: boolean("new_value"), // null if reset (removed override)
@@ -772,7 +779,6 @@ export const insertFeatureFlagAuditLogSchema = createInsertSchema(featureFlagAud
 });
 export type InsertFeatureFlagAuditLog = z.infer<typeof insertFeatureFlagAuditLogSchema>;
 export type FeatureFlagAuditLog = typeof featureFlagAuditLog.$inferSelect;
-
 // Admin notes schemas
 export const insertAdminNoteSchema = createInsertSchema(adminNotes).omit({
   id: true,
@@ -793,7 +799,7 @@ export type LoginHistory = typeof loginHistory.$inferSelect;
 // User favorites - bookmarked content for quick access
 export const userFavorites = pgTable("user_favorites", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   contentId: varchar("content_id").references(() => contentItems.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -808,7 +814,7 @@ export type UserFavorite = typeof userFavorites.$inferSelect;
 // Content collections - user-created content groups
 export const contentCollections = pgTable("content_collections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").default(0),
@@ -843,26 +849,26 @@ export type CollectionItem = typeof collectionItems.$inferSelect;
 // Clinic branding - custom branding for PDF content packets (Pro/Enterprise feature)
 export const clinicBranding = pgTable("clinic_branding", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
-  
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+
   // Logo and basic info
   logoUrl: text("logo_url"), // Uploaded clinic logo URL
   clinicName: text("clinic_name"), // Custom display name used in branded content/PDFs
   tagline: text("tagline"), // Optional tagline below clinic name
-  
+
   // Color scheme
   primaryColor: text("primary_color").default("#0F766E"), // Headers, main elements
   secondaryColor: text("secondary_color").default("#f5f5f5"), // Backgrounds
   accentColor: text("accent_color").default("#14B8A6"), // Links, highlights
-  
+
   // Footer and additional options
   footerText: text("footer_text"), // Custom footer (replaces "Powered by DriverPath")
   showPoweredBy: boolean("show_powered_by").default(true), // Whether to show "Powered by DriverPath"
   showWatermark: boolean("show_watermark").default(true), // Whether to show a subtle watermark
-  
+
   // Activation status
   isActive: boolean("is_active").default(true), // Can be deactivated if subscription changes
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -927,17 +933,17 @@ export const packetAccessCodes = pgTable("packet_access_codes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   code: varchar("code", { length: 10 }).notNull().unique(),
   internalScreeningId: varchar("internal_screening_id").references(() => internalScreenings.id),
-  clinicianId: varchar("clinician_id").references(() => users.id).notNull(),
+  clinicianId: varchar("clinician_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   contentIds: text("content_ids").array().notNull(),
-  
+
   // Access tracking
   accessCount: integer("access_count").default(0),
   lastAccessedAt: timestamp("last_accessed_at"),
-  
+
   // Expiration
   expiresAt: timestamp("expires_at").notNull(),
   isActive: boolean("is_active").default(true),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

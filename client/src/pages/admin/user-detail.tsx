@@ -100,6 +100,14 @@ interface SupportOverview {
   recentNoteCount: number;
 }
 
+interface ContentActivity {
+  contentId: string;
+  contentTitle: string;
+  patientEmail: string;
+  sentAt: string;
+  status: string;
+}
+
 export default function UserDetailPage() {
   const [, params] = useRoute("/admin/users/:id");
   const userId = params?.id;
@@ -118,7 +126,7 @@ export default function UserDetailPage() {
 
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [extendMonths, setExtendMonths] = useState("");
-  
+
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
@@ -483,7 +491,7 @@ export default function UserDetailPage() {
     try {
       const res = await fetch(`/api/admin/users/${userId}/export`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to export user data");
-      
+
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -494,7 +502,7 @@ export default function UserDetailPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       toast({
         title: "Export Complete",
         description: "User data has been downloaded.",
@@ -546,7 +554,7 @@ export default function UserDetailPage() {
               Back to Users
             </Button>
           </Link>
-          
+
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">{user.name || "Unnamed User"}</h1>
@@ -947,7 +955,7 @@ export default function UserDetailPage() {
                   <div className="space-y-2">
                     <Label>Status</Label>
                     <div>
-                      <Badge 
+                      <Badge
                         variant={user.subscriptionStatus === "active" ? "default" : "outline"}
                         className={user.subscriptionStatus === "active" ? "bg-green-600" : ""}
                       >
@@ -975,8 +983,8 @@ export default function UserDetailPage() {
                           </Badge>
                         );
                       })()}
-                    </div>
-                  </div>
+                    </div >
+                  </div >
                   <div className="space-y-2">
                     <Label>Subscription End Date</Label>
                     <p className="text-sm font-medium">
@@ -990,13 +998,15 @@ export default function UserDetailPage() {
                       </p>
                     )}
                   </div>
-                  {user.stripeCustomerId && (
-                    <div className="space-y-2">
-                      <Label>Stripe Customer ID</Label>
-                      <p className="text-sm font-mono text-muted-foreground">{user.stripeCustomerId}</p>
-                    </div>
-                  )}
-                </div>
+                  {
+                    user.stripeCustomerId && (
+                      <div className="space-y-2">
+                        <Label>Stripe Customer ID</Label>
+                        <p className="text-sm font-mono text-muted-foreground">{user.stripeCustomerId}</p>
+                      </div>
+                    )
+                  }
+                </div >
 
                 <Separator />
 
@@ -1028,9 +1038,9 @@ export default function UserDetailPage() {
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </CardContent >
+            </Card >
+          </TabsContent >
 
           <TabsContent value="activity" className="space-y-6">
             <Card>
@@ -1040,7 +1050,7 @@ export default function UserDetailPage() {
                   Unified Timeline
                 </CardTitle>
                 <CardDescription>Complete activity history from the last 30 days</CardDescription>
-              </CardHeader>
+              </CardHeader >
               <CardContent>
                 {timelineLoading ? (
                   <div className="flex items-center justify-center py-8">
@@ -1090,7 +1100,7 @@ export default function UserDetailPage() {
                   <p className="text-sm text-muted-foreground text-center py-8">No activity recorded in the last 30 days</p>
                 )}
               </CardContent>
-            </Card>
+            </Card >
 
             <Card>
               <CardHeader>
@@ -1177,7 +1187,7 @@ export default function UserDetailPage() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent >
 
           <TabsContent value="notes" className="space-y-6">
             <Card>
@@ -1362,11 +1372,10 @@ export default function UserDetailPage() {
                         className="flex items-start gap-4 p-3 rounded-lg border bg-gray-50"
                         data-testid={`audit-entry-${entry.id}`}
                       >
-                        <div className={`p-2 rounded-full ${
-                          entry.action === 'enable' ? 'bg-green-100 text-green-600' :
-                          entry.action === 'disable' ? 'bg-red-100 text-red-600' :
-                          'bg-amber-100 text-amber-600'
-                        }`}>
+                        <div className={`p-2 rounded-full ${entry.action === 'enable' ? 'bg-green-100 text-green-600' :
+                            entry.action === 'disable' ? 'bg-red-100 text-red-600' :
+                              'bg-amber-100 text-amber-600'
+                          }`}>
                           {entry.action === 'enable' ? (
                             <CheckCircle className="w-4 h-4" />
                           ) : entry.action === 'disable' ? (
@@ -1379,8 +1388,8 @@ export default function UserDetailPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">
                               {entry.action === 'enable' ? 'Enabled' :
-                               entry.action === 'disable' ? 'Disabled' :
-                               'Reset to default'}
+                                entry.action === 'disable' ? 'Disabled' :
+                                  'Reset to default'}
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {entry.flagName || entry.flagKey || 'Unknown flag'}
@@ -1421,7 +1430,7 @@ export default function UserDetailPage() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+        </Tabs >
 
         <Dialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
           <DialogContent>
@@ -1607,7 +1616,7 @@ export default function UserDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </DashboardLayout>
+      </div >
+    </DashboardLayout >
   );
 }

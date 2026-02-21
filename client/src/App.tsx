@@ -23,6 +23,7 @@ import ContentViewerPage from "@/pages/content-viewer";
 import PatientSummaryPage from "@/pages/patient-summary";
 import AdminLoginPage from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin/dashboard";
+import { ModerationQueue } from "@/pages/admin/moderation-queue";
 import AdminUsersPage from "@/pages/admin/users";
 import UserDetailPage from "@/pages/admin/user-detail";
 import AdminRecommendationsPage from "@/pages/admin/recommendations";
@@ -92,13 +93,20 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
-      
+
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/dashboard">
         {() => (
           <RequireAdmin>
             <AdminDashboard />
+          </RequireAdmin>
+        )}
+      </Route>
+      <Route path="/admin/moderation">
+        {() => (
+          <RequireAdmin>
+            <ModerationQueue />
           </RequireAdmin>
         )}
       </Route>

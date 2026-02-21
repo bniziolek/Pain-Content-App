@@ -42,9 +42,9 @@ if (!spaceId || !accessToken) {
 
 const client = spaceId && accessToken
   ? createClient({
-      space: spaceId,
-      accessToken: accessToken,
-    })
+    space: spaceId,
+    accessToken: accessToken,
+  })
   : null;
 
 const DEFAULT_CACHE_TTL_MS = 300000;
@@ -107,7 +107,7 @@ function extractTextFromRichText(richText: ContentfulRichText | string): string 
   if (typeof richText === "string") {
     return richText;
   }
-  
+
   if (!richText || !richText.content) {
     return "";
   }
@@ -131,32 +131,32 @@ function extractImageUrl(imageField: Asset | string | undefined): string | null 
   if (!imageField) {
     return null;
   }
-  
+
   if (typeof imageField === "string") {
     return imageField;
   }
-  
+
   const asset = imageField as Asset;
   if (asset.fields?.file?.url) {
     const url = asset.fields.file.url as string;
     return url.startsWith("//") ? `https:${url}` : url;
   }
-  
+
   return null;
 }
 
 function parseContentfulEntry(entry: Entry<ContentfulContentItem>): ContentItem {
   const fields = entry.fields as unknown as ContentfulFields;
-  
+
   console.log("[Contentful] Parsing entry:", entry.sys.id, "Title:", fields.title);
-  
+
   const summary = extractTextFromRichText(fields.summary);
   const body = extractTextFromRichText(fields.body);
   const imageUrl = extractImageUrl(fields.imageUrl);
-  
+
   console.log("[Contentful] Extracted summary:", summary.substring(0, 50) + "...");
   console.log("[Contentful] Extracted imageUrl:", imageUrl);
-  
+
   return {
     id: entry.sys.id,
     title: fields.title || "",
@@ -167,6 +167,10 @@ function parseContentfulEntry(entry: Entry<ContentfulContentItem>): ContentItem 
     readTime: fields.readTime || "5 min",
     createdAt: new Date(entry.sys.createdAt),
     updatedAt: new Date(entry.sys.updatedAt),
+    submittedAt: new Date(entry.sys.createdAt), // Contentful content is considered submitted when created
+    clinicianUserId: null, // System content has no clinician owner
+    moderationStatus: 'approved', // Contentful content is pre-approved
+    moderationNote: null,
   };
 }
 
@@ -267,11 +271,11 @@ interface ContentfulCarePathway extends EntrySkeletonType {
 
 function parseContentfulPathwayMilestone(entry: Entry<ContentfulPathwayMilestone>, pathwayId: string): PathwayMilestone {
   const fields = entry.fields as unknown as ContentfulPathwayMilestoneFields;
-  
+
   const contentIds = (fields.contentReferences || [])
     .map(ref => ref?.sys?.id)
     .filter((id): id is string => Boolean(id));
-  
+
   return {
     id: entry.sys.id,
     pathwayId,
@@ -286,13 +290,13 @@ function parseContentfulPathwayMilestone(entry: Entry<ContentfulPathwayMilestone
 
 function parseContentfulCarePathway(entry: Entry<ContentfulCarePathway>): CarePathway & { milestones: PathwayMilestone[] } {
   const fields = entry.fields as unknown as ContentfulCarePathwayFields;
-  
+
   console.log("[Contentful] Parsing pathway:", entry.sys.id, "Name:", fields.name);
-  
+
   const milestones = (fields.milestones || [])
     .map(m => parseContentfulPathwayMilestone(m, entry.sys.id))
     .sort((a, b) => a.weekNumber - b.weekNumber);
-  
+
   return {
     id: entry.sys.id,
     clinicianUserId: null,
@@ -327,13 +331,13 @@ export async function getAllPathwaysFromContentful(): Promise<(CarePathway & { m
 
     console.log(`[Contentful] Found ${entries.items.length} care pathways`);
 
-    const parsed = entries.items.map(parseContentfulCarePathway);
-    setCache("pathways:all", parsed);
-    for (const item of parsed) {
+    const parsedPathways = entries.items.map(parseContentfulCarePathway);
+    setCache("pathways:all", parsedPathways);
+    for (const item of parsedPathways) {
       setCache(`pathways:id:${item.id}`, item);
     }
 
-    return parsed;
+    return parsedPathways;
   } catch (error: any) {
     if (error?.sys?.id === "NotFound" || error?.message?.includes("Unknown content type")) {
       console.log("[Contentful] carePathway content type not found, returning empty array");

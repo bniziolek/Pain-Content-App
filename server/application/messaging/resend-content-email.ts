@@ -44,7 +44,7 @@ export async function resendContentEmailFlow(
   
   const contentItems = (await Promise.all(
     (originalLog.contentIds as string[]).map((id: string) => ctx.storage.getContentById(id))
-  )).filter(Boolean);
+  )).filter((item): item is NonNullable<typeof item> => !!item && item.moderationStatus === 'approved');
   
   const baseUrl = process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000';
   const contentItemsWithUrls = contentItems.map((item: any) => ({

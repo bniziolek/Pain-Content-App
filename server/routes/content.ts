@@ -74,7 +74,13 @@ router.get("/frequently-used", requireAuth, async (req, res, next) => {
 // Create content
 router.post("/", requireAuth, async (req, res, next) => {
   try {
-    const data = insertContentItemSchema.parse(req.body);
+    const isModerator = req.user!.role === 'admin' || req.user!.role === 'super_admin';
+    const data = insertContentItemSchema.parse({
+      ...req.body,
+      clinicianUserId: req.user!.id,
+      moderationStatus: isModerator ? 'approved' : 'pending',
+      submittedAt: new Date(),
+    });
     const content = await createContent(appContext, {
       auditContext: buildAuditRequestContext(req),
       clinician: req.user!,

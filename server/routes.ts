@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { requireSuperAdmin } from "./rbac";
 import { createAppContextWithInfrastructure } from "./application/context-helpers";
 import {
+  type User as SelectUser,
   insertContentItemSchema,
   insertAssessmentSchema,
   insertAssessmentInviteSchema,
@@ -18,10 +19,10 @@ import { isContentfulConfigured } from "./infrastructure/cms";
 import {
   previewRecommendations,
   generateRecommendations,
-  listRecommendationRules as listRecommendationRules,
+  listRecommendationRules,
   createRecommendationRule,
   deleteRecommendationRule,
-  listRecommendationConfigs as listRecommendationConfigs,
+  listRecommendationConfigs,
   createRecommendationConfig,
   updateRecommendationConfig,
   deleteRecommendationConfig,
@@ -469,7 +470,15 @@ export function registerRoutes(app: Express): Server {
   // Database content management routes (for when Contentful is not used or for local backup)
   app.post("/api/content", requireAuth, async (req, res, next) => {
     try {
-      const validated = insertContentItemSchema.parse(req.body);
+      // Issue #64: Moderation Logic
+      const isModerator = req.user!.role === 'admin' || req.user!.role === 'super_admin';
+      const validated = insertContentItemSchema.parse({
+        ...req.body,
+        clinicianUserId: req.user!.id,
+        moderationStatus: isModerator ? 'approved' : 'pending',
+        submittedAt: new Date(),
+      });
+
       const content = await storage.createContent(validated);
 
       await logClinicianAction(getAuditContext(req), req.user!, 'content_create', {
@@ -1081,7 +1090,6 @@ export function registerRoutes(app: Express): Server {
           matchValues,
         }
       });
-
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -1999,6 +2007,61 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ====== Content Moderation Routes ======
+  app.get("/api/admin/moderation/queue", requireAdmin, async (req, res, next) => {
+    try {
+      const queue = await storage.getModerationQueue();
+      res.json(queue);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/approve", requireAdmin, async (req, res, next) => {
+    try {
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'approved',
+        moderationNote: req.body.note // Optional note on approval
+      });
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: content.id,
+        details: { action: 'approve', title: content.title }
+      });
+
+      res.json(content);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/moderation/:id/reject", requireAdmin, async (req, res, next) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const content = await storage.updateContent(req.params.id, {
+        moderationStatus: 'rejected',
+        moderationNote: reason
+      });
+
+      if (!content) return res.status(404).send("Content not found");
+
+      await logClinicianAction(getAuditContext(req), req.user!, 'content_update', {
+        resourceType: 'content',
+        resourceId: content.id,
+        details: { action: 'reject', title: content.title, reason }
+      });
+
+      res.json(content);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/admin/stats", requireAdmin, async (req, res, next) => {
     try {
       const stats = await storage.getAdminStats();
@@ -2010,6 +2073,134 @@ export function registerRoutes(app: Express): Server {
         totalContent: content.length,
         recentSignups: users.slice(0, 5),
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Enhanced admin stats endpoint
+  app.get("/api/admin/enhanced-stats", requireAdmin, async (req, res, next) => {
+    try {
+      const enhancedStats = await storage.getEnhancedAdminStats();
+      res.json(enhancedStats);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Admin Notes Routes ======
+  app.get("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+    try {
+      const notes = await storage.getAdminNotes(req.params.userId);
+      res.json(notes);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/users/:userId/notes", requireAdmin, async (req, res, next) => {
+    try {
+      const { note } = req.body;
+      if (!note || typeof note !== 'string') {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+      const created = await storage.createAdminNote({
+        userId: req.params.userId,
+        adminId: req.user!.id,
+        note,
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const { note } = req.body;
+      if (!note || typeof note !== 'string') {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+      const updated = await storage.updateAdminNote(req.params.id, note);
+      if (!updated) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/admin/notes/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteAdminNote(req.params.id);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== Login History Routes ======
+  app.get("/api/admin/users/:userId/login-history", requireAdmin, async (req, res, next) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const history = await storage.getLoginHistory(req.params.userId, limit);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== User Content Activity Routes ======
+  app.get("/api/admin/users/:userId/content-activity", requireAdmin, async (req, res, next) => {
+    try {
+      const activity = await storage.getUserContentActivity(req.params.userId);
+      res.json(activity);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ====== User Data Export Route ======
+  app.get("/api/admin/users/:userId/export", requireAdmin, async (req, res, next) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const notes = await storage.getAdminNotes(req.params.userId);
+      const loginHistory = await storage.getLoginHistory(req.params.userId, 100);
+      const contentActivity = await storage.getUserContentActivity(req.params.userId);
+
+      const exportData = {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionTier: user.subscriptionTier,
+          subscriptionPeriodEnd: user.subscriptionPeriodEnd,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+        },
+        adminNotes: notes.map(n => ({
+          note: n.note,
+          createdAt: n.createdAt,
+        })),
+        loginHistory: loginHistory.map(h => ({
+          outcome: h.outcome,
+          ipAddress: h.ipAddress,
+          createdAt: h.createdAt,
+        })),
+        contentActivity: contentActivity.slice(0, 100),
+        exportedAt: new Date().toISOString(),
+      };
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="user-export-${user.id}.json"`);
+      res.json(exportData);
     } catch (error) {
       next(error);
     }
@@ -2067,7 +2258,6 @@ export function registerRoutes(app: Express): Server {
           matchValues,
         }
       });
-
       res.status(201).json(config);
     } catch (error) {
       next(error);
@@ -2596,7 +2786,7 @@ export function registerRoutes(app: Express): Server {
   // Super Admin Routes - Persona Switching
   app.post("/api/super-admin/switch-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { toPersona } = req.body;
       if (!['clinician', 'admin'].includes(toPersona)) {
         return res.status(400).json({ message: "Invalid persona" });
@@ -2626,7 +2816,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/clear-persona", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       await storage.clearPersona(user.id);
 
       await logClinicianAction(getAuditContext(req), user, 'settings_change', {
@@ -2644,7 +2834,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/super-admin/persona-history", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const history = await storage.getPersonaSwitchHistory(user.id);
       res.json(history);
     } catch (error) {
@@ -2665,7 +2855,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/users/:userId/permissions/grant", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId } = req.params;
       const { permissionName, reason, expiresAt } = req.body;
 
@@ -2696,7 +2886,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/super-admin/users/:userId/permissions/revoke", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId } = req.params;
       const { permissionName, reason } = req.body;
 
@@ -2721,7 +2911,7 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/super-admin/users/:userId/permissions/:id", requireAuth, requireSuperAdmin(), async (req, res, next) => {
     try {
-      const user = req.user as User;
+      const user = req.user as SelectUser;
       const { userId, id } = req.params;
       await storage.removeUserPermission(id);
 

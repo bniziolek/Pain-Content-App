@@ -80,6 +80,7 @@ function Sidebar({ className, onNavigate }: SidebarProps) {
   // Admin gets different navigation
   const adminLinks = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: ShieldCheck },
+    { href: "/admin/moderation", label: "Moderation Queue", icon: ShieldCheck },
     { href: "/admin/users", label: "User Management", icon: Users },
     { href: "/admin/health", label: "System Health", icon: HeartPulse },
     { href: "/admin/subscriptions", label: "Subscriptions", icon: Crown },
@@ -270,21 +271,21 @@ function BottomNav() {
   // Bottom nav shows only the most essential links for quick access
   const bottomLinks = isAdmin
     ? [
-        { href: "/admin/dashboard", label: "Dashboard", icon: ShieldCheck },
-        { href: "/admin/users", label: "Users", icon: Users },
-        { href: "/admin/health", label: "Health", icon: HeartPulse },
-        { href: "/library", label: "Content", icon: Library },
-        { href: "/settings", label: "Settings", icon: Settings },
-      ]
+      { href: "/admin/dashboard", label: "Dashboard", icon: ShieldCheck },
+      { href: "/admin/users", label: "Users", icon: Users },
+      { href: "/admin/health", label: "Health", icon: HeartPulse },
+      { href: "/library", label: "Content", icon: Library },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ]
     : [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/library", label: "Library", icon: Library },
-        ...(isEnabled("assessments_enabled")
-          ? [{ href: "/assessments", label: "Assess", icon: ClipboardList }]
-          : []),
-        { href: "/history", label: "History", icon: History },
-        { href: "/settings", label: "Settings", icon: Settings },
-      ];
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/library", label: "Library", icon: Library },
+      ...(isEnabled("assessments_enabled")
+        ? [{ href: "/assessments", label: "Assess", icon: ClipboardList }]
+        : []),
+      { href: "/history", label: "History", icon: History },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ];
 
   return (
     <nav
@@ -338,19 +339,19 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   const swipeRoutes = isAdmin
     ? [
-        "/admin/dashboard",
-        "/admin/users",
-        "/admin/health",
-        "/library",
-        "/settings",
-      ]
+      "/admin/dashboard",
+      "/admin/users",
+      "/admin/health",
+      "/library",
+      "/settings",
+    ]
     : [
-        "/dashboard",
-        "/library",
-        ...(isEnabled("assessments_enabled") ? ["/assessments"] : []),
-        "/history",
-        "/settings",
-      ];
+      "/dashboard",
+      "/library",
+      ...(isEnabled("assessments_enabled") ? ["/assessments"] : []),
+      "/history",
+      "/settings",
+    ];
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
 

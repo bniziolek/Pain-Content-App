@@ -60,7 +60,7 @@ import {
 import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, count, sql, isNull, inArray } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -145,6 +145,7 @@ export interface IStorage {
   createContent(content: InsertContentItem): Promise<ContentItem>;
   updateContent(id: string, content: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
   deleteContent(id: string): Promise<void>;
+  getModerationQueue(): Promise<ContentItem[]>;
   upsertContentItems(items: ContentItem[]): Promise<void>;
 
   // Assessments
@@ -654,6 +655,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContent(id: string): Promise<void> {
     await db.delete(schema.contentItems).where(eq(schema.contentItems.id, id));
+  }
+
+  async getModerationQueue(): Promise<ContentItem[]> {
+    return await db.select()
+      .from(schema.contentItems)
+      .where(eq(schema.contentItems.moderationStatus, 'pending'))
+      .orderBy(asc(schema.contentItems.submittedAt));
   }
 
   async upsertContentItems(items: ContentItem[]): Promise<void> {
@@ -1877,7 +1885,6 @@ export class DatabaseStorage implements IStorage {
 
     return result;
   }
-
   async getUserActivityAnalytics(_days: number): Promise<UserActivityAnalytics> {
     const since = new Date(Date.now() - _days * 24 * 60 * 60 * 1000);
     const [loginCount] = await db
@@ -2282,7 +2289,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentErrors(limit: number = 10): Promise<schema.HealthMetric[]> {
-    return await db.select()
+    return db.select()
       .from(schema.healthMetrics)
       .where(eq(schema.healthMetrics.status, 'error'))
       .orderBy(desc(schema.healthMetrics.timestamp))
@@ -2336,7 +2343,7 @@ export class DatabaseStorage implements IStorage {
   // Packet access codes
   async createPacketAccessCode(codeData: schema.InsertPacketAccessCode): Promise<schema.PacketAccessCode> {
     const [result] = await db.insert(schema.packetAccessCodes).values(codeData).returning();
-    return result;
+    return result!;
   }
 
   async getPacketAccessCodeByCode(code: string): Promise<schema.PacketAccessCode | undefined> {
