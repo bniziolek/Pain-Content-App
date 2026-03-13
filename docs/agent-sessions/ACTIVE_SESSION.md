@@ -64,4 +64,4 @@ Updated GitHub issue templates so backlog intake captures framework-aware planni
 
 ## Test Status
 
-- [ ] `./scripts/test.sh smoke` — NOT RUN (template-only docs change)
+- [ ] `./scripts/test.sh smoke` — NOT RUN (docs/config-only change; issue-template change, no runtime tests applicable)
