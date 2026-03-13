@@ -13,6 +13,9 @@ A clear and concise description of what the problem is. Ex. I'm always frustrate
 **Domain ownership**
 What domain owns this work? (Examples: Assessments, Recommendations, Content, Messaging, Patient Portal)
 
+**Track awareness**
+What track does this belong to (for example Product, Platform, Compliance, Operations), and what cross-track dependencies exist? If none, write "None".
+
 **Describe the solution you'd like**
 A clear and concise description of what you want to happen.
 

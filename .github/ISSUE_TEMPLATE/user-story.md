@@ -15,6 +15,8 @@ Acceptance criteria: checklist
 
 Domain ownership: primary domain and supporting domains
 
+Track awareness: owning track and cross-track dependencies (or "None")
+
 Framework alignment: layers/services touched (Routes, Application, Domain, Infrastructure, Storage)
 
 Decision artifacts: docs/notes to create or update (or "None")
