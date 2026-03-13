@@ -13,6 +13,14 @@ Scope: in / out
 
 Acceptance criteria: checklist
 
+Domain ownership: primary domain and supporting domains
+
+Framework alignment: layers/services touched (Routes, Application, Domain, Infrastructure, Storage)
+
+Decision artifacts: docs/notes to create or update (or "None")
+
 Notes / links: screenshots, docs
 
-Analytics / tracking: event names if relevant
+Analytics / tracking: event names and reporting updates (or "None")
+
+Compliance / human-review implications: schema/env/security/dependency/workflow review needed (or "None")
